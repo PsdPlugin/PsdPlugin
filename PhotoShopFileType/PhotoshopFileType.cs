@@ -39,11 +39,6 @@ namespace PaintDotNet.Data.PhotoshopFileType
 
     private static FileType[] fileTypes = new FileType[] { Psd };
 
-    internal FileTypeCollection GetFileTypeCollection()
-    {
-      return new FileTypeCollection(fileTypes);
-    }
-
     public FileType[] GetFileTypeInstances()
     {
       return (FileType[])fileTypes.Clone();
@@ -55,14 +50,12 @@ namespace PaintDotNet.Data.PhotoshopFileType
   {
     public PhotoshopFileType()
       : base("Photoshop",
-                   true,  // does not support layers
-                   false,  // does not support custom headers
-                   true,   // does support saving
-                   true,   // does support loading
-                   false,   // does save with progress
-                   new string[] { ".psd" })
+             FileTypeFlags.SupportsLoading |
+               FileTypeFlags.SupportsSaving |
+               FileTypeFlags.SavesWithProgress |
+               FileTypeFlags.SupportsLayers,
+             new string[] { ".psd" })
     {
-
     }
 
     public override SaveConfigWidget CreateSaveConfigWidget()
@@ -75,7 +68,8 @@ namespace PaintDotNet.Data.PhotoshopFileType
       return new PsdSaveConfigToken(true);
     }
 
-    protected override void OnSave(Document input, System.IO.Stream output, SaveConfigToken token, ProgressEventHandler callback)
+    protected override void OnSave(Document input, System.IO.Stream output,
+      SaveConfigToken token, Surface scratchSurface, ProgressEventHandler callback)
     {
       PsdSaveConfigToken psdToken = (PsdSaveConfigToken)token;
       PsdFile psdFile = new PsdFile();

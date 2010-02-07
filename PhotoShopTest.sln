@@ -1,6 +1,6 @@
 ﻿
-Microsoft Visual Studio Solution File, Format Version 9.00
-# Visual C# Express 2005
+Microsoft Visual Studio Solution File, Format Version 11.00
+# Visual Studio 2010
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PhotoShopTest", "PsdFileTest\PhotoShopTest.csproj", "{ADC54D6E-0597-4159-80B5-0B7040AB6B81}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PhotoShop", "PhotoShopFileType\PhotoShop.csproj", "{A04EEDD9-E164-4941-9846-722ACF2FCCA1}"
