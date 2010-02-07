@@ -162,23 +162,12 @@ namespace PaintDotNet.Data.PhotoshopFileType
 
         PhotoshopFile.Layer psdLayer = new PhotoshopFile.Layer(psdFile);
 
-        psdLayer.Rect = new Rectangle(0, 0, input.Width, input.Height);
-        psdLayer.Name = layer.Name;
-        psdLayer.Opacity = layer.Opacity;
-        psdLayer.Visible = layer.Visible;
-        psdLayer.MaskData = new PhotoshopFile.Layer.Mask(psdLayer);
-        psdLayer.BlendingRangesData = new PhotoshopFile.Layer.BlendingRanges(psdLayer);
+        int rectLeft = input.Width;
+        int rectTop = input.Height;
+        int rectRight = 0;
+        int rectBottom = 0;
 
-        BlendOpToBlenModeKey(layer.BlendOp, psdLayer);
-
-        for (int i = -1; i < 3; i++)
-        {
-          PhotoshopFile.Layer.Channel ch = new PhotoshopFile.Layer.Channel((short)i, psdLayer);
-
-          ch.ImageCompression = ImageCompression.Raw;//psdToken.RleCompress ? ImageCompression.Rle : ImageCompression.Raw;
-          ch.ImageData = new byte[size];
-        }
-
+        // Determine the real size of this layer, i.e., the largest rectangle surrounding all non-invisible pixels
         for (int y = 0; y < psdFile.Rows; y++)
         {
           int rowIndex = y * psdFile.Columns;
@@ -188,6 +177,51 @@ namespace PaintDotNet.Data.PhotoshopFileType
             int pos = rowIndex + x;
 
             ColorBgra pixelColor = surface.GetPoint(x, y);
+
+            // Found a non-transparent pixel, potentially increase the size of the rectangle
+            if (pixelColor.A > 0)
+            {
+              // Expand the rectangle
+              if (x < rectLeft)
+                rectLeft = x;
+              if (x > rectRight)
+                rectRight = x;
+              if (y < rectTop)
+                rectTop = y;
+              if (y > rectBottom)
+                rectBottom = y;
+            }
+          }
+        }
+
+        psdLayer.Rect = new Rectangle(rectLeft, rectTop, rectRight - rectLeft + 1, rectBottom - rectTop + 1);
+        psdLayer.Name = layer.Name;
+        psdLayer.Opacity = layer.Opacity;
+        psdLayer.Visible = layer.Visible;
+        psdLayer.MaskData = new PhotoshopFile.Layer.Mask(psdLayer);
+        psdLayer.BlendingRangesData = new PhotoshopFile.Layer.BlendingRanges(psdLayer);
+
+        BlendOpToBlenModeKey(layer.BlendOp, psdLayer);
+
+        int layerSize = psdLayer.Rect.Width * psdLayer.Rect.Height;
+
+        for (int i = -1; i < 3; i++)
+        {
+          PhotoshopFile.Layer.Channel ch = new PhotoshopFile.Layer.Channel((short)i, psdLayer);
+
+          ch.ImageCompression = ImageCompression.Raw;//psdToken.RleCompress ? ImageCompression.Rle : ImageCompression.Raw;
+          ch.ImageData = new byte[layerSize];
+        }
+
+        for (int y = 0; y < psdLayer.Rect.Height; y++)
+        {
+          int rowIndex = y * psdLayer.Rect.Width;
+
+          for (int x = 0; x < psdLayer.Rect.Width; x++)
+          {
+            int pos = rowIndex + x;
+
+            ColorBgra pixelColor = surface.GetPoint(x + psdLayer.Rect.Left, y + psdLayer.Rect.Top);
 
             psdLayer.SortedChannels[0].ImageData[pos] = pixelColor.R;
             psdLayer.SortedChannels[1].ImageData[pos] = pixelColor.G;
@@ -205,25 +239,25 @@ namespace PaintDotNet.Data.PhotoshopFileType
 
       switch (op.ToString())
       {
-        case "Normal": 
-          layer.BlendModeKey = "norm"; 
+        case "Normal":
+          layer.BlendModeKey = "norm";
           break;
         case "Multiply":
           layer.BlendModeKey = "mul ";
           break;
-        case "Additive": 
+        case "Additive":
           layer.BlendModeKey = "norm";
           break;
         case "ColorBurn":
           layer.BlendModeKey = "div ";
           break;
-        case "ColorDodge": 
+        case "ColorDodge":
           layer.BlendModeKey = "idiv";
           break;
-        case "Reflect": 
+        case "Reflect":
           layer.BlendModeKey = "norm";
           break;
-        case "Glow": 
+        case "Glow":
           layer.BlendModeKey = "norm";
           break;
         case "Overlay":
@@ -244,7 +278,7 @@ namespace PaintDotNet.Data.PhotoshopFileType
         case "Screen":
           layer.BlendModeKey = "scrn";
           break;
-        case "Xor": 
+        case "Xor":
           layer.BlendModeKey = "norm";
           break;
         default:
