@@ -726,6 +726,7 @@ namespace PhotoshopFile
       set
       {
         if (value.Length != 4) throw new ArgumentException("Key length must be 4");
+        m_blendModeKey = value;
       }
     }
 
