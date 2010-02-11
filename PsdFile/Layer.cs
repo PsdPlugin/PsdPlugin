@@ -685,6 +685,44 @@ namespace PhotoshopFile
       get { return m_channels; }
     }
 
+    /// <summary>
+    /// Returns channels with nonnegative IDs as an array, for faster indexing.
+    /// </summary>
+    public Channel[] ChannelsArray
+    {
+      get
+      {
+        short maxChannelId = -1;
+        foreach (short channelId in SortedChannels.Keys)
+        {
+          if (channelId > maxChannelId)
+            maxChannelId = channelId;
+        }
+
+        Channel[] channelsArray = new Channel[maxChannelId + 1];
+        for (short i=0; i <= maxChannelId; i++)
+        {
+          if (SortedChannels.ContainsKey(i))
+            channelsArray[i] = SortedChannels[i];
+        }
+        return channelsArray;
+      }
+    }
+
+    /// <summary>
+    /// Returns alpha channel if it exists, otherwise null.
+    /// </summary>
+    public Channel AlphaChannel
+    {
+      get
+      {
+        if (SortedChannels.ContainsKey(-1))
+          return SortedChannels[-1];
+        else
+          return null;
+      }
+    }
+
     private SortedList<short, Channel> m_sortedChannels = new SortedList<short, Channel>();
     public SortedList<short, Channel> SortedChannels
     {

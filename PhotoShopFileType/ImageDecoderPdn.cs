@@ -129,6 +129,10 @@ namespace PaintDotNet.Data.PhotoshopFileType
 
       try
       {
+        bool hasMaskChannel = psdLayer.SortedChannels.ContainsKey(-2);
+        var channels = psdLayer.ChannelsArray;
+        var alphaChannel = psdLayer.AlphaChannel;
+
         for (int yPsdLayer = 0; yPsdLayer < psdLayer.Rect.Height; yPsdLayer++)
         {
           if ((yPsdLayer + psdLayer.Rect.Y) >= 0 && (yPsdLayer + psdLayer.Rect.Y) < surface.Height)
@@ -144,9 +148,9 @@ namespace PaintDotNet.Data.PhotoshopFileType
               {
                 int srcIndex = srcRowIndex + xPsdLayer;
 
-                ColorBgra pixelColor = ColorBgra.FromColor(GetColor(psdLayer, srcIndex));
+                ColorBgra pixelColor = ColorBgra.FromColor(GetColor(psdLayer, channels, alphaChannel, srcIndex));
 
-                if (psdLayer.SortedChannels.ContainsKey(-2))
+                if (hasMaskChannel)
                 {
                   int maskAlpha = GetColor(psdLayer.MaskData, xPsdLayer, yPsdLayer);
                   int oldAlpha = pixelColor.A;
@@ -179,38 +183,39 @@ namespace PaintDotNet.Data.PhotoshopFileType
 
     /////////////////////////////////////////////////////////////////////////// 
 
-    private static Color GetColor(PhotoshopFile.Layer layer, int pos)
+    private static Color GetColor(PhotoshopFile.Layer layer, PhotoshopFile.Layer.Channel[] channels,
+      PhotoshopFile.Layer.Channel alphaChannel, int pos)
     {
       Color c = Color.White;
 
       switch (layer.PsdFile.ColorMode)
       {
         case PsdFile.ColorModes.RGB:
-          c = Color.FromArgb(layer.SortedChannels[0].ImageData[pos],
-                             layer.SortedChannels[1].ImageData[pos],
-                             layer.SortedChannels[2].ImageData[pos]);
+          c = Color.FromArgb(channels[0].ImageData[pos],
+                             channels[1].ImageData[pos],
+                             channels[2].ImageData[pos]);
           break;
         case PsdFile.ColorModes.CMYK:
-          c = CMYKToRGB(layer.SortedChannels[0].ImageData[pos],
-                        layer.SortedChannels[1].ImageData[pos],
-                        layer.SortedChannels[2].ImageData[pos],
-                        layer.SortedChannels[3].ImageData[pos]);
+          c = CMYKToRGB(channels[0].ImageData[pos],
+                        channels[1].ImageData[pos],
+                        channels[2].ImageData[pos],
+                        channels[3].ImageData[pos]);
           break;
         case PsdFile.ColorModes.Multichannel:
-          c = CMYKToRGB(layer.SortedChannels[0].ImageData[pos],
-                        layer.SortedChannels[1].ImageData[pos],
-                        layer.SortedChannels[2].ImageData[pos],
+          c = CMYKToRGB(channels[0].ImageData[pos],
+                        channels[1].ImageData[pos],
+                        channels[2].ImageData[pos],
                         0);
           break;
         case PsdFile.ColorModes.Grayscale:
         case PsdFile.ColorModes.Duotone:
-          c = Color.FromArgb(layer.SortedChannels[0].ImageData[pos],
-                             layer.SortedChannels[0].ImageData[pos],
-                             layer.SortedChannels[0].ImageData[pos]);
+          c = Color.FromArgb(channels[0].ImageData[pos],
+                             channels[0].ImageData[pos],
+                             channels[0].ImageData[pos]);
           break;
         case PsdFile.ColorModes.Indexed:
           {
-            int index = (int)layer.SortedChannels[0].ImageData[pos];
+            int index = (int)channels[0].ImageData[pos];
             c = Color.FromArgb((int)layer.PsdFile.ColorModeData[index],
                              layer.PsdFile.ColorModeData[index + 256],
                              layer.PsdFile.ColorModeData[index + 2 * 256]);
@@ -218,15 +223,15 @@ namespace PaintDotNet.Data.PhotoshopFileType
           break;
         case PsdFile.ColorModes.Lab:
           {
-            c = LabToRGB(layer.SortedChannels[0].ImageData[pos],
-                         layer.SortedChannels[1].ImageData[pos],
-                         layer.SortedChannels[2].ImageData[pos]);
+            c = LabToRGB(channels[0].ImageData[pos],
+                         channels[1].ImageData[pos],
+                         channels[2].ImageData[pos]);
           }
           break;
       }
 
-      if (layer.SortedChannels.ContainsKey(-1))
-        c = Color.FromArgb(layer.SortedChannels[-1].ImageData[pos], c);
+      if (alphaChannel != null)
+        c = Color.FromArgb(alphaChannel.ImageData[pos], c);
 
       return c;
     }

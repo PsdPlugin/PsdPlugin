@@ -213,6 +213,9 @@ namespace PaintDotNet.Data.PhotoshopFileType
           ch.ImageData = new byte[layerSize];
         }
 
+        var channels = psdLayer.ChannelsArray;
+        var alphaChannel = psdLayer.AlphaChannel;
+
         for (int y = 0; y < psdLayer.Rect.Height; y++)
         {
           int rowIndex = y * psdLayer.Rect.Width;
@@ -223,10 +226,10 @@ namespace PaintDotNet.Data.PhotoshopFileType
 
             ColorBgra pixelColor = surface.GetPoint(x + psdLayer.Rect.Left, y + psdLayer.Rect.Top);
 
-            psdLayer.SortedChannels[0].ImageData[pos] = pixelColor.R;
-            psdLayer.SortedChannels[1].ImageData[pos] = pixelColor.G;
-            psdLayer.SortedChannels[2].ImageData[pos] = pixelColor.B;
-            psdLayer.SortedChannels[-1].ImageData[pos] = pixelColor.A;
+            channels[0].ImageData[pos] = pixelColor.R;
+            channels[1].ImageData[pos] = pixelColor.G;
+            channels[2].ImageData[pos] = pixelColor.B;
+            alphaChannel.ImageData[pos] = pixelColor.A;
           }
         }
       }
