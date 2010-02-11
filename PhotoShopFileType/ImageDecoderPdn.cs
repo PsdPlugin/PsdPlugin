@@ -54,12 +54,8 @@ namespace PaintDotNet.Data.PhotoshopFileType
         {
           int pos = rowIndex + x;
 
-          ColorBgra pixelColor = ColorBgra.FromColor(GetColor(psdFile, pos));
 
-          dstRow[dstIndex] = pixelColor[0];
-          dstRow[1 + dstIndex] = pixelColor[1];
-          dstRow[2 + dstIndex] = pixelColor[2];
-          dstRow[3 + dstIndex] = pixelColor[3];
+          SetPDNColor(dstRow, dstIndex, psdFile, pos);
           dstIndex += 4;
         }
       }
@@ -69,53 +65,48 @@ namespace PaintDotNet.Data.PhotoshopFileType
 
     /////////////////////////////////////////////////////////////////////////// 
 
-    private static Color GetColor(PsdFile psdFile, int pos)
+    private static void SetPDNColor(MemoryBlock dstRow, int dstIndex, PsdFile psdFile, int pos)
     {
-      Color c = Color.White;
-
       switch (psdFile.ColorMode)
       {
         case PsdFile.ColorModes.RGB:
-          c = Color.FromArgb(psdFile.ImageData[0][pos],
-                             psdFile.ImageData[1][pos],
-                             psdFile.ImageData[2][pos]);
+          dstRow[dstIndex]     = psdFile.ImageData[2][pos];
+          dstRow[dstIndex + 1] = psdFile.ImageData[1][pos];
+          dstRow[dstIndex + 2] = psdFile.ImageData[0][pos];
           break;
         case PsdFile.ColorModes.CMYK:
-          c = CMYKToRGB(psdFile.ImageData[0][pos],
-                        psdFile.ImageData[1][pos],
-                        psdFile.ImageData[2][pos],
-                        psdFile.ImageData[3][pos]);
+          SetPDNColorCMYK(dstRow, dstIndex,
+              psdFile.ImageData[0][pos],
+              psdFile.ImageData[1][pos],
+              psdFile.ImageData[2][pos],
+              psdFile.ImageData[3][pos]);
           break;
         case PsdFile.ColorModes.Multichannel:
-          c = CMYKToRGB(psdFile.ImageData[0][pos],
-                        psdFile.ImageData[1][pos],
-                        psdFile.ImageData[2][pos],
-                        0);
+          SetPDNColorCMYK(dstRow, dstIndex,
+              psdFile.ImageData[0][pos],
+              psdFile.ImageData[1][pos],
+              psdFile.ImageData[2][pos],
+              0);
           break;
         case PsdFile.ColorModes.Grayscale:
         case PsdFile.ColorModes.Duotone:
-          c = Color.FromArgb(psdFile.ImageData[0][pos],
-                             psdFile.ImageData[0][pos],
-                             psdFile.ImageData[0][pos]);
+          dstRow[dstIndex]     = psdFile.ImageData[0][pos];
+          dstRow[dstIndex + 1] = psdFile.ImageData[0][pos];
+          dstRow[dstIndex + 2] = psdFile.ImageData[0][pos];
           break;
         case PsdFile.ColorModes.Indexed:
-          {
-            int index = (int)psdFile.ImageData[0][pos];
-            c = Color.FromArgb((int)psdFile.ColorModeData[index],
-                             psdFile.ColorModeData[index + 256],
-                             psdFile.ColorModeData[index + 2 * 256]);
-          }
+          int index = (int)psdFile.ImageData[0][pos];
+          dstRow[dstIndex]     = psdFile.ColorModeData[index + 2 * 256];
+          dstRow[dstIndex + 1] = psdFile.ColorModeData[index + 256];
+          dstRow[dstIndex + 2] = (byte)psdFile.ColorModeData[index];
           break;
         case PsdFile.ColorModes.Lab:
-          {
-            c = LabToRGB(psdFile.ImageData[0][pos],
-                         psdFile.ImageData[1][pos],
-                         psdFile.ImageData[2][pos]);
-          }
+          SetPDNColorLab(dstRow, dstIndex,
+            psdFile.ImageData[0][pos],
+            psdFile.ImageData[1][pos],
+            psdFile.ImageData[2][pos]);
           break;
       }
-
-      return c;
     }
 
     /////////////////////////////////////////////////////////////////////////// 
@@ -147,24 +138,15 @@ namespace PaintDotNet.Data.PhotoshopFileType
               if ((xPsdLayer + psdLayer.Rect.X) >= 0 && (xPsdLayer + psdLayer.Rect.X) < surface.Width)
               {
                 int srcIndex = srcRowIndex + xPsdLayer;
-
-                ColorBgra pixelColor = ColorBgra.FromColor(GetColor(psdLayer, channels, alphaChannel, srcIndex));
-
-                if (hasMaskChannel)
-                {
-                  int maskAlpha = GetColor(psdLayer.MaskData, xPsdLayer, yPsdLayer);
-                  int oldAlpha = pixelColor.A;
-
-                  int newAlpha = (oldAlpha * maskAlpha) / 255;
-                  pixelColor.A = (byte)newAlpha;
-                }
-
                 if (dstIndex >= 0)
                 {
-                  dstRow[dstIndex] = pixelColor[ColorBgra.BlueChannel];
-                  dstRow[1 + dstIndex] = pixelColor[ColorBgra.GreenChannel];
-                  dstRow[2 + dstIndex] = pixelColor[ColorBgra.RedChannel];
-                  dstRow[3 + dstIndex] = pixelColor[ColorBgra.AlphaChannel];
+                  SetPDNColor(dstRow, dstIndex, psdLayer, channels, alphaChannel, srcIndex);
+                  int maskAlpha = 255;
+                  if (hasMaskChannel)
+                  {
+                    maskAlpha = GetMaskAlpha(psdLayer.MaskData, xPsdLayer, yPsdLayer);
+                  }
+                  SetPDNAlpha(dstRow, dstIndex, alphaChannel, srcIndex, maskAlpha);
                 }
               }
 
@@ -182,63 +164,68 @@ namespace PaintDotNet.Data.PhotoshopFileType
     }
 
     /////////////////////////////////////////////////////////////////////////// 
-
-    private static Color GetColor(PhotoshopFile.Layer layer, PhotoshopFile.Layer.Channel[] channels,
-      PhotoshopFile.Layer.Channel alphaChannel, int pos)
+    private static void SetPDNColor(MemoryBlock dstRow, int dstIndex, PhotoshopFile.Layer layer,
+      PhotoshopFile.Layer.Channel[] channels, PhotoshopFile.Layer.Channel alphaChannel, int pos)
     {
-      Color c = Color.White;
-
       switch (layer.PsdFile.ColorMode)
       {
         case PsdFile.ColorModes.RGB:
-          c = Color.FromArgb(channels[0].ImageData[pos],
-                             channels[1].ImageData[pos],
-                             channels[2].ImageData[pos]);
+          dstRow[dstIndex]     = channels[2].ImageData[pos];
+          dstRow[dstIndex + 1] = channels[1].ImageData[pos];
+          dstRow[dstIndex + 2] = channels[0].ImageData[pos];
           break;
         case PsdFile.ColorModes.CMYK:
-          c = CMYKToRGB(channels[0].ImageData[pos],
-                        channels[1].ImageData[pos],
-                        channels[2].ImageData[pos],
-                        channels[3].ImageData[pos]);
+          SetPDNColorCMYK(dstRow, dstIndex,
+            channels[0].ImageData[pos],
+            channels[1].ImageData[pos],
+            channels[2].ImageData[pos],
+            channels[3].ImageData[pos]);
           break;
         case PsdFile.ColorModes.Multichannel:
-          c = CMYKToRGB(channels[0].ImageData[pos],
-                        channels[1].ImageData[pos],
-                        channels[2].ImageData[pos],
-                        0);
+          SetPDNColorCMYK(dstRow, dstIndex,
+            channels[0].ImageData[pos],
+            channels[1].ImageData[pos],
+            channels[2].ImageData[pos],
+            0);
           break;
         case PsdFile.ColorModes.Grayscale:
         case PsdFile.ColorModes.Duotone:
-          c = Color.FromArgb(channels[0].ImageData[pos],
-                             channels[0].ImageData[pos],
-                             channels[0].ImageData[pos]);
+          dstRow[dstIndex]     = channels[0].ImageData[pos];
+          dstRow[dstIndex + 1] = channels[0].ImageData[pos];
+          dstRow[dstIndex + 2] = channels[0].ImageData[pos];
           break;
         case PsdFile.ColorModes.Indexed:
-          {
-            int index = (int)channels[0].ImageData[pos];
-            c = Color.FromArgb((int)layer.PsdFile.ColorModeData[index],
-                             layer.PsdFile.ColorModeData[index + 256],
-                             layer.PsdFile.ColorModeData[index + 2 * 256]);
-          }
+          int index = (int)channels[0].ImageData[pos];
+          dstRow[dstIndex]     = layer.PsdFile.ColorModeData[index + 2 * 256];
+          dstRow[dstIndex + 1] = layer.PsdFile.ColorModeData[index + 256];
+          dstRow[dstIndex + 2] = (byte)layer.PsdFile.ColorModeData[index];
           break;
         case PsdFile.ColorModes.Lab:
-          {
-            c = LabToRGB(channels[0].ImageData[pos],
-                         channels[1].ImageData[pos],
-                         channels[2].ImageData[pos]);
-          }
+          SetPDNColorLab(dstRow, dstIndex,
+            channels[0].ImageData[pos],
+            channels[1].ImageData[pos],
+            channels[2].ImageData[pos]);
           break;
       }
-
+    }
+    
+    private static void SetPDNAlpha(MemoryBlock dstRow, int dstIndex,
+      PhotoshopFile.Layer.Channel alphaChannel, int srcIndex, int maskAlpha)
+    {
+      byte alpha = 255;
       if (alphaChannel != null)
-        c = Color.FromArgb(alphaChannel.ImageData[pos], c);
+        alpha = alphaChannel.ImageData[srcIndex];
+      if (maskAlpha < 255)
+        alpha = (byte)(alpha * maskAlpha / 255);
 
-      return c;
+      dstRow[dstIndex + 3] = alpha;
     }
 
     /////////////////////////////////////////////////////////////////////////// 
 
-    private static int GetColor(PhotoshopFile.Layer.Mask mask, int x, int y)
+    /////////////////////////////////////////////////////////////////////////// 
+
+    private static int GetMaskAlpha(PhotoshopFile.Layer.Mask mask, int x, int y)
     {
       int c = 255;
       try
@@ -274,7 +261,7 @@ namespace PaintDotNet.Data.PhotoshopFileType
 
     /////////////////////////////////////////////////////////////////////////// 
 
-    private static Color LabToRGB(byte lb, byte ab, byte bb)
+    private static void SetPDNColorLab(MemoryBlock dstRow, int dstIndex, byte lb, byte ab, byte bb)
     {
       double exL, exA, exB;
 
@@ -321,12 +308,13 @@ namespace PaintDotNet.Data.PhotoshopFileType
       double Y = ref_Y * var_Y;
       double Z = ref_Z * var_Z;
 
-      return XYZToRGB(X, Y, Z);
+      SetPDNColorXYZ(dstRow, dstIndex, X, Y, Z);
     }
 
     ////////////////////////////////////////////////////////////////////////////
 
-    private static Color XYZToRGB(double X, double Y, double Z)
+
+    private static void SetPDNColorXYZ(MemoryBlock dstRow, int dstIndex, double X, double Y, double Z)
     {
       // Standards used Observer = 2, Illuminant = D65
       // ref_X = 95.047, ref_Y = 100.000, ref_Z = 108.883
@@ -365,7 +353,9 @@ namespace PaintDotNet.Data.PhotoshopFileType
       if (nBlue < 0) nBlue = 0;
       else if (nBlue > 255) nBlue = 255;
 
-      return Color.FromArgb(nRed, nGreen, nBlue);
+      dstRow[dstIndex]     = (byte)nBlue;
+      dstRow[dstIndex + 1] = (byte)nGreen;
+      dstRow[dstIndex + 2] = (byte)nRed;
     }
 
     ///////////////////////////////////////////////////////////////////////////////
@@ -381,7 +371,7 @@ namespace PaintDotNet.Data.PhotoshopFileType
     // Yellow  = (1-Blue-Black)/(1-Black)
     //
 
-    private static Color CMYKToRGB(byte c, byte m, byte y, byte k)
+    private static void SetPDNColorCMYK(MemoryBlock dstRow, int dstIndex, byte c, byte m, byte y, byte k)
     {
       double C, M, Y, K;
 
@@ -409,7 +399,9 @@ namespace PaintDotNet.Data.PhotoshopFileType
       if (nBlue < 0) nBlue = 0;
       else if (nBlue > 255) nBlue = 255;
 
-      return Color.FromArgb(nRed, nGreen, nBlue);
+      dstRow[dstIndex]     = (byte)nBlue;
+      dstRow[dstIndex + 1] = (byte)nGreen;
+      dstRow[dstIndex + 2] = (byte)nRed;
     }
   }
 }
