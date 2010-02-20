@@ -44,19 +44,20 @@ namespace PaintDotNet.Data.PhotoshopFileType
 
       for (int y = 0; y < psdFile.Rows; y++)
       {
-        int rowIndex = y * psdFile.Columns;
-
-        MemoryBlock dstRow = surface.GetRow(y);
-
-        int dstIndex = 0;
-
-        for (int x = 0; x < psdFile.Columns; x++)
+        unsafe
         {
-          int pos = rowIndex + x;
+          int rowIndex = y * psdFile.Columns;
 
+          MemoryBlock dstRow = surface.GetRow(y);
+          byte* pDstRow = (byte*)dstRow.Pointer;
+          int dstIndex = 0;
 
-          SetPDNColor(dstRow, dstIndex, psdFile, pos);
-          dstIndex += 4;
+          for (int x = 0; x < psdFile.Columns; x++)
+          {
+            int pos = rowIndex + x;
+            SetPDNColor(pDstRow, dstIndex, psdFile, pos);
+            dstIndex += 4;
+          }
         }
       }
 
@@ -65,7 +66,7 @@ namespace PaintDotNet.Data.PhotoshopFileType
 
     /////////////////////////////////////////////////////////////////////////// 
 
-    private static void SetPDNColor(MemoryBlock dstRow, int dstIndex, PsdFile psdFile, int pos)
+    unsafe private static void SetPDNColor(byte* dstRow, int dstIndex, PsdFile psdFile, int pos)
     {
       switch (psdFile.ColorMode)
       {
@@ -124,30 +125,35 @@ namespace PaintDotNet.Data.PhotoshopFileType
         var channels = psdLayer.ChannelsArray;
         var alphaChannel = psdLayer.AlphaChannel;
 
-        for (int yPsdLayer = 0; yPsdLayer < psdLayer.Rect.Height; yPsdLayer++)
+        int yPsdLayerStart = Math.Max(0, -psdLayer.Rect.Y);
+        int yPsdLayerEnd = Math.Min(psdLayer.Rect.Height, surface.Height - psdLayer.Rect.Y);
+
+        for (int yPsdLayer = yPsdLayerStart; yPsdLayer < yPsdLayerEnd; yPsdLayer++)
         {
-          if ((yPsdLayer + psdLayer.Rect.Y) >= 0 && (yPsdLayer + psdLayer.Rect.Y) < surface.Height)
+          unsafe
           {
             MemoryBlock dstRow = surface.GetRow(yPsdLayer + psdLayer.Rect.Y);
+            byte* pDstRow = (byte*)dstRow.Pointer;
+
+            int xPsdLayerStart = Math.Max(0, -psdLayer.Rect.X);
+            int xPsdLayerEnd = Math.Min(psdLayer.Rect.Width, psdLayer.PsdFile.Columns - psdLayer.Rect.Left);
+            int xPsdLayerEndCopy = Math.Min(xPsdLayerEnd, surface.Width - psdLayer.Rect.X);
 
             int srcRowIndex = yPsdLayer * psdLayer.Rect.Width;
-            int dstIndex = psdLayer.Rect.Left * 4;
+            int dstIndex = 4 * (psdLayer.Rect.Left + xPsdLayerStart);
 
-            for (int xPsdLayer = 0; xPsdLayer < psdLayer.Rect.Width && ((xPsdLayer + psdLayer.Rect.Left) < psdLayer.PsdFile.Columns); xPsdLayer++)
+            for (int xPsdLayer = xPsdLayerStart; xPsdLayer < xPsdLayerEnd; xPsdLayer++)
             {
-              if ((xPsdLayer + psdLayer.Rect.X) >= 0 && (xPsdLayer + psdLayer.Rect.X) < surface.Width)
+              if (xPsdLayer < xPsdLayerEndCopy)
               {
                 int srcIndex = srcRowIndex + xPsdLayer;
-                if (dstIndex >= 0)
+                SetPDNColor(pDstRow, dstIndex, psdLayer, channels, alphaChannel, srcIndex);
+                int maskAlpha = 255;
+                if (hasMaskChannel)
                 {
-                  SetPDNColor(dstRow, dstIndex, psdLayer, channels, alphaChannel, srcIndex);
-                  int maskAlpha = 255;
-                  if (hasMaskChannel)
-                  {
-                    maskAlpha = GetMaskAlpha(psdLayer.MaskData, xPsdLayer, yPsdLayer);
-                  }
-                  SetPDNAlpha(dstRow, dstIndex, alphaChannel, srcIndex, maskAlpha);
+                  maskAlpha = GetMaskAlpha(psdLayer.MaskData, xPsdLayer, yPsdLayer);
                 }
+                SetPDNAlpha(pDstRow, dstIndex, alphaChannel, srcIndex, maskAlpha);
               }
 
               dstIndex += 4;
@@ -164,8 +170,8 @@ namespace PaintDotNet.Data.PhotoshopFileType
     }
 
     /////////////////////////////////////////////////////////////////////////// 
-    private static void SetPDNColor(MemoryBlock dstRow, int dstIndex, PhotoshopFile.Layer layer,
-      PhotoshopFile.Layer.Channel[] channels, PhotoshopFile.Layer.Channel alphaChannel, int pos)
+    unsafe private static void SetPDNColor(byte* dstRow, int dstIndex, PhotoshopFile.Layer layer,
+        PhotoshopFile.Layer.Channel[] channels, PhotoshopFile.Layer.Channel alphaChannel, int pos)
     {
       switch (layer.PsdFile.ColorMode)
       {
@@ -209,7 +215,7 @@ namespace PaintDotNet.Data.PhotoshopFileType
       }
     }
     
-    private static void SetPDNAlpha(MemoryBlock dstRow, int dstIndex,
+    unsafe private static void SetPDNAlpha(byte* dstRow, int dstIndex,
       PhotoshopFile.Layer.Channel alphaChannel, int srcIndex, int maskAlpha)
     {
       byte alpha = 255;
@@ -220,8 +226,6 @@ namespace PaintDotNet.Data.PhotoshopFileType
 
       dstRow[dstIndex + 3] = alpha;
     }
-
-    /////////////////////////////////////////////////////////////////////////// 
 
     /////////////////////////////////////////////////////////////////////////// 
 
@@ -261,7 +265,7 @@ namespace PaintDotNet.Data.PhotoshopFileType
 
     /////////////////////////////////////////////////////////////////////////// 
 
-    private static void SetPDNColorLab(MemoryBlock dstRow, int dstIndex, byte lb, byte ab, byte bb)
+    unsafe private static void SetPDNColorLab(byte* dstRow, int dstIndex, byte lb, byte ab, byte bb)
     {
       double exL, exA, exB;
 
@@ -314,7 +318,7 @@ namespace PaintDotNet.Data.PhotoshopFileType
     ////////////////////////////////////////////////////////////////////////////
 
 
-    private static void SetPDNColorXYZ(MemoryBlock dstRow, int dstIndex, double X, double Y, double Z)
+    unsafe private static void SetPDNColorXYZ(byte* dstRow, int dstIndex, double X, double Y, double Z)
     {
       // Standards used Observer = 2, Illuminant = D65
       // ref_X = 95.047, ref_Y = 100.000, ref_Z = 108.883
@@ -371,7 +375,7 @@ namespace PaintDotNet.Data.PhotoshopFileType
     // Yellow  = (1-Blue-Black)/(1-Black)
     //
 
-    private static void SetPDNColorCMYK(MemoryBlock dstRow, int dstIndex, byte c, byte m, byte y, byte k)
+    unsafe private static void SetPDNColorCMYK(byte* dstRow, int dstIndex, byte c, byte m, byte y, byte k)
     {
       double C, M, Y, K;
 
