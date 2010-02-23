@@ -48,15 +48,14 @@ namespace PaintDotNet.Data.PhotoshopFileType
         {
           int rowIndex = y * psdFile.Columns;
 
-          MemoryBlock dstRow = surface.GetRow(y);
-          byte* pDstRow = (byte*)dstRow.Pointer;
+          ColorBgra* dstRow = surface.GetRowAddressUnchecked(y);
           int dstIndex = 0;
 
           for (int x = 0; x < psdFile.Columns; x++)
           {
             int pos = rowIndex + x;
-            SetPDNColor(pDstRow, dstIndex, psdFile, pos);
-            dstIndex += 4;
+            SetPDNColor(dstRow, dstIndex, psdFile, pos);
+            dstIndex++;
           }
         }
       }
@@ -66,14 +65,14 @@ namespace PaintDotNet.Data.PhotoshopFileType
 
     /////////////////////////////////////////////////////////////////////////// 
 
-    unsafe private static void SetPDNColor(byte* dstRow, int dstIndex, PsdFile psdFile, int pos)
+    unsafe private static void SetPDNColor(ColorBgra* dstRow, int dstIndex, PsdFile psdFile, int pos)
     {
       switch (psdFile.ColorMode)
       {
         case PsdFile.ColorModes.RGB:
-          dstRow[dstIndex]     = psdFile.ImageData[2][pos];
-          dstRow[dstIndex + 1] = psdFile.ImageData[1][pos];
-          dstRow[dstIndex + 2] = psdFile.ImageData[0][pos];
+          dstRow[dstIndex].R = psdFile.ImageData[0][pos];
+          dstRow[dstIndex].G = psdFile.ImageData[1][pos];
+          dstRow[dstIndex].B = psdFile.ImageData[2][pos];
           break;
         case PsdFile.ColorModes.CMYK:
           SetPDNColorCMYK(dstRow, dstIndex,
@@ -91,15 +90,15 @@ namespace PaintDotNet.Data.PhotoshopFileType
           break;
         case PsdFile.ColorModes.Grayscale:
         case PsdFile.ColorModes.Duotone:
-          dstRow[dstIndex]     = psdFile.ImageData[0][pos];
-          dstRow[dstIndex + 1] = psdFile.ImageData[0][pos];
-          dstRow[dstIndex + 2] = psdFile.ImageData[0][pos];
+          dstRow[dstIndex].R = psdFile.ImageData[0][pos];
+          dstRow[dstIndex].G = psdFile.ImageData[0][pos];
+          dstRow[dstIndex].B = psdFile.ImageData[0][pos];
           break;
         case PsdFile.ColorModes.Indexed:
           int index = (int)psdFile.ImageData[0][pos];
-          dstRow[dstIndex]     = psdFile.ColorModeData[index + 2 * 256];
-          dstRow[dstIndex + 1] = psdFile.ColorModeData[index + 256];
-          dstRow[dstIndex + 2] = (byte)psdFile.ColorModeData[index];
+          dstRow[dstIndex].R = (byte)psdFile.ColorModeData[index];
+          dstRow[dstIndex].G = psdFile.ColorModeData[index + 256];
+          dstRow[dstIndex].B = psdFile.ColorModeData[index + 2 * 256];
           break;
         case PsdFile.ColorModes.Lab:
           SetPDNColorLab(dstRow, dstIndex,
@@ -132,31 +131,30 @@ namespace PaintDotNet.Data.PhotoshopFileType
         {
           unsafe
           {
-            MemoryBlock dstRow = surface.GetRow(yPsdLayer + psdLayer.Rect.Y);
-            byte* pDstRow = (byte*)dstRow.Pointer;
+            ColorBgra* dstRow = surface.GetRowAddressUnchecked(yPsdLayer + psdLayer.Rect.Y);
 
             int xPsdLayerStart = Math.Max(0, -psdLayer.Rect.X);
             int xPsdLayerEnd = Math.Min(psdLayer.Rect.Width, psdLayer.PsdFile.Columns - psdLayer.Rect.Left);
             int xPsdLayerEndCopy = Math.Min(xPsdLayerEnd, surface.Width - psdLayer.Rect.X);
 
             int srcRowIndex = yPsdLayer * psdLayer.Rect.Width;
-            int dstIndex = 4 * (psdLayer.Rect.Left + xPsdLayerStart);
+            int dstIndex = psdLayer.Rect.Left + xPsdLayerStart;
 
             for (int xPsdLayer = xPsdLayerStart; xPsdLayer < xPsdLayerEnd; xPsdLayer++)
             {
               if (xPsdLayer < xPsdLayerEndCopy)
               {
                 int srcIndex = srcRowIndex + xPsdLayer;
-                SetPDNColor(pDstRow, dstIndex, psdLayer, channels, alphaChannel, srcIndex);
+                SetPDNColor(dstRow, dstIndex, psdLayer, channels, alphaChannel, srcIndex);
                 int maskAlpha = 255;
                 if (hasMaskChannel)
                 {
                   maskAlpha = GetMaskAlpha(psdLayer.MaskData, xPsdLayer, yPsdLayer);
                 }
-                SetPDNAlpha(pDstRow, dstIndex, alphaChannel, srcIndex, maskAlpha);
+                SetPDNAlpha(dstRow, dstIndex, alphaChannel, srcIndex, maskAlpha);
               }
 
-              dstIndex += 4;
+              dstIndex++;
             }
           }
         }
@@ -170,15 +168,15 @@ namespace PaintDotNet.Data.PhotoshopFileType
     }
 
     /////////////////////////////////////////////////////////////////////////// 
-    unsafe private static void SetPDNColor(byte* dstRow, int dstIndex, PhotoshopFile.Layer layer,
+    unsafe private static void SetPDNColor(ColorBgra* dstRow, int dstIndex, PhotoshopFile.Layer layer,
         PhotoshopFile.Layer.Channel[] channels, PhotoshopFile.Layer.Channel alphaChannel, int pos)
     {
       switch (layer.PsdFile.ColorMode)
       {
         case PsdFile.ColorModes.RGB:
-          dstRow[dstIndex]     = channels[2].ImageData[pos];
-          dstRow[dstIndex + 1] = channels[1].ImageData[pos];
-          dstRow[dstIndex + 2] = channels[0].ImageData[pos];
+          dstRow[dstIndex].R = channels[0].ImageData[pos];
+          dstRow[dstIndex].G = channels[1].ImageData[pos];
+          dstRow[dstIndex].B = channels[2].ImageData[pos];
           break;
         case PsdFile.ColorModes.CMYK:
           SetPDNColorCMYK(dstRow, dstIndex,
@@ -196,15 +194,15 @@ namespace PaintDotNet.Data.PhotoshopFileType
           break;
         case PsdFile.ColorModes.Grayscale:
         case PsdFile.ColorModes.Duotone:
-          dstRow[dstIndex]     = channels[0].ImageData[pos];
-          dstRow[dstIndex + 1] = channels[0].ImageData[pos];
-          dstRow[dstIndex + 2] = channels[0].ImageData[pos];
+          dstRow[dstIndex].R = channels[0].ImageData[pos];
+          dstRow[dstIndex].G = channels[0].ImageData[pos];
+          dstRow[dstIndex].B = channels[0].ImageData[pos];
           break;
         case PsdFile.ColorModes.Indexed:
           int index = (int)channels[0].ImageData[pos];
-          dstRow[dstIndex]     = layer.PsdFile.ColorModeData[index + 2 * 256];
-          dstRow[dstIndex + 1] = layer.PsdFile.ColorModeData[index + 256];
-          dstRow[dstIndex + 2] = (byte)layer.PsdFile.ColorModeData[index];
+          dstRow[dstIndex].R = (byte)layer.PsdFile.ColorModeData[index];
+          dstRow[dstIndex].G = layer.PsdFile.ColorModeData[index + 256];
+          dstRow[dstIndex].B = layer.PsdFile.ColorModeData[index + 2 * 256];
           break;
         case PsdFile.ColorModes.Lab:
           SetPDNColorLab(dstRow, dstIndex,
@@ -215,7 +213,7 @@ namespace PaintDotNet.Data.PhotoshopFileType
       }
     }
     
-    unsafe private static void SetPDNAlpha(byte* dstRow, int dstIndex,
+    unsafe private static void SetPDNAlpha(ColorBgra* dstRow, int dstIndex,
       PhotoshopFile.Layer.Channel alphaChannel, int srcIndex, int maskAlpha)
     {
       byte alpha = 255;
@@ -224,7 +222,7 @@ namespace PaintDotNet.Data.PhotoshopFileType
       if (maskAlpha < 255)
         alpha = (byte)(alpha * maskAlpha / 255);
 
-      dstRow[dstIndex + 3] = alpha;
+      dstRow[dstIndex].A = alpha;
     }
 
     /////////////////////////////////////////////////////////////////////////// 
@@ -265,7 +263,7 @@ namespace PaintDotNet.Data.PhotoshopFileType
 
     /////////////////////////////////////////////////////////////////////////// 
 
-    unsafe private static void SetPDNColorLab(byte* dstRow, int dstIndex, byte lb, byte ab, byte bb)
+    unsafe private static void SetPDNColorLab(ColorBgra* dstRow, int dstIndex, byte lb, byte ab, byte bb)
     {
       double exL, exA, exB;
 
@@ -318,7 +316,7 @@ namespace PaintDotNet.Data.PhotoshopFileType
     ////////////////////////////////////////////////////////////////////////////
 
 
-    unsafe private static void SetPDNColorXYZ(byte* dstRow, int dstIndex, double X, double Y, double Z)
+    unsafe private static void SetPDNColorXYZ(ColorBgra* dstRow, int dstIndex, double X, double Y, double Z)
     {
       // Standards used Observer = 2, Illuminant = D65
       // ref_X = 95.047, ref_Y = 100.000, ref_Z = 108.883
@@ -357,9 +355,9 @@ namespace PaintDotNet.Data.PhotoshopFileType
       if (nBlue < 0) nBlue = 0;
       else if (nBlue > 255) nBlue = 255;
 
-      dstRow[dstIndex]     = (byte)nBlue;
-      dstRow[dstIndex + 1] = (byte)nGreen;
-      dstRow[dstIndex + 2] = (byte)nRed;
+      dstRow[dstIndex].R = (byte)nRed;
+      dstRow[dstIndex].G = (byte)nGreen;
+      dstRow[dstIndex].B = (byte)nBlue;
     }
 
     ///////////////////////////////////////////////////////////////////////////////
@@ -375,7 +373,7 @@ namespace PaintDotNet.Data.PhotoshopFileType
     // Yellow  = (1-Blue-Black)/(1-Black)
     //
 
-    unsafe private static void SetPDNColorCMYK(byte* dstRow, int dstIndex, byte c, byte m, byte y, byte k)
+    unsafe private static void SetPDNColorCMYK(ColorBgra* dstRow, int dstIndex, byte c, byte m, byte y, byte k)
     {
       double C, M, Y, K;
 
@@ -403,9 +401,9 @@ namespace PaintDotNet.Data.PhotoshopFileType
       if (nBlue < 0) nBlue = 0;
       else if (nBlue > 255) nBlue = 255;
 
-      dstRow[dstIndex]     = (byte)nBlue;
-      dstRow[dstIndex + 1] = (byte)nGreen;
-      dstRow[dstIndex + 2] = (byte)nRed;
+      dstRow[dstIndex].R = (byte)nRed;
+      dstRow[dstIndex].G = (byte)nGreen;
+      dstRow[dstIndex].B = (byte)nBlue;
     }
   }
 }
