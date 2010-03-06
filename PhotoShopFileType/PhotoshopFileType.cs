@@ -129,31 +129,28 @@ namespace PaintDotNet.Data.PhotoshopFileType
         psdFile.ImageData[i] = new byte[size];
       }
 
-      using (Surface surface = new Surface(input.Width, input.Height))
+      using (RenderArgs ra = new RenderArgs(scratchSurface))
       {
-        surface.Clear(ColorBgra.FromBgra(255, 255, 255, 255));
+        input.Flatten(scratchSurface);
+      }
 
-        using (RenderArgs ra = new RenderArgs(surface))
+      unsafe
+      {
+        for (int y = 0; y < psdFile.Rows; y++)
         {
-          input.Render(ra, true);
-        }
+          int rowIndex = y * psdFile.Columns;
+          ColorBgra* srcRow = scratchSurface.GetRowAddress(y);
+          ColorBgra* srcPixel = srcRow;
 
-        unsafe
-        {
-          for (int y = 0; y < psdFile.Rows; y++)
+          for (int x = 0; x < psdFile.Columns; x++)
           {
-            int rowIndex = y * psdFile.Columns;
-            ColorBgra* srcRow = surface.GetRowAddressUnchecked(y);
+            int pos = rowIndex + x;
 
-            for (int x = 0; x < psdFile.Columns; x++)
-            {
-              int pos = rowIndex + x;
-
-              psdFile.ImageData[0][pos] = srcRow[x].R;
-              psdFile.ImageData[1][pos] = srcRow[x].G;
-              psdFile.ImageData[2][pos] = srcRow[x].B;
-              psdFile.ImageData[3][pos] = srcRow[x].A;
-            }
+            psdFile.ImageData[0][pos] = srcPixel->R;
+            psdFile.ImageData[1][pos] = srcPixel->G;
+            psdFile.ImageData[2][pos] = srcPixel->B;
+            psdFile.ImageData[3][pos] = srcPixel->A;
+            srcPixel++;
           }
         }
       }
@@ -176,14 +173,15 @@ namespace PaintDotNet.Data.PhotoshopFileType
           for (int y = 0; y < psdFile.Rows; y++)
           {
             int rowIndex = y * psdFile.Columns;
-            ColorBgra* srcRow = surface.GetRowAddressUnchecked(y);
-            
+            ColorBgra* srcRow = surface.GetRowAddress(y);
+            ColorBgra* srcPixel = srcRow;
+
             for (int x = 0; x < psdFile.Columns; x++)
             {
               int pos = rowIndex + x;
 
               // Found a non-transparent pixel, potentially increase the size of the rectangle
-              if (srcRow[x].A > 0)
+              if (srcPixel->A > 0)
               {
                 // Expand the rectangle
                 if (x < rectLeft)
@@ -195,6 +193,8 @@ namespace PaintDotNet.Data.PhotoshopFileType
                 if (y > rectBottom)
                   rectBottom = y;
               }
+
+              srcPixel++;
             }
           }
         }
@@ -223,21 +223,23 @@ namespace PaintDotNet.Data.PhotoshopFileType
 
         unsafe
         {
+          int rowIndex = 0;
           for (int y = 0; y < psdLayer.Rect.Height; y++)
           {
-            int rowIndex = y * psdLayer.Rect.Width;
-            ColorBgra* srcRow = surface.GetRowAddressUnchecked(y + psdLayer.Rect.Top);
+            ColorBgra* srcRow = surface.GetRowAddress(y + psdLayer.Rect.Top);
+            ColorBgra* srcPixel = srcRow + psdLayer.Rect.Left;
 
             for (int x = 0; x < psdLayer.Rect.Width; x++)
             {
               int pos = rowIndex + x;
-              int srcIndex = x + psdLayer.Rect.Left;
 
-              channels[0].ImageData[pos] = srcRow[srcIndex].R;
-              channels[1].ImageData[pos] = srcRow[srcIndex].G;
-              channels[2].ImageData[pos] = srcRow[srcIndex].B;
-              alphaChannel.ImageData[pos] = srcRow[srcIndex].A;
+              channels[0].ImageData[pos] = srcPixel->R;
+              channels[1].ImageData[pos] = srcPixel->G;
+              channels[2].ImageData[pos] = srcPixel->B;
+              alphaChannel.ImageData[pos] = srcPixel->A;
+              srcPixel++;
             }
+            rowIndex += psdLayer.Rect.Width;
           }
         }
       }
