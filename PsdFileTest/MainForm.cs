@@ -77,7 +77,7 @@ namespace PhotoShopTest
           blendingNode.Tag = layer.BlendingRangesData;
           layerNode.Nodes.Add(blendingNode);
 
-          foreach (Layer.AdjusmentLayerInfo adjInfo in layer.AdjustmentInfo)
+          foreach (Layer.AdjustmentLayerInfo adjInfo in layer.AdjustmentInfo)
           {
             TreeNode node = new TreeNode(adjInfo.Key);
             node.Tag = adjInfo;

@@ -652,14 +652,10 @@ namespace PhotoshopFile
       // the position
       long lengthPosition = writer.BaseStream.Position;
 
-      int[] rleRowLenghs = new int[m_rows * m_channels];
-
-      if (m_imageCompression == ImageCompression.Rle)
+      int[] rleRowLengths = new int[m_rows * m_channels];
+      for (int i = 0; i < rleRowLengths.Length; i++)
       {
-        for (int i = 0; i < rleRowLenghs.Length; i++)
-        {
-          writer.Write((short)0x1234);
-        }
+        writer.Write((short)0x1234);
       }
 
       //---------------------------------------------------------------
@@ -669,7 +665,7 @@ namespace PhotoshopFile
         int startIdx = ch * m_rows;
 
         for (int row = 0; row < m_rows; row++)
-          rleRowLenghs[row + startIdx] = RleHelper.EncodedRow(writer.BaseStream, m_imageData[ch], row * m_columns, m_columns);
+          rleRowLengths[row + startIdx] = RleHelper.EncodedRow(writer.BaseStream, m_imageData[ch], row * m_columns, m_columns);
       }
 
       //---------------------------------------------------------------
@@ -678,9 +674,9 @@ namespace PhotoshopFile
 
       writer.BaseStream.Position = lengthPosition;
 
-      for (int i = 0; i < rleRowLenghs.Length; i++)
+      for (int i = 0; i < rleRowLengths.Length; i++)
       {
-        writer.Write((short)rleRowLenghs[i]);
+        writer.Write((short)rleRowLengths[i]);
       }
 
       writer.BaseStream.Position = endPosition;
@@ -732,9 +728,12 @@ namespace PhotoshopFile
     private class RlePacketStateMachine
     {
       private bool m_rlePacket = false;
-      private byte[] m_packetValues = new byte[128];
+      private byte lastValue;
+      private int idxPacketData;
       private int packetLength;
+      private int maxPacketLength = 128;
       private Stream m_stream;
+      private byte[] data;
 
       internal void Flush()
       {
@@ -742,74 +741,86 @@ namespace PhotoshopFile
         if (m_rlePacket)
         {
           header = (byte)(-(packetLength - 1));
+          m_stream.WriteByte(header);
+          m_stream.WriteByte(lastValue);
         }
         else
         {
           header = (byte)(packetLength - 1);
+          m_stream.WriteByte(header);
+          m_stream.Write(data, idxPacketData, packetLength);
         }
-
-        m_stream.WriteByte(header);
-
-        int length = (m_rlePacket ? 1 : packetLength);
-
-        m_stream.Write(m_packetValues, 0, length);
 
         packetLength = 0;
       }
 
-      internal void Push(byte color)
+      internal void PushRow(byte[] imgData, int startIdx, int endIdx)
       {
-        if (packetLength == 0)
+        data = imgData;
+        for (int i = startIdx; i < endIdx; i++)
         {
-          // Starting a fresh packet.
-          m_rlePacket = false;
-          m_packetValues[0] = color;
-          packetLength = 1;
+          byte color = imgData[i];
+          if (packetLength == 0)
+          {
+            // Starting a fresh packet.
+            m_rlePacket = false;
+            lastValue = color;
+            idxPacketData = i;
+            packetLength = 1;
+          }
+          else if (packetLength == 1)
+          {
+            // 2nd byte of this packet... decide RLE or non-RLE.
+            m_rlePacket = (color == lastValue);
+            lastValue = color;
+            packetLength = 2;
+          }
+          else if (packetLength == maxPacketLength)
+          {
+            // Packet is full. Start a new one.
+            Flush();
+            m_rlePacket = false;
+            lastValue = color;
+            idxPacketData = i;
+            packetLength = 1;
+          }
+          else if (packetLength >= 2 && m_rlePacket && color != lastValue)
+          {
+            // We were filling in an RLE packet, and we got a non-repeated color.
+            // Emit the current packet and start a new one.
+            Flush();
+            m_rlePacket = false;
+            lastValue = color;
+            idxPacketData = i;
+            packetLength = 1;
+          }
+          else if (packetLength >= 2 && m_rlePacket && color == lastValue)
+          {
+            // We are filling in an RLE packet, and we got another repeated color.
+            // Add the new color to the current packet.
+            ++packetLength;
+          }
+          else if (packetLength >= 2 && !m_rlePacket && color != lastValue)
+          {
+            // We are filling in a raw packet, and we got another random color.
+            // Add the new color to the current packet.
+            lastValue = color;
+            ++packetLength;
+          }
+          else if (packetLength >= 2 && !m_rlePacket && color == lastValue)
+          {
+            // We were filling in a raw packet, but we got a repeated color.
+            // Emit the current packet without its last color, and start a
+            // new RLE packet that starts with a length of 2.
+            --packetLength;
+            Flush();
+            m_rlePacket = true;
+            packetLength = 2;
+            lastValue = color;
+          }
         }
-        else if (packetLength == 1)
-        {
-          // 2nd byte of this packet... decide RLE or non-RLE.
-          m_rlePacket = (color == m_packetValues[0]);
-          m_packetValues[1] = color;
-          packetLength = 2;
-        }
-        else if (packetLength == m_packetValues.Length)
-        {
-          // Packet is full. Start a new one.
-          Flush();
-          Push(color);
-        }
-        else if (packetLength >= 2 && m_rlePacket && color != m_packetValues[packetLength - 1])
-        {
-          // We were filling in an RLE packet, and we got a non-repeated color.
-          // Emit the current packet and start a new one.
-          Flush();
-          Push(color);
-        }
-        else if (packetLength >= 2 && m_rlePacket && color == m_packetValues[packetLength - 1])
-        {
-          // We are filling in an RLE packet, and we got another repeated color.
-          // Add the new color to the current packet.
-          ++packetLength;
-          m_packetValues[packetLength - 1] = color;
-        }
-        else if (packetLength >= 2 && !m_rlePacket && color != m_packetValues[packetLength - 1])
-        {
-          // We are filling in a raw packet, and we got another random color.
-          // Add the new color to the current packet.
-          ++packetLength;
-          m_packetValues[packetLength - 1] = color;
-        }
-        else if (packetLength >= 2 && !m_rlePacket && color == m_packetValues[packetLength - 1])
-        {
-          // We were filling in a raw packet, but we got a repeated color.
-          // Emit the current packet without its last color, and start a
-          // new RLE packet that starts with a length of 2.
-          --packetLength;
-          Flush();
-          Push(color);
-          Push(color);
-        }
+
+        Flush();
       }
 
       internal RlePacketStateMachine(Stream stream)
@@ -825,11 +836,7 @@ namespace PhotoshopFile
       long startPosition = stream.Position;
 
       RlePacketStateMachine machine = new RlePacketStateMachine(stream);
-
-      for (int x = 0; x < columns; ++x)
-        machine.Push(imgData[x + startIdx]);
-
-      machine.Flush();
+      machine.PushRow(imgData, startIdx, startIdx + columns);
 
       return (int)(stream.Position - startPosition);
     }

@@ -167,16 +167,16 @@ namespace PhotoshopFile
               break;
             case ImageCompression.Rle:
               {
-                int[] rowLenghtList = new int[m_layer.m_rect.Height];
-                for (int i = 0; i < rowLenghtList.Length; i++)
-                  rowLenghtList[i] = readerImg.ReadInt16();
+                int[] rowLengthList = new int[m_layer.m_rect.Height];
+                for (int i = 0; i < rowLengthList.Length; i++)
+                  rowLengthList[i] = readerImg.ReadInt16();
 
                 for (int i = 0; i < m_layer.m_rect.Height; i++)
                 {
                   int rowIndex = i * m_layer.m_rect.Width;
                   RleHelper.DecodedRow(readerImg.BaseStream, m_imageData, rowIndex, bytesPerRow);
 
-                  //if (rowLenghtList[i] % 2 == 1)
+                  //if (rowLengthList[i] % 2 == 1)
                   //  readerImg.ReadByte();
                 }
               }
@@ -198,14 +198,10 @@ namespace PhotoshopFile
           // the position
           long lengthPosition = writer.BaseStream.Position;
 
-          int[] rleRowLenghs = new int[m_layer.m_rect.Height];
-
-          if (m_imageCompression == ImageCompression.Rle)
+          int[] rleRowLengths = new int[m_layer.m_rect.Height];
+          for (int i = 0; i < rleRowLengths.Length; i++)
           {
-            for (int i = 0; i < rleRowLenghs.Length; i++)
-            {
-              writer.Write((short)0x1234);
-            }
+            writer.Write((short)0x1234);
           }
 
           //---------------------------------------------------------------
@@ -230,7 +226,7 @@ namespace PhotoshopFile
           for (int row = 0; row < m_layer.m_rect.Height; row++)
           {
             int rowIndex = row * m_layer.m_rect.Width;
-            rleRowLenghs[row] = RleHelper.EncodedRow(writer.BaseStream, m_imageData, rowIndex, bytesPerRow);
+            rleRowLengths[row] = RleHelper.EncodedRow(writer.BaseStream, m_imageData, rowIndex, bytesPerRow);
           }
 
           //---------------------------------------------------------------
@@ -239,9 +235,9 @@ namespace PhotoshopFile
 
           writer.BaseStream.Position = lengthPosition;
 
-          for (int i = 0; i < rleRowLenghs.Length; i++)
+          for (int i = 0; i < rleRowLengths.Length; i++)
           {
-            writer.Write((short)rleRowLenghs[i]);
+            writer.Write((short)rleRowLengths[i]);
           }
 
           writer.BaseStream.Position = endPosition;
@@ -264,7 +260,7 @@ namespace PhotoshopFile
         Debug.WriteLine("Channel SavePixelData started at " + writer.BaseStream.Position.ToString());
 
         writer.Write((short)m_imageCompression);
-        writer.Write(m_imageData);
+        writer.Write(m_data);
       }
 
       //////////////////////////////////////////////////////////////////
@@ -494,10 +490,10 @@ namespace PhotoshopFile
               break;
             case ImageCompression.Rle:
               {
-                int[] rowLenghtList = new int[m_rect.Height];
+                int[] rowLengthList = new int[m_rect.Height];
 
-                for (int i = 0; i < rowLenghtList.Length; i++)
-                  rowLenghtList[i] = readerImg.ReadInt16();
+                for (int i = 0; i < rowLengthList.Length; i++)
+                  rowLengthList[i] = readerImg.ReadInt16();
 
                 for (int i = 0; i < m_rect.Height; i++)
                 {
@@ -582,7 +578,7 @@ namespace PhotoshopFile
 
     ///////////////////////////////////////////////////////////////////////////
 
-    public class AdjusmentLayerInfo
+    public class AdjustmentLayerInfo
     {
       private Layer m_layer;
       /// <summary>
@@ -607,16 +603,16 @@ namespace PhotoshopFile
         set { m_data = value; }
       }
 
-      public AdjusmentLayerInfo(string key, Layer layer)
+      public AdjustmentLayerInfo(string key, Layer layer)
       {
         m_key = key;
         m_layer = layer;
         m_layer.AdjustmentInfo.Add(this);
       }
 
-      public AdjusmentLayerInfo(BinaryReverseReader reader, Layer layer)
+      public AdjustmentLayerInfo(BinaryReverseReader reader, Layer layer)
       {
-        Debug.WriteLine("AdjusmentLayerInfo started at " + reader.BaseStream.Position.ToString());
+        Debug.WriteLine("AdjustmentLayerInfo started at " + reader.BaseStream.Position.ToString());
 
         m_layer = layer;
 
@@ -634,7 +630,7 @@ namespace PhotoshopFile
 
       public void Save(BinaryReverseWriter writer)
       {
-        Debug.WriteLine("AdjusmentLayerInfo Save started at " + writer.BaseStream.Position.ToString());
+        Debug.WriteLine("AdjustmentLayerInfo Save started at " + writer.BaseStream.Position.ToString());
 
         string signature = "8BIM";
 
@@ -839,8 +835,8 @@ namespace PhotoshopFile
       set { m_maskData = value; }
     }
 
-    private List<AdjusmentLayerInfo> m_adjustmentInfo = new List<AdjusmentLayerInfo>();
-    public List<Layer.AdjusmentLayerInfo> AdjustmentInfo
+    private List<AdjustmentLayerInfo> m_adjustmentInfo = new List<AdjustmentLayerInfo>();
+    public List<Layer.AdjustmentLayerInfo> AdjustmentInfo
     {
       get { return m_adjustmentInfo; }
       set { m_adjustmentInfo = value; }
@@ -933,7 +929,7 @@ namespace PhotoshopFile
       {
         try
         {
-          m_adjustmentInfo.Add(new AdjusmentLayerInfo(reader, this));
+          m_adjustmentInfo.Add(new AdjustmentLayerInfo(reader, this));
         }
         catch
         {
@@ -996,7 +992,7 @@ namespace PhotoshopFile
         for (int i = 0; i < paddingBytes;i++ )
           writer.Write((byte)0);
 
-        foreach (AdjusmentLayerInfo info in m_adjustmentInfo)
+        foreach (AdjustmentLayerInfo info in m_adjustmentInfo)
         {
           info.Save(writer);
         }

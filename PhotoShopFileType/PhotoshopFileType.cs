@@ -214,7 +214,7 @@ namespace PaintDotNet.Data.PhotoshopFileType
         {
           PhotoshopFile.Layer.Channel ch = new PhotoshopFile.Layer.Channel((short)i, psdLayer);
 
-          ch.ImageCompression = ImageCompression.Raw;//psdToken.RleCompress ? ImageCompression.Rle : ImageCompression.Raw;
+          ch.ImageCompression = psdToken.RleCompress ? ImageCompression.Rle : ImageCompression.Raw;
           ch.ImageData = new byte[layerSize];
         }
 
