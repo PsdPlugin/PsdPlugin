@@ -31,9 +31,11 @@
 
 using System;
 using System.Collections.Generic;
-using System.Text;
-using System.IO;
 using System.Diagnostics;
+using System.IO;
+using System.Text;
+using System.Threading;
+
 
 namespace PhotoshopFile
 {
@@ -195,7 +197,7 @@ namespace PhotoshopFile
 
       m_version = reader.ReadInt16();
       if (m_version != 1)
-        throw new IOException("The PSD file has an unkown version");
+        throw new IOException("The PSD file has an unknown version");
 
       //6 bytes reserved
       reader.BaseStream.Position += 6;
@@ -338,7 +340,7 @@ namespace PhotoshopFile
       }
 
       //-----------------------------------------------------------------------
-      // make shure we are not on a wrong offset, so set the stream position 
+      // make sure we are not on a wrong offset, so set the stream position 
       // manually
       reader.BaseStream.Position = startPosition + imgResLength;
     }
@@ -400,7 +402,7 @@ namespace PhotoshopFile
       //Debug.Assert(reader.BaseStream.Position == startPosition + layersAndMaskLength, "LoadLayerAndMaskInfo");
 
       //-----------------------------------------------------------------------
-      // make shure we are not on a wrong offset, so set the stream position 
+      // make sure we are not on a wrong offset, so set the stream position 
       // manually
       reader.BaseStream.Position = startPosition + layersAndMaskLength;
 
@@ -453,16 +455,27 @@ namespace PhotoshopFile
         m_layers.Add(new Layer(reader, this));
       }
 
+      PaintDotNet.Threading.PrivateThreadPool threadPool = new PaintDotNet.Threading.PrivateThreadPool();
+      threadPool.Drain();
+
       foreach (Layer layer in m_layers)
       {
         foreach (Layer.Channel channel in layer.Channels)
         {
           if (channel.ID != -2)
+          {
             channel.LoadPixelData(reader);
+            DecompressChannelContext dcc = new DecompressChannelContext(channel);
+            WaitCallback waitCallback = new WaitCallback(dcc.DecompressChannel);
+            threadPool.QueueUserWorkItem(waitCallback);
+          }
         }
 
         layer.MaskData.LoadPixelData(reader);
       }
+
+      threadPool.Drain();
+
 
       //-----------------------------------------------------------------------
 
@@ -470,7 +483,7 @@ namespace PhotoshopFile
         reader.ReadByte();
 
       //-----------------------------------------------------------------------
-      // make shure we are not on a wrong offset, so set the stream position 
+      // make sure we are not on a wrong offset, so set the stream position 
       // manually
       reader.BaseStream.Position = startPosition + layersInfoSectionLength;
     }
@@ -488,6 +501,14 @@ namespace PhotoshopFile
           numberOfLayers = (short)-numberOfLayers;
 
         writer.Write(numberOfLayers);
+
+        // Finish compute-bound operations before embarking on the sequential save
+        PaintDotNet.Threading.PrivateThreadPool threadPool = new PaintDotNet.Threading.PrivateThreadPool();
+        foreach (Layer layer in m_layers)
+        {
+          layer.PrepareSave(threadPool);
+        }
+        threadPool.Drain();
 
         foreach (Layer layer in m_layers)
         {
@@ -587,7 +608,7 @@ namespace PhotoshopFile
       switch (m_depth)
       {
         case 1:
-          bytesPerRow = m_columns;//NOT Shure
+          bytesPerRow = m_columns;//NOT sure
           break;
         case 8:
           bytesPerRow = m_columns;
@@ -686,8 +707,25 @@ namespace PhotoshopFile
 
     ///////////////////////////////////////////////////////////////////////////
 
+    private class DecompressChannelContext
+    {
+      private PhotoshopFile.Layer.Channel ch;
+
+      public DecompressChannelContext(PhotoshopFile.Layer.Channel ch)
+      {
+        this.ch = ch;
+      }
+
+      public void DecompressChannel(object context)
+      {
+        ch.DecompressImageData();
+      }
+    }
+
     #endregion
   }
+
+
 
   /// <summary>
   /// The possible Compression methods.

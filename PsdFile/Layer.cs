@@ -32,10 +32,11 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.Specialized;
-using System.Text;
+using System.Diagnostics;
 using System.Drawing;
 using System.IO;
-using System.Diagnostics;
+using System.Text;
+using System.Threading;
 
 namespace PhotoshopFile
 {
@@ -93,6 +94,9 @@ namespace PhotoshopFile
         set { m_imageData = value; }
       }
 
+      int[] m_rowLengthList;
+      int m_bytesPerRow;
+
       private ImageCompression m_imageCompression;
       public ImageCompression ImageCompression
       {
@@ -125,10 +129,7 @@ namespace PhotoshopFile
         Debug.WriteLine("Channel Save started at " + writer.BaseStream.Position.ToString());
 
         writer.Write(m_id);
-
-        CompressImageData();
-
-        writer.Write(Data.Length+2); // 2 bytes for the image compression
+        writer.Write(Data.Length+2); // 2 bytes for the image compression tag
       }
 
       //////////////////////////////////////////////////////////////////
@@ -143,22 +144,22 @@ namespace PhotoshopFile
         {
           m_imageCompression = (ImageCompression)readerImg.ReadInt16();
 
-          int bytesPerRow = 0;
+          m_bytesPerRow = 0;
 
           switch (m_layer.PsdFile.Depth)
           {
             case 1:
-              bytesPerRow = m_layer.m_rect.Width;//NOT Shure
+              m_bytesPerRow = m_layer.m_rect.Width;//NOT sure
               break;
             case 8:
-              bytesPerRow = m_layer.m_rect.Width;
+              m_bytesPerRow = m_layer.m_rect.Width;
               break;
             case 16:
-              bytesPerRow = m_layer.m_rect.Width * 2;
+              m_bytesPerRow = m_layer.m_rect.Width * 2;
               break;
           }
 
-          m_imageData = new byte[m_layer.m_rect.Height * bytesPerRow];
+          m_imageData = new byte[m_layer.m_rect.Height * m_bytesPerRow];
 
           switch (m_imageCompression)
           {
@@ -167,14 +168,20 @@ namespace PhotoshopFile
               break;
             case ImageCompression.Rle:
               {
-                int[] rowLengthList = new int[m_layer.m_rect.Height];
-                for (int i = 0; i < rowLengthList.Length; i++)
-                  rowLengthList[i] = readerImg.ReadInt16();
+                m_rowLengthList = new int[m_layer.m_rect.Height];
+                int totalRleLength = 0;
+                for (int i = 0; i < m_rowLengthList.Length; i++)
+                {
+                  m_rowLengthList[i] = readerImg.ReadInt16();
+                  totalRleLength += m_rowLengthList[i];
+                }
+                m_data = new byte[totalRleLength];
 
+                int idxData = 0;
                 for (int i = 0; i < m_layer.m_rect.Height; i++)
                 {
-                  int rowIndex = i * m_layer.m_rect.Width;
-                  RleHelper.DecodedRow(readerImg.BaseStream, m_imageData, rowIndex, bytesPerRow);
+                  readerImg.Read(m_data, idxData, m_rowLengthList[i]);
+                  idxData += m_rowLengthList[i];
 
                   //if (rowLengthList[i] % 2 == 1)
                   //  readerImg.ReadByte();
@@ -187,7 +194,17 @@ namespace PhotoshopFile
         }
       }
 
-      private void CompressImageData()
+      public void DecompressImageData()
+      {
+        MemoryStream stream = new MemoryStream(m_data);
+        for (int i = 0; i < m_layer.m_rect.Height; i++)
+        {
+          int rowIndex = i * m_layer.m_rect.Width;
+          RleHelper.DecodedRow(stream, m_imageData, rowIndex, m_bytesPerRow);
+        }
+      }
+
+      public void CompressImageData()
       {
         if (m_imageCompression == ImageCompression.Rle)
         {
@@ -211,7 +228,7 @@ namespace PhotoshopFile
           switch (m_layer.PsdFile.Depth)
           {
             case 1:
-              bytesPerRow = m_layer.m_rect.Width;//NOT Shure
+              bytesPerRow = m_layer.m_rect.Width;//NOT sure
               break;
             case 8:
               bytesPerRow = m_layer.m_rect.Width;
@@ -464,7 +481,7 @@ namespace PhotoshopFile
           switch (m_layer.PsdFile.Depth)
           {
             case 1:
-              bytesPerRow = m_rect.Width;//NOT Shure
+              bytesPerRow = m_rect.Width;//NOT sure
               break;
             case 8:
               bytesPerRow = m_rect.Width;
@@ -900,8 +917,6 @@ namespace PhotoshopFile
       // Name and the AdjustmenLayerInfo
       uint extraDataSize = reader.ReadUInt32();
 
-
-
       // remember the start position for calculation of the 
       // AdjustmenLayerInfo size
       long extraDataStartPosition = reader.BaseStream.Position;
@@ -939,12 +954,22 @@ namespace PhotoshopFile
 
 
       //-----------------------------------------------------------------------
-      // make shure we are not on a wrong offset, so set the stream position 
+      // make sure we are not on a wrong offset, so set the stream position 
       // manually
       reader.BaseStream.Position = adjustmenLayerEndPos;
     }
 
     ///////////////////////////////////////////////////////////////////////////
+
+    public void PrepareSave(PaintDotNet.Threading.PrivateThreadPool threadPool)
+    {
+      foreach (Channel ch in m_channels)
+      {
+        CompressChannelContext ccc = new CompressChannelContext(ch);
+        WaitCallback waitCallback = new WaitCallback(ccc.CompressChannel);
+        threadPool.QueueUserWorkItem(waitCallback);
+      }
+    }
 
     public void Save(BinaryReverseWriter writer)
     {
@@ -996,6 +1021,21 @@ namespace PhotoshopFile
         {
           info.Save(writer);
         }
+      }
+    }
+
+    private class CompressChannelContext
+    {
+      private PhotoshopFile.Layer.Channel ch;
+
+      public CompressChannelContext(PhotoshopFile.Layer.Channel ch)
+      {
+        this.ch = ch;
+      }
+
+      public void CompressChannel(object context)
+      {
+        ch.CompressImageData();
       }
     }
 

@@ -23,10 +23,13 @@
 /////////////////////////////////////////////////////////////////////////////////
 
 using PaintDotNet;
+using PaintDotNet.Threading;
+
 using System;
 using System.Collections.Generic;
-using System.Text;
 using System.Drawing;
+using System.Text;
+using System.Threading;
 
 using PhotoshopFile;
 
@@ -155,99 +158,108 @@ namespace PaintDotNet.Data.PhotoshopFileType
         }
       }
 
+      PaintDotNet.Threading.PrivateThreadPool threadPool = new PaintDotNet.Threading.PrivateThreadPool();
       foreach (BitmapLayer layer in input.Layers)
       {
-        Surface surface = layer.Surface;
-
         PhotoshopFile.Layer psdLayer = new PhotoshopFile.Layer(psdFile);
+        BlendOpToBlendModeKey(layer.BlendOp, psdLayer);
 
-        int rectLeft = input.Width;
-        int rectTop = input.Height;
-        int rectRight = 0;
-        int rectBottom = 0;
-
-        // Determine the real size of this layer, i.e., the smallest rectangle
-        // that includes all all non-invisible pixels
-        unsafe
-        {
-          for (int y = 0; y < psdFile.Rows; y++)
-          {
-            int rowIndex = y * psdFile.Columns;
-            ColorBgra* srcRow = surface.GetRowAddress(y);
-            ColorBgra* srcPixel = srcRow;
-
-            for (int x = 0; x < psdFile.Columns; x++)
-            {
-              int pos = rowIndex + x;
-
-              // Found a non-transparent pixel, potentially increase the size of the rectangle
-              if (srcPixel->A > 0)
-              {
-                // Expand the rectangle
-                if (x < rectLeft)
-                  rectLeft = x;
-                if (x > rectRight)
-                  rectRight = x;
-                if (y < rectTop)
-                  rectTop = y;
-                if (y > rectBottom)
-                  rectBottom = y;
-              }
-
-              srcPixel++;
-            }
-          }
-        }
-
-        psdLayer.Rect = new Rectangle(rectLeft, rectTop, rectRight - rectLeft + 1, rectBottom - rectTop + 1);
-        psdLayer.Name = layer.Name;
-        psdLayer.Opacity = layer.Opacity;
-        psdLayer.Visible = layer.Visible;
-        psdLayer.MaskData = new PhotoshopFile.Layer.Mask(psdLayer);
-        psdLayer.BlendingRangesData = new PhotoshopFile.Layer.BlendingRanges(psdLayer);
-
-        BlendOpToBlenModeKey(layer.BlendOp, psdLayer);
-
-        int layerSize = psdLayer.Rect.Width * psdLayer.Rect.Height;
-
-        for (int i = -1; i < 3; i++)
-        {
-          PhotoshopFile.Layer.Channel ch = new PhotoshopFile.Layer.Channel((short)i, psdLayer);
-
-          ch.ImageCompression = psdToken.RleCompress ? ImageCompression.Rle : ImageCompression.Raw;
-          ch.ImageData = new byte[layerSize];
-        }
-
-        var channels = psdLayer.ChannelsArray;
-        var alphaChannel = psdLayer.AlphaChannel;
-
-        unsafe
-        {
-          int rowIndex = 0;
-          for (int y = 0; y < psdLayer.Rect.Height; y++)
-          {
-            ColorBgra* srcRow = surface.GetRowAddress(y + psdLayer.Rect.Top);
-            ColorBgra* srcPixel = srcRow + psdLayer.Rect.Left;
-
-            for (int x = 0; x < psdLayer.Rect.Width; x++)
-            {
-              int pos = rowIndex + x;
-
-              channels[0].ImageData[pos] = srcPixel->R;
-              channels[1].ImageData[pos] = srcPixel->G;
-              channels[2].ImageData[pos] = srcPixel->B;
-              alphaChannel.ImageData[pos] = srcPixel->A;
-              srcPixel++;
-            }
-            rowIndex += psdLayer.Rect.Width;
-          }
-        }
+        SaveLayerPixelsContext slc = new SaveLayerPixelsContext(layer, psdFile, input, psdLayer, psdToken);
+        WaitCallback waitCallback = new WaitCallback(slc.SaveLayer);
+        threadPool.QueueUserWorkItem(waitCallback);
       }
+      threadPool.Drain();
 
       psdFile.Save(output);
     }
 
-    private void BlendOpToBlenModeKey(UserBlendOp op, PhotoshopFile.Layer layer)
+    public static void SaveLayerPixels(BitmapLayer layer, PsdFile psdFile,
+        Document input, PhotoshopFile.Layer psdLayer, PsdSaveConfigToken psdToken)
+    {      
+      Surface surface = layer.Surface;
+
+      int rectLeft = input.Width;
+      int rectTop = input.Height;
+      int rectRight = 0;
+      int rectBottom = 0;
+
+      // Determine the real size of this layer, i.e., the smallest rectangle
+      // that includes all all non-invisible pixels
+      unsafe
+      {
+        for (int y = 0; y < psdFile.Rows; y++)
+        {
+          int rowIndex = y * psdFile.Columns;
+          ColorBgra* srcRow = surface.GetRowAddress(y);
+          ColorBgra* srcPixel = srcRow;
+
+          for (int x = 0; x < psdFile.Columns; x++)
+          {
+            int pos = rowIndex + x;
+
+            // Found a non-transparent pixel, potentially increase the size of the rectangle
+            if (srcPixel->A > 0)
+            {
+              // Expand the rectangle
+              if (x < rectLeft)
+                rectLeft = x;
+              if (x > rectRight)
+                rectRight = x;
+              if (y < rectTop)
+                rectTop = y;
+              if (y > rectBottom)
+                rectBottom = y;
+            }
+
+            srcPixel++;
+          }
+        }
+      }
+
+      psdLayer.Rect = new Rectangle(rectLeft, rectTop, rectRight - rectLeft + 1, rectBottom - rectTop + 1);
+      psdLayer.Name = layer.Name;
+      psdLayer.Opacity = layer.Opacity;
+      psdLayer.Visible = layer.Visible;
+      psdLayer.MaskData = new PhotoshopFile.Layer.Mask(psdLayer);
+      psdLayer.BlendingRangesData = new PhotoshopFile.Layer.BlendingRanges(psdLayer);
+
+      int layerSize = psdLayer.Rect.Width * psdLayer.Rect.Height;
+
+      for (int i = -1; i < 3; i++)
+      {
+        PhotoshopFile.Layer.Channel ch = new PhotoshopFile.Layer.Channel((short)i, psdLayer);
+
+        ch.ImageCompression = psdToken.RleCompress ? ImageCompression.Rle : ImageCompression.Raw;
+        ch.ImageData = new byte[layerSize];
+      }
+
+      var channels = psdLayer.ChannelsArray;
+      var alphaChannel = psdLayer.AlphaChannel;
+
+      unsafe
+      {
+        int rowIndex = 0;
+        for (int y = 0; y < psdLayer.Rect.Height; y++)
+        {
+          ColorBgra* srcRow = surface.GetRowAddress(y + psdLayer.Rect.Top);
+          ColorBgra* srcPixel = srcRow + psdLayer.Rect.Left;
+
+          for (int x = 0; x < psdLayer.Rect.Width; x++)
+          {
+            int pos = rowIndex + x;
+
+            channels[0].ImageData[pos] = srcPixel->R;
+            channels[1].ImageData[pos] = srcPixel->G;
+            channels[2].ImageData[pos] = srcPixel->B;
+            alphaChannel.ImageData[pos] = srcPixel->A;
+            srcPixel++;
+          }
+          rowIndex += psdLayer.Rect.Width;
+        }
+      }
+    }
+
+    private void BlendOpToBlendModeKey(UserBlendOp op, PhotoshopFile.Layer layer)
     {
 
       switch (op.ToString())
@@ -358,7 +370,6 @@ namespace PaintDotNet.Data.PhotoshopFileType
 
       psdFile.Load(input);
 
-      BitmapLayer layer;
       Document document = new Document(psdFile.Columns, psdFile.Rows);
 
       if (psdFile.Resolution != null)
@@ -370,28 +381,86 @@ namespace PaintDotNet.Data.PhotoshopFileType
 
       if (psdFile.Layers.Count == 0)
       {
-        layer = ImageDecoderPdn.DecodeImage(psdFile);
+        BitmapLayer layer = ImageDecoderPdn.DecodeImage(psdFile);
         document.Layers.Add(layer);
       }
       else
       {
+        PaintDotNet.Threading.PrivateThreadPool threadPool = new PaintDotNet.Threading.PrivateThreadPool();
+        var layersList = new List<Layer>();
         foreach (PhotoshopFile.Layer l in psdFile.Layers)
         {
           if (!l.Rect.IsEmpty)
           {
-            layer = ImageDecoderPdn.DecodeImage(l);
-
-            layer.Name = l.Name;
-            layer.Opacity = l.Opacity;
-            layer.Visible = l.Visible;
-
-            layer.SetBlendOp(BlendModeKeyToBlendOp(l));
-
-            document.Layers.Add(layer);
+            layersList.Add(null);
+            LoadLayerContext llc = new LoadLayerContext(l, document, BlendModeKeyToBlendOp(l), layersList, layersList.Count - 1);
+            WaitCallback waitCallback = new WaitCallback(llc.LoadLayer);
+            threadPool.QueueUserWorkItem(waitCallback); 
           }
         }
+        threadPool.Drain();
+
+        foreach (var layer in layersList)
+        {
+          document.Layers.Add(layer);
+        }
+
       }
       return document;
     }
+
+    private class SaveLayerPixelsContext
+    {
+      private BitmapLayer layer;
+      private PsdFile psdFile;
+      private Document input;
+      private PsdSaveConfigToken psdToken;
+      PhotoshopFile.Layer psdLayer;
+
+      public SaveLayerPixelsContext(BitmapLayer layer, PsdFile psdFile,
+        Document input, PhotoshopFile.Layer psdLayer, PsdSaveConfigToken psdToken)
+      {
+        this.layer = layer;
+        this.psdFile = psdFile;
+        this.input = input;
+        this.psdToken = psdToken;
+        this.psdLayer = psdLayer;
+      }
+
+      public void SaveLayer(object context)
+      {
+        SaveLayerPixels(layer, psdFile, input, psdLayer, psdToken);
+      }
+    }
+
+    private class LoadLayerContext
+    {
+      PhotoshopFile.Layer psdLayer;
+      Document document;
+      UserBlendOp blendOp;
+      List<Layer> layersList;
+      int idxLayersList;
+
+      public LoadLayerContext(PhotoshopFile.Layer psdLayer, Document document, UserBlendOp blendOp, List<Layer> layersList, int idxLayersList)
+      {
+        this.psdLayer = psdLayer;
+        this.document = document;
+        this.blendOp = blendOp;
+        this.layersList = layersList;
+        this.idxLayersList = idxLayersList;
+      }
+
+      public void LoadLayer(object context)
+      {
+        var layer = ImageDecoderPdn.DecodeImage(psdLayer);
+        layer.Name = psdLayer.Name;
+        layer.Opacity = psdLayer.Opacity;
+        layer.Visible = psdLayer.Visible;
+        layer.SetBlendOp(blendOp);
+
+        layersList[idxLayersList] = layer;
+      }
+    }
   }
+
 }
