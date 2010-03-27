@@ -718,7 +718,8 @@ namespace PhotoshopFile
 
       public void DecompressChannel(object context)
       {
-        ch.DecompressImageData();
+        if (ch.ImageCompression == ImageCompression.Rle)
+          ch.DecompressImageData();
       }
     }
 
