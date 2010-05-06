@@ -31,6 +31,7 @@
 
 using System;
 using System.IO;
+using System.Text;
 
 namespace PhotoshopFile
 {
@@ -40,7 +41,7 @@ namespace PhotoshopFile
   public class BinaryReverseReader : BinaryReader
   {
     public BinaryReverseReader(Stream a_stream)
-      : base(a_stream)
+      : base(a_stream, Encoding.Default)
     {
     }
 
