@@ -56,7 +56,32 @@ namespace PhotoshopFile
     }
 #endif
 
-    /////////////////////////////////////////////////////////////////////////// 
+    ///////////////////////////////////////////////////////////////////////////
+
+    public static int BytesFromBits(int bits)
+    {
+      return (bits + 7) / 8;
+    }
+
+
+    ///////////////////////////////////////////////////////////////////////////
+
+    public static int RoundUp(int value, int stride)
+    {
+      return ((value + stride - 1) / stride) * stride;
+    }
+
+    ///////////////////////////////////////////////////////////////////////////
+
+    public static byte GetBitmapValue(byte[] bitmap, int pos)
+    {
+      byte mask = (byte)(0x80 >> (pos % 8));
+      byte bwValue = (byte)(bitmap[pos / 8] & mask);
+      bwValue = (bwValue == 0) ? (byte)255 : (byte)0;
+      return bwValue;
+    }
+
+    ///////////////////////////////////////////////////////////////////////////
 
     public static Bitmap DecodeImage(PsdFile psdFile)
     {
@@ -137,6 +162,10 @@ namespace PhotoshopFile
                         psdFile.ImageData[1][pos],
                         psdFile.ImageData[2][pos],
                         0);
+          break;
+        case PsdFile.ColorModes.Bitmap:
+          byte bwValue = ImageDecoder.GetBitmapValue(psdFile.ImageData[0], pos);
+          c = Color.FromArgb(bwValue, bwValue, bwValue);
           break;
         case PsdFile.ColorModes.Grayscale:
         case PsdFile.ColorModes.Duotone:
@@ -260,6 +289,10 @@ namespace PhotoshopFile
                         layer.SortedChannels[1].ImageData[pos],
                         layer.SortedChannels[2].ImageData[pos],
                         0);
+          break;
+        case PsdFile.ColorModes.Bitmap:
+          byte bwValue = ImageDecoder.GetBitmapValue(layer.SortedChannels[0].ImageData, pos);
+          c = Color.FromArgb(bwValue, bwValue, bwValue);
           break;
         case PsdFile.ColorModes.Grayscale:
         case PsdFile.ColorModes.Duotone:

@@ -46,7 +46,7 @@ namespace PaintDotNet.Data.PhotoshopFileType
       {
         unsafe
         {
-          int rowIndex = y * psdFile.Columns;
+          int rowIndex = y * psdFile.RowPixels;
 
           ColorBgra* dstRow = surface.GetRowAddress(y);
           ColorBgra* dstPixel = dstRow;
@@ -87,6 +87,12 @@ namespace PaintDotNet.Data.PhotoshopFileType
               psdFile.ImageData[1][pos],
               psdFile.ImageData[2][pos],
               0);
+          break;
+        case PsdFile.ColorModes.Bitmap:
+          byte bwValue = ImageDecoder.GetBitmapValue(psdFile.ImageData[0], pos);
+          dstPixel->R = bwValue;
+          dstPixel->G = bwValue;
+          dstPixel->B = bwValue;
           break;
         case PsdFile.ColorModes.Grayscale:
         case PsdFile.ColorModes.Duotone:
@@ -185,6 +191,12 @@ namespace PaintDotNet.Data.PhotoshopFileType
             channels[1].ImageData[pos],
             channels[2].ImageData[pos],
             0);
+          break;
+        case PsdFile.ColorModes.Bitmap:
+          byte bwValue = ImageDecoder.GetBitmapValue(channels[0].ImageData, pos);
+          dstPixel->R = bwValue;
+          dstPixel->G = bwValue;
+          dstPixel->B = bwValue;
           break;
         case PsdFile.ColorModes.Grayscale:
         case PsdFile.ColorModes.Duotone:

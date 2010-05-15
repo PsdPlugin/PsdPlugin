@@ -157,6 +157,19 @@ namespace PhotoshopFile
       }
     }
 
+    /// <summary>
+    /// The number of pixels to advance for each row.
+    /// </summary>
+    public int RowPixels
+    {
+      get
+      {
+        if (m_colorMode == ColorModes.Bitmap)
+          return ImageDecoder.RoundUp(m_columns, 8);
+        else
+          return m_columns;
+      }
+    }
 
     private int m_depth;
     /// <summary>
@@ -456,7 +469,6 @@ namespace PhotoshopFile
       }
 
       PaintDotNet.Threading.PrivateThreadPool threadPool = new PaintDotNet.Threading.PrivateThreadPool();
-      threadPool.Drain();
 
       foreach (Layer layer in m_layers)
       {
@@ -605,7 +617,7 @@ namespace PhotoshopFile
       switch (m_depth)
       {
         case 1:
-          bytesPerRow = m_columns;//NOT sure
+          bytesPerRow = ImageDecoder.BytesFromBits(m_columns);
           break;
         case 8:
           bytesPerRow = m_columns;
@@ -630,7 +642,7 @@ namespace PhotoshopFile
             {
               for (int i = 0; i < m_rows; i++)
               {
-                int rowIndex = i * m_columns;
+                int rowIndex = i * bytesPerRow;
                 RleHelper.DecodedRow(reader.BaseStream, m_imageData[ch], rowIndex, bytesPerRow);
               }
             }

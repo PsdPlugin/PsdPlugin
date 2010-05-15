@@ -149,7 +149,7 @@ namespace PhotoshopFile
           switch (m_layer.PsdFile.Depth)
           {
             case 1:
-              m_bytesPerRow = m_layer.m_rect.Width;//NOT sure
+              m_bytesPerRow = ImageDecoder.BytesFromBits(m_layer.m_rect.Width);
               break;
             case 8:
               m_bytesPerRow = m_layer.m_rect.Width;
@@ -229,7 +229,7 @@ namespace PhotoshopFile
           switch (m_layer.PsdFile.Depth)
           {
             case 1:
-              bytesPerRow = m_layer.m_rect.Width;//NOT sure
+              bytesPerRow = ImageDecoder.BytesFromBits(m_layer.m_rect.Width);
               break;
             case 8:
               bytesPerRow = m_layer.m_rect.Width;
@@ -482,7 +482,7 @@ namespace PhotoshopFile
           switch (m_layer.PsdFile.Depth)
           {
             case 1:
-              bytesPerRow = m_rect.Width;//NOT sure
+              bytesPerRow = ImageDecoder.BytesFromBits(m_layer.m_rect.Width);
               break;
             case 8:
               bytesPerRow = m_rect.Width;
@@ -909,11 +909,11 @@ namespace PhotoshopFile
       Debug.WriteLine("Layer extraDataSize started at " + reader.BaseStream.Position.ToString());
 
       // this is the total size of the MaskData, the BlendingRangesData, the 
-      // Name and the AdjustmenLayerInfo
+      // Name and the AdjustmentLayerInfo
       uint extraDataSize = reader.ReadUInt32();
 
       // remember the start position for calculation of the 
-      // AdjustmenLayerInfo size
+      // AdjustmentLayerInfo size
       long extraDataStartPosition = reader.BaseStream.Position;
 
       m_maskData = new Mask(reader, this);
@@ -934,8 +934,8 @@ namespace PhotoshopFile
 
       m_adjustmentInfo.Clear();
 
-      long adjustmenLayerEndPos = extraDataStartPosition + extraDataSize;
-      while (reader.BaseStream.Position < adjustmenLayerEndPos)
+      long adjustmentLayerEndPos = extraDataStartPosition + extraDataSize;
+      while (reader.BaseStream.Position < adjustmentLayerEndPos)
       {
         try
         {
@@ -943,7 +943,7 @@ namespace PhotoshopFile
         }
         catch
         {
-          reader.BaseStream.Position = adjustmenLayerEndPos;
+          reader.BaseStream.Position = adjustmentLayerEndPos;
         }
       }
 
@@ -951,7 +951,7 @@ namespace PhotoshopFile
       //-----------------------------------------------------------------------
       // make sure we are not on a wrong offset, so set the stream position 
       // manually
-      reader.BaseStream.Position = adjustmenLayerEndPos;
+      reader.BaseStream.Position = adjustmentLayerEndPos;
     }
 
     ///////////////////////////////////////////////////////////////////////////
