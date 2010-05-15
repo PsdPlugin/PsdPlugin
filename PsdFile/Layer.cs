@@ -94,7 +94,7 @@ namespace PhotoshopFile
         set { m_imageData = value; }
       }
 
-      int[] m_rowLengthList;
+      uint[] m_rowLengthList;
       int m_bytesPerRow;
 
       private ImageCompression m_imageCompression;
@@ -168,19 +168,19 @@ namespace PhotoshopFile
               break;
             case ImageCompression.Rle:
               {
-                m_rowLengthList = new int[m_layer.m_rect.Height];
-                int totalRleLength = 0;
+                m_rowLengthList = new uint[m_layer.m_rect.Height];
+                uint totalRleLength = 0;
                 for (int i = 0; i < m_rowLengthList.Length; i++)
                 {
-                  m_rowLengthList[i] = readerImg.ReadInt16();
+                  m_rowLengthList[i] = readerImg.ReadUInt16();
                   totalRleLength += m_rowLengthList[i];
                 }
                 m_data = new byte[totalRleLength];
 
-                int idxData = 0;
+                uint idxData = 0;
                 for (int i = 0; i < m_layer.m_rect.Height; i++)
                 {
-                  readerImg.Read(m_data, idxData, m_rowLengthList[i]);
+                  readerImg.Read(m_data, (int)idxData, (int)m_rowLengthList[i]);
                   idxData += m_rowLengthList[i];
 
                   // The PSD specification states that rows are padded to even sizes.
@@ -508,10 +508,10 @@ namespace PhotoshopFile
               break;
             case ImageCompression.Rle:
               {
-                int[] rowLengthList = new int[m_rect.Height];
+                uint[] rowLengthList = new uint[m_rect.Height];
 
                 for (int i = 0; i < rowLengthList.Length; i++)
-                  rowLengthList[i] = readerImg.ReadInt16();
+                  rowLengthList[i] = readerImg.ReadUInt16();
 
                 for (int i = 0; i < m_rect.Height; i++)
                 {
