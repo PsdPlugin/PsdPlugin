@@ -474,10 +474,13 @@ namespace PhotoshopFile
       {
         foreach (Layer.Channel channel in layer.Channels)
         {
-          channel.LoadPixelData(reader);
-          DecompressChannelContext dcc = new DecompressChannelContext(channel);
-          WaitCallback waitCallback = new WaitCallback(dcc.DecompressChannel);
-          threadPool.QueueUserWorkItem(waitCallback);
+          if (channel.ID != -2)
+          {
+            channel.LoadPixelData(reader);
+            DecompressChannelContext dcc = new DecompressChannelContext(channel);
+            WaitCallback waitCallback = new WaitCallback(dcc.DecompressChannel);
+            threadPool.QueueUserWorkItem(waitCallback);
+          }
         }
 
         layer.MaskData.LoadPixelData(reader);
