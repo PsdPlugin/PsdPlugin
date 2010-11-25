@@ -56,9 +56,6 @@
     <Compile Include="..\PsdFile\BinaryReverseReader.cs">
       <Link>PsdFile\BinaryReverseReader.cs</Link>
     </Compile>
-    <Compile Include="..\PsdFile\ImageDecoderBitmaps.cs">
-      <Link>PsdFile\ImageDecoderBitmaps.cs</Link>
-    </Compile>
     <Compile Include="..\PsdFile\ImageResource.cs">
       <Link>PsdFile\ImageResource.cs</Link>
     </Compile>
@@ -76,6 +73,9 @@
     </Compile>
     <Compile Include="..\PsdFile\PsdFile.cs">
       <Link>PsdFile\PsdFile.cs</Link>
+    </Compile>
+    <Compile Include="..\PsdFile\Util.cs">
+      <Link>PsdFile\Util.cs</Link>
     </Compile>
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="ImageDecoderPdn.cs" />

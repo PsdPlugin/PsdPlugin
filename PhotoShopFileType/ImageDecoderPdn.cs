@@ -35,6 +35,17 @@ namespace PaintDotNet.Data.PhotoshopFileType
 {
   class ImageDecoderPdn
   {
+
+    public static byte GetBitmapValue(byte[] bitmap, int pos)
+    {
+      byte mask = (byte)(0x80 >> (pos % 8));
+      byte bwValue = (byte)(bitmap[pos / 8] & mask);
+      bwValue = (bwValue == 0) ? (byte)255 : (byte)0;
+      return bwValue;
+    }
+
+    /////////////////////////////////////////////////////////////////////////// 
+
     public static BitmapLayer DecodeImage(PsdFile psdFile)
     {
       BitmapLayer layer = PaintDotNet.Layer.CreateBackgroundLayer(psdFile.Columns, psdFile.Rows);
@@ -89,7 +100,7 @@ namespace PaintDotNet.Data.PhotoshopFileType
               0);
           break;
         case PsdFile.ColorModes.Bitmap:
-          byte bwValue = ImageDecoder.GetBitmapValue(psdFile.ImageData[0], pos);
+          byte bwValue = GetBitmapValue(psdFile.ImageData[0], pos);
           dstPixel->R = bwValue;
           dstPixel->G = bwValue;
           dstPixel->B = bwValue;
@@ -168,6 +179,7 @@ namespace PaintDotNet.Data.PhotoshopFileType
     }
 
     /////////////////////////////////////////////////////////////////////////// 
+
     unsafe private static void SetPDNColor(ColorBgra* dstPixel, PhotoshopFile.Layer layer,
         PhotoshopFile.Layer.Channel[] channels, PhotoshopFile.Layer.Channel alphaChannel, int pos)
     {
@@ -193,7 +205,7 @@ namespace PaintDotNet.Data.PhotoshopFileType
             0);
           break;
         case PsdFile.ColorModes.Bitmap:
-          byte bwValue = ImageDecoder.GetBitmapValue(channels[0].ImageData, pos);
+          byte bwValue = GetBitmapValue(channels[0].ImageData, pos);
           dstPixel->R = bwValue;
           dstPixel->G = bwValue;
           dstPixel->B = bwValue;
@@ -218,7 +230,9 @@ namespace PaintDotNet.Data.PhotoshopFileType
           break;
       }
     }
-    
+
+    /////////////////////////////////////////////////////////////////////////// 
+
     unsafe private static void SetPDNAlpha(ColorBgra* dstPixel,
       PhotoshopFile.Layer.Channel alphaChannel, int srcIndex, int maskAlpha)
     {

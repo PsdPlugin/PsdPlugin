@@ -149,7 +149,7 @@ namespace PhotoshopFile
           switch (m_layer.PsdFile.Depth)
           {
             case 1:
-              m_bytesPerRow = ImageDecoder.BytesFromBits(rect.Width);
+              m_bytesPerRow = Util.BytesFromBits(rect.Width);
               break;
             case 8:
               m_bytesPerRow = rect.Width;
@@ -229,7 +229,7 @@ namespace PhotoshopFile
           switch (m_layer.PsdFile.Depth)
           {
             case 1:
-              bytesPerRow = ImageDecoder.BytesFromBits(m_layer.m_rect.Width);
+              bytesPerRow = Util.BytesFromBits(m_layer.m_rect.Width);
               break;
             case 8:
               bytesPerRow = m_layer.m_rect.Width;

@@ -166,7 +166,7 @@ namespace PhotoshopFile
       get
       {
         if (m_colorMode == ColorModes.Bitmap)
-          return ImageDecoder.RoundUp(m_columns, 8);
+          return Util.RoundUp(m_columns, 8);
         else
           return m_columns;
       }
@@ -627,7 +627,7 @@ namespace PhotoshopFile
       switch (m_depth)
       {
         case 1:
-          bytesPerRow = ImageDecoder.BytesFromBits(m_columns);
+          bytesPerRow = Util.BytesFromBits(m_columns);
           break;
         case 8:
           bytesPerRow = m_columns;
