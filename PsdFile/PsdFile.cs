@@ -32,6 +32,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Drawing;
 using System.IO;
 using System.Text;
 using System.Threading;
@@ -474,19 +475,25 @@ namespace PhotoshopFile
       {
         foreach (Layer.Channel channel in layer.Channels)
         {
-          if (channel.ID != -2)
-          {
-            channel.LoadPixelData(reader);
-            DecompressChannelContext dcc = new DecompressChannelContext(channel);
-            WaitCallback waitCallback = new WaitCallback(dcc.DecompressChannel);
-            threadPool.QueueUserWorkItem(waitCallback);
-          }
-        }
+          Rectangle rect = (channel.ID == -2)
+            ? layer.MaskData.Rect
+            : layer.Rect;
+          channel.LoadPixelData(reader, rect);
 
-        layer.MaskData.LoadPixelData(reader);
+          DecompressChannelContext dcc = new DecompressChannelContext(channel, rect);
+
+          WaitCallback waitCallback = new WaitCallback(dcc.DecompressChannel);
+          threadPool.QueueUserWorkItem(waitCallback);
+        }
       }
 
       threadPool.Drain();
+
+      foreach (Layer layer in m_layers)
+      {
+        if (layer.SortedChannels.ContainsKey(-2))
+          layer.MaskData.ImageData = layer.SortedChannels[-2].ImageData;
+      }
 
 
       //-----------------------------------------------------------------------
@@ -722,16 +729,18 @@ namespace PhotoshopFile
     private class DecompressChannelContext
     {
       private PhotoshopFile.Layer.Channel ch;
+      private Rectangle rect;
 
-      public DecompressChannelContext(PhotoshopFile.Layer.Channel ch)
+      public DecompressChannelContext(PhotoshopFile.Layer.Channel ch, Rectangle rect)
       {
         this.ch = ch;
+        this.rect = rect;
       }
 
       public void DecompressChannel(object context)
       {
         if (ch.ImageCompression == ImageCompression.Rle)
-          ch.DecompressImageData();
+          ch.DecompressImageData(rect);
       }
     }
 

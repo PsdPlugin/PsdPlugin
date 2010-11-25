@@ -134,7 +134,7 @@ namespace PhotoshopFile
 
       //////////////////////////////////////////////////////////////////
 
-      internal void LoadPixelData(BinaryReverseReader reader)
+      internal void LoadPixelData(BinaryReverseReader reader, Rectangle rect)
       {
         Debug.WriteLine("Channel.LoadPixelData started at " + reader.BaseStream.Position.ToString());
 
@@ -149,17 +149,17 @@ namespace PhotoshopFile
           switch (m_layer.PsdFile.Depth)
           {
             case 1:
-              m_bytesPerRow = ImageDecoder.BytesFromBits(m_layer.m_rect.Width);
+              m_bytesPerRow = ImageDecoder.BytesFromBits(rect.Width);
               break;
             case 8:
-              m_bytesPerRow = m_layer.m_rect.Width;
+              m_bytesPerRow = rect.Width;
               break;
             case 16:
-              m_bytesPerRow = m_layer.m_rect.Width * 2;
+              m_bytesPerRow = rect.Width * 2;
               break;
           }
 
-          m_imageData = new byte[m_layer.m_rect.Height * m_bytesPerRow];
+          m_imageData = new byte[rect.Height * m_bytesPerRow];
 
           switch (m_imageCompression)
           {
@@ -168,7 +168,7 @@ namespace PhotoshopFile
               break;
             case ImageCompression.Rle:
               {
-                m_rowLengthList = new uint[m_layer.m_rect.Height];
+                m_rowLengthList = new uint[rect.Height];
                 uint totalRleLength = 0;
                 for (int i = 0; i < m_rowLengthList.Length; i++)
                 {
@@ -178,7 +178,7 @@ namespace PhotoshopFile
                 m_data = new byte[totalRleLength];
 
                 uint idxData = 0;
-                for (int i = 0; i < m_layer.m_rect.Height; i++)
+                for (int i = 0; i < rect.Height; i++)
                 {
                   readerImg.Read(m_data, (int)idxData, (int)m_rowLengthList[i]);
                   idxData += m_rowLengthList[i];
@@ -195,12 +195,12 @@ namespace PhotoshopFile
         }
       }
 
-      public void DecompressImageData()
+      public void DecompressImageData(Rectangle rect)
       {
         MemoryStream stream = new MemoryStream(m_data);
-        for (int i = 0; i < m_layer.m_rect.Height; i++)
+        for (int i = 0; i < rect.Height; i++)
         {
-          int rowIndex = i * m_layer.m_rect.Width;
+          int rowIndex = i * rect.Width;
           RleHelper.DecodedRow(stream, m_imageData, rowIndex, m_bytesPerRow);
         }
       }
@@ -459,77 +459,6 @@ namespace PhotoshopFile
         get { return m_imageData; }
         set { m_imageData = value; }
       }
-
-      internal void LoadPixelData(BinaryReverseReader reader)
-      {
-        Debug.WriteLine("Mask.LoadPixelData started at " + reader.BaseStream.Position.ToString());
-
-        if (m_rect.IsEmpty || m_layer.SortedChannels.ContainsKey(-2) == false)
-          return;
-
-        Channel maskChannel = m_layer.SortedChannels[-2];
-
-
-        maskChannel.Data = reader.ReadBytes((int)maskChannel.Length);
-
-
-        using (BinaryReverseReader readerImg = maskChannel.DataReader)
-        {
-          maskChannel.ImageCompression = (ImageCompression)readerImg.ReadInt16();
-
-          int bytesPerRow = 0;
-
-          switch (m_layer.PsdFile.Depth)
-          {
-            case 1:
-              bytesPerRow = ImageDecoder.BytesFromBits(m_layer.m_rect.Width);
-              break;
-            case 8:
-              bytesPerRow = m_rect.Width;
-              break;
-            case 16:
-              bytesPerRow = m_rect.Width * 2;
-              break;
-          }
-
-          maskChannel.ImageData = new byte[m_rect.Height * bytesPerRow];
-          // Fill Array
-          for (int i = 0; i < maskChannel.ImageData.Length; i++)
-          {
-            maskChannel.ImageData[i] = 0xAB;
-          }
-
-          m_imageData = (byte[])maskChannel.ImageData.Clone();
-
-          switch (maskChannel.ImageCompression)
-          {
-            case ImageCompression.Raw:
-              readerImg.Read(maskChannel.ImageData, 0, maskChannel.ImageData.Length);
-              break;
-            case ImageCompression.Rle:
-              {
-                uint[] rowLengthList = new uint[m_rect.Height];
-
-                for (int i = 0; i < rowLengthList.Length; i++)
-                  rowLengthList[i] = readerImg.ReadUInt16();
-
-                for (int i = 0; i < m_rect.Height; i++)
-                {
-                  int rowIndex = i * m_rect.Width;
-                  RleHelper.DecodedRow(readerImg.BaseStream, maskChannel.ImageData, rowIndex, bytesPerRow);
-                }
-              }
-              break;
-            default:
-              break;
-          }
-
-          m_imageData = (byte[])maskChannel.ImageData.Clone();
-
-        }
-      }
-
-      ///////////////////////////////////////////////////////////////////////////
 
     }
 
