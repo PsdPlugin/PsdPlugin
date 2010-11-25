@@ -326,7 +326,7 @@ namespace PhotoshopFile
       }
 
 
-      private static  int m_positionIsRelativeBit = BitVector32.CreateMask();
+      private static int m_positionIsRelativeBit = BitVector32.CreateMask();
       private static int m_disabledBit = BitVector32.CreateMask(m_positionIsRelativeBit);
       private static int m_invertOnBlendBit = BitVector32.CreateMask(m_disabledBit);
 

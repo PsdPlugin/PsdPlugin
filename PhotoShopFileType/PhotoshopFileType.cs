@@ -163,6 +163,7 @@ namespace PaintDotNet.Data.PhotoshopFileType
       {
         PhotoshopFile.Layer psdLayer = new PhotoshopFile.Layer(psdFile);
         BlendOpToBlendModeKey(layer.BlendOp, psdLayer);
+        psdLayer.Visible = layer.Visible;
 
         SaveLayerPixelsContext slc = new SaveLayerPixelsContext(layer, psdFile, input, psdLayer, psdToken);
         WaitCallback waitCallback = new WaitCallback(slc.SaveLayer);
