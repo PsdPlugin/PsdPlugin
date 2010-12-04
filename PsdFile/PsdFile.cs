@@ -33,6 +33,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
+using System.Globalization;
 using System.IO;
 using System.Text;
 using System.Threading;
@@ -40,12 +41,13 @@ using System.Threading;
 
 namespace PhotoshopFile
 {
+  public enum PsdColorMode
+  {
+    Bitmap = 0, Grayscale = 1, Indexed = 2, RGB = 3, CMYK = 4, Multichannel = 7, Duotone = 8, Lab = 9
+  };
+
   public class PsdFile
   {
-    public enum ColorModes
-    {
-      Bitmap = 0, Grayscale = 1, Indexed = 2, RGB = 3, CMYK = 4, Multichannel = 7, Duotone = 8, Lab = 9
-    };
 
     ///////////////////////////////////////////////////////////////////////////
 
@@ -165,7 +167,7 @@ namespace PhotoshopFile
     {
       get
       {
-        if (m_colorMode == ColorModes.Bitmap)
+        if (m_colorMode == PsdColorMode.Bitmap)
           return Util.RoundUp(m_columns, 8);
         else
           return m_columns;
@@ -188,11 +190,11 @@ namespace PhotoshopFile
       }
     }
 
-    private ColorModes m_colorMode;
+    private PsdColorMode m_colorMode;
     /// <summary>
     /// The color mode of the file.
     /// </summary>
-    public ColorModes ColorMode
+    public PsdColorMode ColorMode
     {
       get { return m_colorMode; }
       set { m_colorMode = value; }
@@ -203,7 +205,7 @@ namespace PhotoshopFile
 
     private void LoadHeader(BinaryReverseReader reader)
     {
-      Debug.WriteLine("LoadHeader started at " + reader.BaseStream.Position.ToString());
+      Debug.WriteLine("LoadHeader started at " + reader.BaseStream.Position.ToString(CultureInfo.InvariantCulture));
 
       string signature = new string(reader.ReadChars(4));
       if (signature != "8BPS")
@@ -220,14 +222,14 @@ namespace PhotoshopFile
       m_rows = reader.ReadInt32();
       m_columns = reader.ReadInt32();
       m_depth = reader.ReadInt16();
-      m_colorMode = (ColorModes)reader.ReadInt16();
+      m_colorMode = (PsdColorMode)reader.ReadInt16();
     }
 
     ///////////////////////////////////////////////////////////////////////////
 
     private void SaveHeader(BinaryReverseWriter writer)
     {
-      Debug.WriteLine("SaveHeader started at " + writer.BaseStream.Position.ToString());
+      Debug.WriteLine("SaveHeader started at " + writer.BaseStream.Position.ToString(CultureInfo.InvariantCulture));
 
       string signature = "8BPS";
       writer.Write(signature.ToCharArray());
@@ -257,7 +259,7 @@ namespace PhotoshopFile
 
     private void LoadColorModeData(BinaryReverseReader reader)
     {
-      Debug.WriteLine("LoadColorModeData started at " + reader.BaseStream.Position.ToString());
+      Debug.WriteLine("LoadColorModeData started at " + reader.BaseStream.Position.ToString(CultureInfo.InvariantCulture));
 
       uint paletteLength = reader.ReadUInt32();
       if (paletteLength > 0)
@@ -268,7 +270,7 @@ namespace PhotoshopFile
 
     private void SaveColorModeData(BinaryReverseWriter writer)
     {
-      Debug.WriteLine("SaveColorModeData started at " + writer.BaseStream.Position.ToString());
+      Debug.WriteLine("SaveColorModeData started at " + writer.BaseStream.Position.ToString(CultureInfo.InvariantCulture));
 
       writer.Write((uint)ColorModeData.Length);
       writer.Write(ColorModeData);
@@ -295,7 +297,7 @@ namespace PhotoshopFile
     // finding the ResolutionInfo.
     private static bool IsResolutionInfo(ImageResource res)
     {
-      return res.ID == (int)ResourceIDs.ResolutionInfo;
+      return res.ID == (int)ResourceID.ResolutionInfo;
     }
 
     public ResolutionInfo Resolution
@@ -320,7 +322,7 @@ namespace PhotoshopFile
 
     private void LoadImageResources(BinaryReverseReader reader)
     {
-      Debug.WriteLine("LoadImageResources started at " + reader.BaseStream.Position.ToString());
+      Debug.WriteLine("LoadImageResources started at " + reader.BaseStream.Position.ToString(CultureInfo.InvariantCulture));
 
       m_imageResources.Clear();
 
@@ -334,17 +336,17 @@ namespace PhotoshopFile
       {
         ImageResource imgRes = new ImageResource(reader);
 
-        ResourceIDs resID = (ResourceIDs)imgRes.ID;
+        ResourceID resID = (ResourceID)imgRes.ID;
         switch (resID)
         {
-          case ResourceIDs.ResolutionInfo:
+          case ResourceID.ResolutionInfo:
             imgRes = new ResolutionInfo(imgRes);
             break;
-          case ResourceIDs.Thumbnail1:
-          case ResourceIDs.Thumbnail2:
+          case ResourceID.Thumbnail1:
+          case ResourceID.Thumbnail2:
             imgRes = new Thumbnail(imgRes);
             break;
-          case ResourceIDs.AlphaChannelNames:
+          case ResourceID.AlphaChannelNames:
             imgRes = new AlphaChannels(imgRes);
             break;
         }
@@ -363,7 +365,7 @@ namespace PhotoshopFile
 
     private void SaveImageResources(BinaryReverseWriter writer)
     {
-     Debug.WriteLine("SaveImageResources started at " + writer.BaseStream.Position.ToString());
+     Debug.WriteLine("SaveImageResources started at " + writer.BaseStream.Position.ToString(CultureInfo.InvariantCulture));
 
       using (new LengthWriter(writer))
       {
@@ -399,7 +401,7 @@ namespace PhotoshopFile
 
     private void LoadLayerAndMaskInfo(BinaryReverseReader reader)
     {
-      Debug.WriteLine("LoadLayerAndMaskInfo started at " + reader.BaseStream.Position.ToString());
+      Debug.WriteLine("LoadLayerAndMaskInfo started at " + reader.BaseStream.Position.ToString(CultureInfo.InvariantCulture));
 
       uint layersAndMaskLength = reader.ReadUInt32();
 
@@ -426,7 +428,7 @@ namespace PhotoshopFile
 
     private void SaveLayerAndMaskInfo(BinaryReverseWriter writer)
     {
-      Debug.WriteLine("SaveLayerAndMaskInfo started at " + writer.BaseStream.Position.ToString());
+      Debug.WriteLine("SaveLayerAndMaskInfo started at " + writer.BaseStream.Position.ToString(CultureInfo.InvariantCulture));
 
       using (new LengthWriter(writer))
       {
@@ -439,7 +441,7 @@ namespace PhotoshopFile
 
     private void LoadLayers(BinaryReverseReader reader)
     {
-      Debug.WriteLine("LoadLayers started at " + reader.BaseStream.Position.ToString());
+      Debug.WriteLine("LoadLayers started at " + reader.BaseStream.Position.ToString(CultureInfo.InvariantCulture));
 
       uint layersInfoSectionLength = reader.ReadUInt32();
 
@@ -511,7 +513,7 @@ namespace PhotoshopFile
 
     private void SaveLayers(BinaryReverseWriter writer)
     {
-      Debug.WriteLine("SaveLayers started at " + writer.BaseStream.Position.ToString());
+      Debug.WriteLine("SaveLayers started at " + writer.BaseStream.Position.ToString(CultureInfo.InvariantCulture));
 
       using (new LengthWriter(writer))
       {
@@ -553,7 +555,7 @@ namespace PhotoshopFile
 
     private void LoadGlobalLayerMask(BinaryReverseReader reader)
     {
-      Debug.WriteLine("LoadGlobalLayerMask started at " + reader.BaseStream.Position.ToString());
+      Debug.WriteLine("LoadGlobalLayerMask started at " + reader.BaseStream.Position.ToString(CultureInfo.InvariantCulture));
 
       uint maskLength = reader.ReadUInt32();
 
@@ -567,7 +569,7 @@ namespace PhotoshopFile
 
     private void SaveGlobalLayerMask(BinaryReverseWriter writer)
     {
-      Debug.WriteLine("SaveGlobalLayerMask started at " + writer.BaseStream.Position.ToString());
+      Debug.WriteLine("SaveGlobalLayerMask started at " + writer.BaseStream.Position.ToString(CultureInfo.InvariantCulture));
 
       writer.Write((uint)GlobalLayerMaskData.Length);
       writer.Write(GlobalLayerMaskData);
@@ -605,7 +607,7 @@ namespace PhotoshopFile
 
     private void LoadImage(BinaryReverseReader reader)
     {
-      Debug.WriteLine("LoadImage started at " + reader.BaseStream.Position.ToString());
+      Debug.WriteLine("LoadImage started at " + reader.BaseStream.Position.ToString(CultureInfo.InvariantCulture));
 
       m_imageCompression = (ImageCompression)reader.ReadInt16();
 
@@ -667,7 +669,7 @@ namespace PhotoshopFile
 
     private void SaveImage(BinaryReverseWriter writer)
     {
-      Debug.WriteLine("SaveImage started at " + writer.BaseStream.Position.ToString());
+      Debug.WriteLine("SaveImage started at " + writer.BaseStream.Position.ToString(CultureInfo.InvariantCulture));
 
       writer.Write((short)m_imageCompression);
 

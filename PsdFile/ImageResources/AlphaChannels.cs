@@ -37,7 +37,7 @@ namespace PhotoshopFile
       get { return m_channelNames; }
     }
 
-    public AlphaChannels(): base((short)ResourceIDs.AlphaChannelNames)
+    public AlphaChannels(): base((short)ResourceID.AlphaChannelNames)
     {
     }
 

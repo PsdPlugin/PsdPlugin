@@ -31,11 +31,12 @@
 
 using System;
 using System.Diagnostics;
+using System.Globalization;
 
 namespace PhotoshopFile
 {
 
-  public enum ResourceIDs
+  public enum ResourceID
   {
     Undefined = 0,
     MacPrintInfo = 1001,
@@ -177,7 +178,7 @@ namespace PhotoshopFile
     {
       StoreData();
 
-      if (m_osType == String.Empty)
+      if (String.IsNullOrEmpty(m_osType))
         m_osType = "8BIM";
 
       writer.Write(m_osType.ToCharArray());
@@ -213,7 +214,7 @@ namespace PhotoshopFile
 
     public override string ToString()
     {
-      return String.Format("{0} {1}", (ResourceIDs)m_id, m_name);
+      return String.Format(CultureInfo.InvariantCulture, "{0} {1}", (ResourceID)m_id, m_name);
     }
   }
 }

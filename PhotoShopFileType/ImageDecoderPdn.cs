@@ -33,7 +33,7 @@ using PhotoshopFile;
 
 namespace PaintDotNet.Data.PhotoshopFileType
 {
-  class ImageDecoderPdn
+  static class ImageDecoderPdn
   {
 
     public static byte GetBitmapValue(byte[] bitmap, int pos)
@@ -80,44 +80,44 @@ namespace PaintDotNet.Data.PhotoshopFileType
     {
       switch (psdFile.ColorMode)
       {
-        case PsdFile.ColorModes.RGB:
+        case PsdColorMode.RGB:
           dstPixel->R = psdFile.ImageData[0][pos];
           dstPixel->G = psdFile.ImageData[1][pos];
           dstPixel->B = psdFile.ImageData[2][pos];
           break;
-        case PsdFile.ColorModes.CMYK:
+        case PsdColorMode.CMYK:
           SetPDNColorCMYK(dstPixel,
               psdFile.ImageData[0][pos],
               psdFile.ImageData[1][pos],
               psdFile.ImageData[2][pos],
               psdFile.ImageData[3][pos]);
           break;
-        case PsdFile.ColorModes.Multichannel:
+        case PsdColorMode.Multichannel:
           SetPDNColorCMYK(dstPixel,
               psdFile.ImageData[0][pos],
               psdFile.ImageData[1][pos],
               psdFile.ImageData[2][pos],
               0);
           break;
-        case PsdFile.ColorModes.Bitmap:
+        case PsdColorMode.Bitmap:
           byte bwValue = GetBitmapValue(psdFile.ImageData[0], pos);
           dstPixel->R = bwValue;
           dstPixel->G = bwValue;
           dstPixel->B = bwValue;
           break;
-        case PsdFile.ColorModes.Grayscale:
-        case PsdFile.ColorModes.Duotone:
+        case PsdColorMode.Grayscale:
+        case PsdColorMode.Duotone:
           dstPixel->R = psdFile.ImageData[0][pos];
           dstPixel->G = psdFile.ImageData[0][pos];
           dstPixel->B = psdFile.ImageData[0][pos];
           break;
-        case PsdFile.ColorModes.Indexed:
+        case PsdColorMode.Indexed:
           int index = (int)psdFile.ImageData[0][pos];
           dstPixel->R = (byte)psdFile.ColorModeData[index];
           dstPixel->G = psdFile.ColorModeData[index + 256];
           dstPixel->B = psdFile.ColorModeData[index + 2 * 256];
           break;
-        case PsdFile.ColorModes.Lab:
+        case PsdColorMode.Lab:
           SetPDNColorLab(dstPixel,
             psdFile.ImageData[0][pos],
             psdFile.ImageData[1][pos],
@@ -185,44 +185,44 @@ namespace PaintDotNet.Data.PhotoshopFileType
     {
       switch (layer.PsdFile.ColorMode)
       {
-        case PsdFile.ColorModes.RGB:
+        case PsdColorMode.RGB:
           dstPixel->R = channels[0].ImageData[pos];
           dstPixel->G = channels[1].ImageData[pos];
           dstPixel->B = channels[2].ImageData[pos];
           break;
-        case PsdFile.ColorModes.CMYK:
+        case PsdColorMode.CMYK:
           SetPDNColorCMYK(dstPixel,
             channels[0].ImageData[pos],
             channels[1].ImageData[pos],
             channels[2].ImageData[pos],
             channels[3].ImageData[pos]);
           break;
-        case PsdFile.ColorModes.Multichannel:
+        case PsdColorMode.Multichannel:
           SetPDNColorCMYK(dstPixel,
             channels[0].ImageData[pos],
             channels[1].ImageData[pos],
             channels[2].ImageData[pos],
             0);
           break;
-        case PsdFile.ColorModes.Bitmap:
+        case PsdColorMode.Bitmap:
           byte bwValue = GetBitmapValue(channels[0].ImageData, pos);
           dstPixel->R = bwValue;
           dstPixel->G = bwValue;
           dstPixel->B = bwValue;
           break;
-        case PsdFile.ColorModes.Grayscale:
-        case PsdFile.ColorModes.Duotone:
+        case PsdColorMode.Grayscale:
+        case PsdColorMode.Duotone:
           dstPixel->R = channels[0].ImageData[pos];
           dstPixel->G = channels[0].ImageData[pos];
           dstPixel->B = channels[0].ImageData[pos];
           break;
-        case PsdFile.ColorModes.Indexed:
+        case PsdColorMode.Indexed:
           int index = (int)channels[0].ImageData[pos];
           dstPixel->R = (byte)layer.PsdFile.ColorModeData[index];
           dstPixel->G = layer.PsdFile.ColorModeData[index + 256];
           dstPixel->B = layer.PsdFile.ColorModeData[index + 2 * 256];
           break;
-        case PsdFile.ColorModes.Lab:
+        case PsdColorMode.Lab:
           SetPDNColorLab(dstPixel,
             channels[0].ImageData[pos],
             channels[1].ImageData[pos],

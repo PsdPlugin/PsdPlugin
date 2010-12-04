@@ -87,7 +87,7 @@ namespace PaintDotNet.Data.PhotoshopFileType
       psdFile.Channels = 4;
 
       // for now we oly save the images as RGB
-      psdFile.ColorMode = PsdFile.ColorModes.RGB;
+      psdFile.ColorMode = PsdColorMode.RGB;
 
       psdFile.Depth = 8;
 
@@ -260,7 +260,7 @@ namespace PaintDotNet.Data.PhotoshopFileType
       }
     }
 
-    private void BlendOpToBlendModeKey(UserBlendOp op, PhotoshopFile.Layer layer)
+    private static void BlendOpToBlendModeKey(UserBlendOp op, PhotoshopFile.Layer layer)
     {
 
       switch (op.ToString())
@@ -313,7 +313,7 @@ namespace PaintDotNet.Data.PhotoshopFileType
       }
     }
 
-    private UserBlendOp BlendModeKeyToBlendOp(PhotoshopFile.Layer layer)
+    private static UserBlendOp BlendModeKeyToBlendOp(PhotoshopFile.Layer layer)
     {
       UserBlendOp blendOp = UserBlendOps.CreateBlendOp(typeof(UserBlendOps.NormalBlendOp));
       switch (layer.BlendModeKey)
@@ -394,7 +394,7 @@ namespace PaintDotNet.Data.PhotoshopFileType
           if (!l.Rect.IsEmpty)
           {
             layersList.Add(null);
-            LoadLayerContext llc = new LoadLayerContext(l, document, BlendModeKeyToBlendOp(l), layersList, layersList.Count - 1);
+            LoadLayerContext llc = new LoadLayerContext(l, BlendModeKeyToBlendOp(l), layersList, layersList.Count - 1);
             WaitCallback waitCallback = new WaitCallback(llc.LoadLayer);
             threadPool.QueueUserWorkItem(waitCallback); 
           }
@@ -437,15 +437,13 @@ namespace PaintDotNet.Data.PhotoshopFileType
     private class LoadLayerContext
     {
       PhotoshopFile.Layer psdLayer;
-      Document document;
       UserBlendOp blendOp;
       List<Layer> layersList;
       int idxLayersList;
 
-      public LoadLayerContext(PhotoshopFile.Layer psdLayer, Document document, UserBlendOp blendOp, List<Layer> layersList, int idxLayersList)
+      public LoadLayerContext(PhotoshopFile.Layer psdLayer, UserBlendOp blendOp, List<Layer> layersList, int idxLayersList)
       {
         this.psdLayer = psdLayer;
-        this.document = document;
         this.blendOp = blendOp;
         this.layersList = layersList;
         this.idxLayersList = idxLayersList;

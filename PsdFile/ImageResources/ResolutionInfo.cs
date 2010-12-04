@@ -110,7 +110,7 @@ namespace PhotoshopFile
 
     public ResolutionInfo(): base()
     {
-      base.ID = (short)ResourceIDs.ResolutionInfo;
+      base.ID = (short)ResourceID.ResolutionInfo;
     }
     public ResolutionInfo(ImageResource imgRes)
       : base(imgRes)

@@ -34,6 +34,7 @@ using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.Diagnostics;
 using System.Drawing;
+using System.Globalization;
 using System.IO;
 using System.Text;
 using System.Threading;
@@ -116,7 +117,7 @@ namespace PhotoshopFile
 
       internal Channel(BinaryReverseReader reader, Layer layer)
       {
-        Debug.WriteLine("Channel started at " + reader.BaseStream.Position.ToString());
+        Debug.WriteLine("Channel started at " + reader.BaseStream.Position.ToString(CultureInfo.InvariantCulture));
         
         m_id = reader.ReadInt16();
         Length = reader.ReadInt32();
@@ -126,7 +127,7 @@ namespace PhotoshopFile
 
       internal void Save(BinaryReverseWriter writer)
       {
-        Debug.WriteLine("Channel Save started at " + writer.BaseStream.Position.ToString());
+        Debug.WriteLine("Channel Save started at " + writer.BaseStream.Position.ToString(CultureInfo.InvariantCulture));
 
         writer.Write(m_id);
         writer.Write(Data.Length+2); // 2 bytes for the image compression tag
@@ -136,7 +137,7 @@ namespace PhotoshopFile
 
       internal void LoadPixelData(BinaryReverseReader reader, Rectangle rect)
       {
-        Debug.WriteLine("Channel.LoadPixelData started at " + reader.BaseStream.Position.ToString());
+        Debug.WriteLine("Channel.LoadPixelData started at " + reader.BaseStream.Position.ToString(CultureInfo.InvariantCulture));
 
         m_data = reader.ReadBytes((int)Length);
 
@@ -275,7 +276,7 @@ namespace PhotoshopFile
 
       internal void SavePixelData(BinaryReverseWriter writer)
       {
-        Debug.WriteLine("Channel SavePixelData started at " + writer.BaseStream.Position.ToString());
+        Debug.WriteLine("Channel SavePixelData started at " + writer.BaseStream.Position.ToString(CultureInfo.InvariantCulture));
 
         writer.Write((short)m_imageCompression);
         writer.Write(m_data);
@@ -326,9 +327,9 @@ namespace PhotoshopFile
       }
 
 
-      private static int m_positionIsRelativeBit = BitVector32.CreateMask();
-      private static int m_disabledBit = BitVector32.CreateMask(m_positionIsRelativeBit);
-      private static int m_invertOnBlendBit = BitVector32.CreateMask(m_disabledBit);
+      private static int positionIsRelativeBit = BitVector32.CreateMask();
+      private static int disabledBit = BitVector32.CreateMask(positionIsRelativeBit);
+      private static int invertOnBlendBit = BitVector32.CreateMask(disabledBit);
 
       private BitVector32 m_flags = new BitVector32();
       /// <summary>
@@ -338,18 +339,18 @@ namespace PhotoshopFile
       {
         get
         {
-          return m_flags[m_positionIsRelativeBit];
+          return m_flags[positionIsRelativeBit];
         }
         set
         {
-          m_flags[m_positionIsRelativeBit] = value;
+          m_flags[positionIsRelativeBit] = value;
         }
       }
 
       public bool Disabled
       {
-        get { return m_flags[m_disabledBit]; }
-        set { m_flags[m_disabledBit] = value; }
+        get { return m_flags[disabledBit]; }
+        set { m_flags[disabledBit] = value; }
       }
 
       /// <summary>
@@ -357,8 +358,8 @@ namespace PhotoshopFile
       /// </summary>
       public bool InvertOnBlendBit
       {
-        get { return m_flags[m_invertOnBlendBit]; }
-        set { m_flags[m_invertOnBlendBit] = value; }
+        get { return m_flags[invertOnBlendBit]; }
+        set { m_flags[invertOnBlendBit] = value; }
       }
 
       ///////////////////////////////////////////////////////////////////////////
@@ -373,7 +374,7 @@ namespace PhotoshopFile
 
       internal Mask(BinaryReverseReader reader, Layer layer)
       {
-        Debug.WriteLine("Mask started at " + reader.BaseStream.Position.ToString());
+        Debug.WriteLine("Mask started at " + reader.BaseStream.Position.ToString(CultureInfo.InvariantCulture));
 
         m_layer = layer;
 
@@ -423,7 +424,7 @@ namespace PhotoshopFile
 
       public void Save(BinaryReverseWriter writer)
       {
-        Debug.WriteLine("Mask Save started at " + writer.BaseStream.Position.ToString());
+        Debug.WriteLine("Mask Save started at " + writer.BaseStream.Position.ToString(CultureInfo.InvariantCulture));
 
         if (m_rect.IsEmpty)
         {
@@ -496,7 +497,7 @@ namespace PhotoshopFile
 
       public BlendingRanges(BinaryReverseReader reader, Layer layer)
       {
-        Debug.WriteLine("BlendingRanges started at " + reader.BaseStream.Position.ToString());
+        Debug.WriteLine("BlendingRanges started at " + reader.BaseStream.Position.ToString(CultureInfo.InvariantCulture));
 
         m_layer = layer;
         int dataLength = reader.ReadInt32();
@@ -510,7 +511,7 @@ namespace PhotoshopFile
 
       public void Save(BinaryReverseWriter writer)
       {
-        Debug.WriteLine("BlendingRanges Save started at " + writer.BaseStream.Position.ToString());
+        Debug.WriteLine("BlendingRanges Save started at " + writer.BaseStream.Position.ToString(CultureInfo.InvariantCulture));
 
         writer.Write((uint)m_data.Length);
         writer.Write(m_data);
@@ -522,13 +523,6 @@ namespace PhotoshopFile
     public class AdjustmentLayerInfo
     {
       private Layer m_layer;
-      /// <summary>
-      /// The layer to which this info belongs
-      /// </summary>
-      internal Layer Layer
-      {
-        get { return m_layer; }
-      }
 
       private string m_key;
       public string Key
@@ -553,7 +547,7 @@ namespace PhotoshopFile
 
       public AdjustmentLayerInfo(BinaryReverseReader reader, Layer layer)
       {
-        Debug.WriteLine("AdjustmentLayerInfo started at " + reader.BaseStream.Position.ToString());
+        Debug.WriteLine("AdjustmentLayerInfo started at " + reader.BaseStream.Position.ToString(CultureInfo.InvariantCulture));
 
         m_layer = layer;
 
@@ -571,7 +565,7 @@ namespace PhotoshopFile
 
       public void Save(BinaryReverseWriter writer)
       {
-        Debug.WriteLine("AdjustmentLayerInfo Save started at " + writer.BaseStream.Position.ToString());
+        Debug.WriteLine("AdjustmentLayerInfo Save started at " + writer.BaseStream.Position.ToString(CultureInfo.InvariantCulture));
 
         string signature = "8BIM";
 
@@ -727,8 +721,8 @@ namespace PhotoshopFile
       set { m_clipping = value; }
     }
 
-    private static int m_protectTransBit = BitVector32.CreateMask();
-    private static int m_visibleBit = BitVector32.CreateMask(m_protectTransBit);
+    private static int protectTransBit = BitVector32.CreateMask();
+    private static int visibleBit = BitVector32.CreateMask(protectTransBit);
 
     BitVector32 m_flags = new BitVector32();
 
@@ -737,8 +731,8 @@ namespace PhotoshopFile
     /// </summary>
     public bool Visible
     {
-      get { return !m_flags[m_visibleBit]; }
-      set { m_flags[m_visibleBit] = !value; }
+      get { return !m_flags[visibleBit]; }
+      set { m_flags[visibleBit] = !value; }
     }
 
 
@@ -747,8 +741,8 @@ namespace PhotoshopFile
     /// </summary>
     public bool ProtectTrans
     {
-      get { return m_flags[m_protectTransBit]; }
-      set { m_flags[m_protectTransBit] = value; }
+      get { return m_flags[protectTransBit]; }
+      set { m_flags[protectTransBit] = value; }
     }
 
 
@@ -793,7 +787,7 @@ namespace PhotoshopFile
 
     public Layer(BinaryReverseReader reader, PsdFile psdFile)
     {
-      Debug.WriteLine("Layer started at " + reader.BaseStream.Position.ToString());
+      Debug.WriteLine("Layer started at " + reader.BaseStream.Position.ToString(CultureInfo.InvariantCulture));
 
       m_psdFile = psdFile;
       m_rect = new Rectangle();
@@ -817,7 +811,7 @@ namespace PhotoshopFile
 
       string signature = new string(reader.ReadChars(4));
       if (signature != "8BIM")
-        throw (new IOException("Layer Channelheader error!"));
+        throw (new IOException("Layer ChannelHeader error!"));
 
       m_blendModeKey = new string(reader.ReadChars(4));
       m_opacity = reader.ReadByte();
@@ -835,7 +829,7 @@ namespace PhotoshopFile
 
       //-----------------------------------------------------------------------
 
-      Debug.WriteLine("Layer extraDataSize started at " + reader.BaseStream.Position.ToString());
+      Debug.WriteLine("Layer extraDataSize started at " + reader.BaseStream.Position.ToString(CultureInfo.InvariantCulture));
 
       // this is the total size of the MaskData, the BlendingRangesData, the 
       // Name and the AdjustmentLayerInfo
@@ -897,7 +891,7 @@ namespace PhotoshopFile
 
     public void Save(BinaryReverseWriter writer)
     {
-      Debug.WriteLine("Layer Save started at " + writer.BaseStream.Position.ToString());
+      Debug.WriteLine("Layer Save started at " + writer.BaseStream.Position.ToString(CultureInfo.InvariantCulture));
 
       writer.Write(m_rect.Top);
       writer.Write(m_rect.Left);

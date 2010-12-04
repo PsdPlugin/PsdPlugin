@@ -50,7 +50,7 @@ namespace PhotoshopFile
       short val = base.ReadInt16();
       unsafe
       {
-        this.SwapBytes((byte*)&val, 2);
+        SwapBytes((byte*)&val, 2);
       }
       return val;
     }
@@ -59,7 +59,7 @@ namespace PhotoshopFile
       int val = base.ReadInt32();
       unsafe
       {
-        this.SwapBytes((byte*)&val, 4);
+        SwapBytes((byte*)&val, 4);
       }
       return val;
     }
@@ -68,7 +68,7 @@ namespace PhotoshopFile
       long val = base.ReadInt64();
       unsafe
       {
-        this.SwapBytes((byte*)&val, 8);
+        SwapBytes((byte*)&val, 8);
       }
       return val;
     }
@@ -78,7 +78,7 @@ namespace PhotoshopFile
       ushort val = base.ReadUInt16();
       unsafe
       {
-        this.SwapBytes((byte*)&val, 2);
+        SwapBytes((byte*)&val, 2);
       }
       return val;
     }
@@ -88,7 +88,7 @@ namespace PhotoshopFile
       uint val = base.ReadUInt32();
       unsafe
       {
-        this.SwapBytes((byte*)&val, 4);
+        SwapBytes((byte*)&val, 4);
       }
       return val;
     }
@@ -98,7 +98,7 @@ namespace PhotoshopFile
       ulong val = base.ReadUInt64();
       unsafe
       {
-        this.SwapBytes((byte*)&val, 8);
+        SwapBytes((byte*)&val, 8);
       }
       return val;
     }
@@ -119,7 +119,7 @@ namespace PhotoshopFile
 
     //////////////////////////////////////////////////////////////////
 
-    unsafe protected void SwapBytes(byte* ptr, int nLength)
+    unsafe static protected void SwapBytes(byte* ptr, int nLength)
     {
       for (long i = 0; i < nLength / 2; ++i)
       {
@@ -168,71 +168,71 @@ namespace PhotoshopFile
         Flush();
     }
 
-    public override void Write(short val)
+    public override void Write(short value)
     {
       unsafe
       {
-        this.SwapBytes((byte*)&val, 2);
+        SwapBytes((byte*)&value, 2);
       }
-      base.Write(val);
+      base.Write(value);
 
       if (AutoFlush)
         Flush();
     }
-    public override void Write(int val)
+    public override void Write(int value)
     {
       unsafe
       {
-        this.SwapBytes((byte*)&val, 4);
+        SwapBytes((byte*)&value, 4);
       }
-      base.Write(val);
+      base.Write(value);
 
       if (AutoFlush)
         Flush();
     }
-    public override void Write(long val)
+    public override void Write(long value)
     {
       unsafe
       {
-        this.SwapBytes((byte*)&val, 8);
+        SwapBytes((byte*)&value, 8);
       }
-      base.Write(val);
-
-      if (AutoFlush)
-        Flush();
-    }
-
-    public override void Write(ushort val)
-    {
-      unsafe
-      {
-        this.SwapBytes((byte*)&val, 2);
-      }
-      base.Write(val);
+      base.Write(value);
 
       if (AutoFlush)
         Flush();
     }
 
-    public override void Write(uint val)
+    public override void Write(ushort value)
     {
       unsafe
       {
-        this.SwapBytes((byte*)&val, 4);
+        SwapBytes((byte*)&value, 2);
       }
-      base.Write(val);
+      base.Write(value);
 
       if (AutoFlush)
         Flush();
     }
 
-    public override void Write(ulong val)
+    public override void Write(uint value)
     {
       unsafe
       {
-        this.SwapBytes((byte*)&val, 8);
+        SwapBytes((byte*)&value, 4);
       }
-      base.Write(val);
+      base.Write(value);
+
+      if (AutoFlush)
+        Flush();
+    }
+
+    public override void Write(ulong value)
+    {
+      unsafe
+      {
+        SwapBytes((byte*)&value, 8);
+      }
+      base.Write(value);
 
       if (AutoFlush)
         Flush();
@@ -240,7 +240,7 @@ namespace PhotoshopFile
 
     //////////////////////////////////////////////////////////////////
 
-    unsafe protected void SwapBytes(byte* ptr, int nLength)
+    unsafe static protected void SwapBytes(byte* ptr, int nLength)
     {
       for (long i = 0; i < nLength / 2; ++i)
       {
