@@ -157,11 +157,6 @@ namespace PhotoshopFile
     public ImageResource(BinaryReverseReader reader)
     {
       m_osType = new string(reader.ReadChars(4));
-      if (m_osType != "8BIM" && m_osType != "MeSa")
-      {
-        throw new InvalidOperationException("Could not read an image resource");
-      }
-
       m_id = reader.ReadInt16();
       m_name = reader.ReadPascalString();
 
