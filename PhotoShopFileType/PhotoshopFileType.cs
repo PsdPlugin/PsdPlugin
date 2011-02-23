@@ -138,20 +138,22 @@ namespace PaintDotNet.Data.PhotoshopFileType
           input.Render(ra, true);
         }
 
-        for (int y = 0; y < psdFile.Rows; y++)
+        unsafe
         {
-          int rowIndex = y * psdFile.Columns;
-
-          for (int x = 0; x < psdFile.Columns; x++)
+          for (int y = 0; y < psdFile.Rows; y++)
           {
-            int pos = rowIndex + x;
+            int rowIndex = y * psdFile.Columns;
+            ColorBgra* srcRow = surface.GetRowAddressUnchecked(y);
 
-            ColorBgra pixelColor = surface.GetPoint(x, y);
+            for (int x = 0; x < psdFile.Columns; x++)
+            {
+              int pos = rowIndex + x;
 
-            psdFile.ImageData[0][pos] = pixelColor.R;
-            psdFile.ImageData[1][pos] = pixelColor.G;
-            psdFile.ImageData[2][pos] = pixelColor.B;
-            psdFile.ImageData[3][pos] = pixelColor.A;
+              psdFile.ImageData[0][pos] = srcRow[x].R;
+              psdFile.ImageData[1][pos] = srcRow[x].G;
+              psdFile.ImageData[2][pos] = srcRow[x].B;
+              psdFile.ImageData[3][pos] = srcRow[x].A;
+            }
           }
         }
       }
@@ -167,29 +169,32 @@ namespace PaintDotNet.Data.PhotoshopFileType
         int rectRight = 0;
         int rectBottom = 0;
 
-        // Determine the real size of this layer, i.e., the largest rectangle surrounding all non-invisible pixels
-        for (int y = 0; y < psdFile.Rows; y++)
+        // Determine the real size of this layer, i.e., the smallest rectangle
+        // that includes all all non-invisible pixels
+        unsafe
         {
-          int rowIndex = y * psdFile.Columns;
-
-          for (int x = 0; x < psdFile.Columns; x++)
+          for (int y = 0; y < psdFile.Rows; y++)
           {
-            int pos = rowIndex + x;
-
-            ColorBgra pixelColor = surface.GetPoint(x, y);
-
-            // Found a non-transparent pixel, potentially increase the size of the rectangle
-            if (pixelColor.A > 0)
+            int rowIndex = y * psdFile.Columns;
+            ColorBgra* srcRow = surface.GetRowAddressUnchecked(y);
+            
+            for (int x = 0; x < psdFile.Columns; x++)
             {
-              // Expand the rectangle
-              if (x < rectLeft)
-                rectLeft = x;
-              if (x > rectRight)
-                rectRight = x;
-              if (y < rectTop)
-                rectTop = y;
-              if (y > rectBottom)
-                rectBottom = y;
+              int pos = rowIndex + x;
+
+              // Found a non-transparent pixel, potentially increase the size of the rectangle
+              if (srcRow[x].A > 0)
+              {
+                // Expand the rectangle
+                if (x < rectLeft)
+                  rectLeft = x;
+                if (x > rectRight)
+                  rectRight = x;
+                if (y < rectTop)
+                  rectTop = y;
+                if (y > rectBottom)
+                  rectBottom = y;
+              }
             }
           }
         }
@@ -216,20 +221,23 @@ namespace PaintDotNet.Data.PhotoshopFileType
         var channels = psdLayer.ChannelsArray;
         var alphaChannel = psdLayer.AlphaChannel;
 
-        for (int y = 0; y < psdLayer.Rect.Height; y++)
+        unsafe
         {
-          int rowIndex = y * psdLayer.Rect.Width;
-
-          for (int x = 0; x < psdLayer.Rect.Width; x++)
+          for (int y = 0; y < psdLayer.Rect.Height; y++)
           {
-            int pos = rowIndex + x;
+            int rowIndex = y * psdLayer.Rect.Width;
+            ColorBgra* srcRow = surface.GetRowAddressUnchecked(y + psdLayer.Rect.Top);
 
-            ColorBgra pixelColor = surface.GetPoint(x + psdLayer.Rect.Left, y + psdLayer.Rect.Top);
+            for (int x = 0; x < psdLayer.Rect.Width; x++)
+            {
+              int pos = rowIndex + x;
+              int srcIndex = x + psdLayer.Rect.Left;
 
-            channels[0].ImageData[pos] = pixelColor.R;
-            channels[1].ImageData[pos] = pixelColor.G;
-            channels[2].ImageData[pos] = pixelColor.B;
-            alphaChannel.ImageData[pos] = pixelColor.A;
+              channels[0].ImageData[pos] = srcRow[srcIndex].R;
+              channels[1].ImageData[pos] = srcRow[srcIndex].G;
+              channels[2].ImageData[pos] = srcRow[srcIndex].B;
+              alphaChannel.ImageData[pos] = srcRow[srcIndex].A;
+            }
           }
         }
       }
