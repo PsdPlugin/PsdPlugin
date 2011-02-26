@@ -262,47 +262,48 @@ namespace PaintDotNet.Data.PhotoshopFileType
 
     private static void BlendOpToBlendModeKey(UserBlendOp op, PhotoshopFile.Layer layer)
     {
-
       switch (op.ToString())
       {
         case "Normal":
           layer.BlendModeKey = "norm";
           break;
-        case "Multiply":
-          layer.BlendModeKey = "mul ";
-          break;
         case "Additive":
-          layer.BlendModeKey = "norm";
+          layer.BlendModeKey = "lddg";
           break;
-        case "ColorBurn":
-          layer.BlendModeKey = "div ";
-          break;
-        case "ColorDodge":
+        case "Color Burn":
           layer.BlendModeKey = "idiv";
           break;
-        case "Reflect":
-          layer.BlendModeKey = "norm";
-          break;
-        case "Glow":
-          layer.BlendModeKey = "norm";
-          break;
-        case "Overlay":
-          layer.BlendModeKey = "over";
-          break;
-        case "Difference":
-          layer.BlendModeKey = "diff";
-          break;
-        case "Negation":
-          layer.BlendModeKey = "norm";
-          break;
-        case "Lighten":
-          layer.BlendModeKey = "lite";
+        case "Color Dodge":
+          layer.BlendModeKey = "div ";
           break;
         case "Darken":
           layer.BlendModeKey = "dark";
           break;
+        case "Difference":
+          layer.BlendModeKey = "diff";
+          break;
+        case "Lighten":
+          layer.BlendModeKey = "lite";
+          break;
+        case "Multiply":
+          layer.BlendModeKey = "mul ";
+          break;
+        case "Overlay":
+          layer.BlendModeKey = "over";
+          break;
         case "Screen":
           layer.BlendModeKey = "scrn";
+          break;
+
+        // Paint.NET blend modes without a Photoshop equivalent are saved as Normal
+        case "Glow":
+          layer.BlendModeKey = "norm";
+          break;
+        case "Negation":
+          layer.BlendModeKey = "norm";
+          break;
+        case "Reflect":
+          layer.BlendModeKey = "norm";
           break;
         case "Xor":
           layer.BlendModeKey = "norm";
@@ -324,42 +325,49 @@ namespace PaintDotNet.Data.PhotoshopFileType
         case "dark":
           blendOp = UserBlendOps.CreateBlendOp(typeof(UserBlendOps.DarkenBlendOp));
           break;
-        case "lite":
-          blendOp = UserBlendOps.CreateBlendOp(typeof(UserBlendOps.LightenBlendOp));
-          break;
-        case "hue ":
-          break;
-        case "sat ":
-          break;
-        case "colr":
-          break;
-        case "lum ":
-          break;
-        case "mul ":
-          blendOp = UserBlendOps.CreateBlendOp(typeof(UserBlendOps.MultiplyBlendOp));
-          break;
-        case "scrn":
-          blendOp = UserBlendOps.CreateBlendOp(typeof(UserBlendOps.ScreenBlendOp));
-          break;
-        case "diss":
-          break;
-        case "over":
-          blendOp = UserBlendOps.CreateBlendOp(typeof(UserBlendOps.OverlayBlendOp));
-          break;
-        case "hLit":
-          break;
-        case "sLit":
-          break;
         case "diff":
           blendOp = UserBlendOps.CreateBlendOp(typeof(UserBlendOps.DifferenceBlendOp));
-          break;
-        case "smud":
           break;
         case "div ":
           blendOp = UserBlendOps.CreateBlendOp(typeof(UserBlendOps.ColorDodgeBlendOp));
           break;
         case "idiv":
           blendOp = UserBlendOps.CreateBlendOp(typeof(UserBlendOps.ColorBurnBlendOp));
+          break;
+        case "lddg":
+          blendOp = UserBlendOps.CreateBlendOp(typeof(UserBlendOps.AdditiveBlendOp));
+          break;
+        case "lite":
+          blendOp = UserBlendOps.CreateBlendOp(typeof(UserBlendOps.LightenBlendOp));
+          break;
+        case "mul ":
+          blendOp = UserBlendOps.CreateBlendOp(typeof(UserBlendOps.MultiplyBlendOp));
+          break;
+        case "over":
+          blendOp = UserBlendOps.CreateBlendOp(typeof(UserBlendOps.OverlayBlendOp));
+          break;
+        case "scrn":
+          blendOp = UserBlendOps.CreateBlendOp(typeof(UserBlendOps.ScreenBlendOp));
+          break;
+
+        // Photoshop blend modes without a Paint.NET equivalent are loaded as Normal
+        case "colr":
+          break;
+        case "diss":
+          break;
+        case "hLit":
+          break;
+        case "hue ":
+          break;
+        case "lbrn":
+          break;
+        case "lum ":
+          break;
+        case "sat ":
+          break;
+        case "sLit":
+          break;
+        case "smud":
           break;
       }
       return blendOp;
