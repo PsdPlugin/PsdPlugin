@@ -35,6 +35,7 @@ using System.Diagnostics;
 using System.Drawing;
 using System.Globalization;
 using System.IO;
+using System.Linq;
 using System.Text;
 using System.Threading;
 
@@ -46,13 +47,22 @@ namespace PhotoshopFile
     Bitmap = 0, Grayscale = 1, Indexed = 2, RGB = 3, CMYK = 4, Multichannel = 7, Duotone = 8, Lab = 9
   };
 
+
   public class PsdFile
   {
+
+    public Layer BaseLayer { get; set; }
+
+    public ImageCompression ImageCompression { get; set; }
+
 
     ///////////////////////////////////////////////////////////////////////////
 
     public PsdFile()
     {
+      this.BaseLayer = new Layer(this);
+      this.BaseLayer.Rect = new Rectangle(0, 0, 0, 0);
+      this.Layers.Clear();
     }
 
     ///////////////////////////////////////////////////////////////////////////
@@ -75,6 +85,7 @@ namespace PhotoshopFile
       LoadLayerAndMaskInfo(reader);
 
       LoadImage(reader);
+      DecompressImages();
     }
 
     public void Save(string fileName)
@@ -91,6 +102,8 @@ namespace PhotoshopFile
       BinaryReverseWriter writer = new BinaryReverseWriter(stream);
 
       writer.AutoFlush = true;
+
+      PrepareSave();
 
       SaveHeader(writer);
       SaveColorModeData(writer);
@@ -112,22 +125,21 @@ namespace PhotoshopFile
       get { return m_version; }
     }
 
+
     private short m_channels;
     /// <summary>
     /// The number of channels in the image, including any alpha channels.
-    /// Supported range is 1 to 24.
     /// </summary>
     public short Channels
     {
       get { return m_channels; }
       set
       {
-        if (value < 1 || value > 24)
-          throw new ArgumentException("Supported range is 1 to 24");
+        if (value < 1 || value > 56)
+          throw new ArgumentException("Number of channels must be from 1 to 56.");
         m_channels = value;
       }
     }
-
 
     private int m_rows;
     /// <summary>
@@ -135,30 +147,30 @@ namespace PhotoshopFile
     /// </summary>
     public int Rows
     {
-      get { return m_rows; }
+      get { return this.BaseLayer.Rect.Height; }
       set
       {
         if (value < 0 || value > 30000)
-          throw new ArgumentException("Supported range is 1 to 30000.");
-        m_rows = value;
+          throw new ArgumentException("Number of rows must be from 1 to 30000.");
+        this.BaseLayer.Rect = new Rectangle(0, 0, this.BaseLayer.Rect.Width, value);
       }
     }
 
 
-    private int m_columns;
     /// <summary>
     /// The width of the image in pixels. 
     /// </summary>
     public int Columns
     {
-      get { return m_columns; }
+      get { return this.BaseLayer.Rect.Width; }
       set
       {
         if (value < 0 || value > 30000)
-          throw new ArgumentException("Supported range is 1 to 30000.");
-        m_columns = value;
+          throw new ArgumentException("Number of columns must be from 1 to 30000.");
+        this.BaseLayer.Rect = new Rectangle(0, 0, value, this.BaseLayer.Rect.Height);
       }
     }
+
 
     /// <summary>
     /// The number of pixels to advance for each row.
@@ -168,9 +180,9 @@ namespace PhotoshopFile
       get
       {
         if (m_colorMode == PsdColorMode.Bitmap)
-          return Util.RoundUp(m_columns, 8);
+          return Util.RoundUp(this.Columns, 8);
         else
-          return m_columns;
+          return this.Columns;
       }
     }
 
@@ -183,10 +195,10 @@ namespace PhotoshopFile
       get { return m_depth; }
       set
       {
-        if (value == 1 || value == 8 || value == 16)
+        if (value == 8)
           m_depth = value;
         else
-          throw new ArgumentException("Supported values are 1, 8, and 16.");
+          throw new NotImplementedException("Only 8-bit color has been implemented for saving.");
       }
     }
 
@@ -218,9 +230,9 @@ namespace PhotoshopFile
       //6 bytes reserved
       reader.BaseStream.Position += 6;
 
-      m_channels = reader.ReadInt16();
-      m_rows = reader.ReadInt32();
-      m_columns = reader.ReadInt32();
+      this.Channels = reader.ReadInt16();
+      this.Rows = reader.ReadInt32();
+      this.Columns = reader.ReadInt32();
       m_depth = reader.ReadInt16();
       m_colorMode = (PsdColorMode)reader.ReadInt16();
     }
@@ -235,9 +247,9 @@ namespace PhotoshopFile
       writer.Write(signature.ToCharArray());
       writer.Write(Version);
       writer.Write(new byte[] { 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, });
-      writer.Write(m_channels);
-      writer.Write(m_rows);
-      writer.Write(m_columns);
+      writer.Write(Channels);
+      writer.Write(Rows);
+      writer.Write(Columns);
       writer.Write((short)m_depth);
       writer.Write((short)m_colorMode);
     }
@@ -471,7 +483,7 @@ namespace PhotoshopFile
         m_layers.Add(new Layer(reader, this));
       }
 
-      PaintDotNet.Threading.PrivateThreadPool threadPool = new PaintDotNet.Threading.PrivateThreadPool();
+      //-----------------------------------------------------------------------
 
       foreach (Layer layer in m_layers)
       {
@@ -481,6 +493,37 @@ namespace PhotoshopFile
             ? layer.MaskData.Rect
             : layer.Rect;
           channel.LoadPixelData(reader, rect);
+        }
+      }
+
+      //-----------------------------------------------------------------------
+
+      if (reader.BaseStream.Position % 2 == 1)
+        reader.ReadByte();
+
+      //-----------------------------------------------------------------------
+      // make sure we are not on a wrong offset, so set the stream position 
+      // manually
+      reader.BaseStream.Position = startPosition + layersInfoSectionLength;
+    }
+
+    ///////////////////////////////////////////////////////////////////////////
+
+    /// <summary>
+    /// Decompress the document image data and all the layers' image data, in parallel.
+    /// </summary>
+    private void DecompressImages()
+    {
+      PaintDotNet.Threading.PrivateThreadPool threadPool = new PaintDotNet.Threading.PrivateThreadPool();
+
+      var imageLayers = m_layers.Concat(new List<Layer>() { this.BaseLayer });
+      foreach (Layer layer in imageLayers)
+      {
+        foreach (Layer.Channel channel in layer.Channels)
+        {
+          Rectangle rect = (channel.ID == -2)
+            ? layer.MaskData.Rect
+            : layer.Rect;
 
           DecompressChannelContext dcc = new DecompressChannelContext(channel, rect);
 
@@ -496,20 +539,22 @@ namespace PhotoshopFile
         if (layer.SortedChannels.ContainsKey(-2))
           layer.MaskData.ImageData = layer.SortedChannels[-2].ImageData;
       }
-
-
-      //-----------------------------------------------------------------------
-
-      if (reader.BaseStream.Position % 2 == 1)
-        reader.ReadByte();
-
-      //-----------------------------------------------------------------------
-      // make sure we are not on a wrong offset, so set the stream position 
-      // manually
-      reader.BaseStream.Position = startPosition + layersInfoSectionLength;
     }
 
-    ///////////////////////////////////////////////////////////////////////////
+    /// <summary>
+    /// Prepare to save the document image data and all the layers' image data,
+    /// compressing in parallel.
+    /// </summary>
+    public void PrepareSave()
+    {
+      PaintDotNet.Threading.PrivateThreadPool threadPool = new PaintDotNet.Threading.PrivateThreadPool();
+      var imageLayers = m_layers.Concat(new List<Layer>() { this.BaseLayer });
+      foreach (Layer layer in imageLayers)
+      {
+        layer.PrepareSave(threadPool);
+      }
+      threadPool.Drain();
+    }
 
     private void SaveLayers(BinaryReverseWriter writer)
     {
@@ -522,14 +567,6 @@ namespace PhotoshopFile
           numberOfLayers = (short)-numberOfLayers;
 
         writer.Write(numberOfLayers);
-
-        // Finish compute-bound operations before embarking on the sequential save
-        PaintDotNet.Threading.PrivateThreadPool threadPool = new PaintDotNet.Threading.PrivateThreadPool();
-        foreach (Layer layer in m_layers)
-        {
-          layer.PrepareSave(threadPool);
-        }
-        threadPool.Drain();
 
         foreach (Layer layer in m_layers)
         {
@@ -583,85 +620,45 @@ namespace PhotoshopFile
 
     #region ImageData
 
-    /// <summary>
-    /// The raw image data from the file, seperated by the channels.
-    /// </summary>
-    public byte[][] m_imageData;
-
-    public byte[][] ImageData
-    {
-      get { return m_imageData; }
-      set { m_imageData = value; }
-    }
-
-
-    private ImageCompression m_imageCompression;
-    public ImageCompression ImageCompression
-    {
-      get { return m_imageCompression; }
-      set { m_imageCompression = value; }
-    }
-
-
     ///////////////////////////////////////////////////////////////////////////
 
     private void LoadImage(BinaryReverseReader reader)
     {
       Debug.WriteLine("LoadImage started at " + reader.BaseStream.Position.ToString(CultureInfo.InvariantCulture));
 
-      m_imageCompression = (ImageCompression)reader.ReadInt16();
-
-      m_imageData = new byte[m_channels][];
-
-      //---------------------------------------------------------------
-
-      if (m_imageCompression == ImageCompression.Rle)
+      this.BaseLayer.Rect = new Rectangle(0, 0, this.Columns, this.Rows);
+      this.ImageCompression = (ImageCompression)reader.ReadInt16();
+      switch (this.ImageCompression)
       {
-        // The RLE-compressed data is proceeded by a 2-byte data count for each row in the data,
-        // which we're going to just skip.
-        reader.BaseStream.Position += m_rows * m_channels * 2;
-      }
-
-      //---------------------------------------------------------------
-
-      int bytesPerRow = 0;
-
-      switch (m_depth)
-      {
-        case 1:
-          bytesPerRow = Util.BytesFromBits(m_columns);
+        case ImageCompression.Raw:
+          var length = this.Rows * Util.BytesPerRow(this.BaseLayer.Rect, this.Depth);
+          for (short i = 0; i < this.Channels; i++)
+          {
+            var channel = new Layer.Channel(i, this.BaseLayer);
+            channel.ImageCompression = this.ImageCompression;
+            channel.Length = length;
+            channel.ImageData = reader.ReadBytes(length);
+          }
           break;
-        case 8:
-          bytesPerRow = m_columns;
+
+        case ImageCompression.Rle:
+          // Store RLE data length
+          for (short i = 0; i < this.Channels; i++)
+          {
+            int totalRleLength = 0;
+            for (int j = 0; j < this.Rows; j++)
+              totalRleLength += reader.ReadUInt16();
+
+            var channel = new Layer.Channel(i, this.BaseLayer);
+            channel.ImageCompression = this.ImageCompression;
+            channel.Length = (int)totalRleLength;
+          }
+          
+          foreach (var channel in this.BaseLayer.Channels)
+          {
+            channel.Data = reader.ReadBytes(channel.Length);
+          }
           break;
-        case 16:
-          bytesPerRow = m_columns * 2;
-          break;
-      }
-
-      //---------------------------------------------------------------
-
-      for (int ch = 0; ch < m_channels; ch++)
-      {
-        m_imageData[ch] = new byte[m_rows * bytesPerRow];
-
-        switch (m_imageCompression)
-        {
-          case ImageCompression.Raw:
-            reader.Read(m_imageData[ch], 0, m_imageData[ch].Length);
-            break;
-          case ImageCompression.Rle:
-            {
-              for (int i = 0; i < m_rows; i++)
-              {
-                int rowIndex = i * bytesPerRow;
-                RleHelper.DecodedRow(reader.BaseStream, m_imageData[ch], rowIndex, bytesPerRow);
-              }
-            }
-            break;
-          default:
-            break;
-        }
       }
     }
 
@@ -671,59 +668,16 @@ namespace PhotoshopFile
     {
       Debug.WriteLine("SaveImage started at " + writer.BaseStream.Position.ToString(CultureInfo.InvariantCulture));
 
-      writer.Write((short)m_imageCompression);
-
-      if (m_imageCompression == ImageCompression.Rle)
+      writer.Write((short)this.ImageCompression);
+      if (this.ImageCompression == PhotoshopFile.ImageCompression.Rle)
       {
-        SaveImageRLE(writer);
+        foreach (var channel in this.BaseLayer.Channels)
+          writer.Write(channel.RleHeader);
       }
-      else
+      foreach (var channel in this.BaseLayer.Channels)
       {
-        for (int ch = 0; ch < m_channels; ch++)
-        {
-          writer.Write(m_imageData[ch]);
-        }
+        writer.Write(channel.Data);
       }
-    }
-
-    ///////////////////////////////////////////////////////////////////////////
-
-    private void SaveImageRLE(BinaryReverseWriter writer)
-    {
-      // we will write the correct lengths later, so remember 
-      // the position
-      long lengthPosition = writer.BaseStream.Position;
-
-      int[] rleRowLengths = new int[m_rows * m_channels];
-      for (int i = 0; i < rleRowLengths.Length; i++)
-      {
-        writer.Write((short)0x1234);
-      }
-
-      //---------------------------------------------------------------
-
-      for (int ch = 0; ch < m_channels; ch++)
-      {
-        int startIdx = ch * m_rows;
-
-        for (int row = 0; row < m_rows; row++)
-          rleRowLengths[row + startIdx] = RleHelper.EncodedRow(writer.BaseStream, m_imageData[ch], row * m_columns, m_columns);
-      }
-
-      //---------------------------------------------------------------
-
-      long endPosition = writer.BaseStream.Position;
-
-      writer.BaseStream.Position = lengthPosition;
-
-      for (int i = 0; i < rleRowLengths.Length; i++)
-      {
-        writer.Write((short)rleRowLengths[i]);
-      }
-
-      writer.BaseStream.Position = endPosition;
-
-      //---------------------------------------------------------------
     }
 
     ///////////////////////////////////////////////////////////////////////////
@@ -767,7 +721,7 @@ namespace PhotoshopFile
     /// <summary>
     /// ZIP without prediction.
     /// <remarks>
-    /// This is currently not supported since it is ot documented.
+    /// This is currently not implemented since it is not documented.
     /// Loading will result in an image where all channels are set to zero.
     /// </remarks>
     /// </summary>
@@ -775,7 +729,7 @@ namespace PhotoshopFile
     /// <summary>
     /// ZIP with prediction.
     /// <remarks>
-    /// This is currently not supported since it is ot documented. 
+    /// This is currently not implemented since it is not documented. 
     /// Loading will result in an image where all channels are set to zero.
     /// </remarks>
     /// </summary>

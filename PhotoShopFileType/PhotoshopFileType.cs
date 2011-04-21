@@ -82,18 +82,14 @@ namespace PaintDotNet.Data.PhotoshopFileType
       psdFile.Rows = input.Height;
       psdFile.Columns = input.Width;
 
-      // we have an Alpha channel which will be saved, 
-      // we have to add this to our image resources
-      psdFile.Channels = 4;
-
-      // for now we oly save the images as RGB
+      // We only save in 8 bits per channel RGBA format, which corresponds to
+      // Paint.NET's internal representation.
+      psdFile.Channels = 4; 
       psdFile.ColorMode = PsdColorMode.RGB;
-
       psdFile.Depth = 8;
 
       //-----------------------------------------------------------------------
-      // no color mode Data
-
+      // No color mode data is necessary for RGB
       //-----------------------------------------------------------------------
 
       ResolutionInfo resInfo = new ResolutionInfo();
@@ -120,18 +116,22 @@ namespace PaintDotNet.Data.PhotoshopFileType
       }
 
       psdFile.Resolution = resInfo;
-      //-----------------------------------------------------------------------
-
       psdFile.ImageCompression = psdToken.RleCompress ? ImageCompression.Rle : ImageCompression.Raw;
 
-      int size = psdFile.Rows * psdFile.Columns;
+      //-----------------------------------------------------------------------
+      // Set document image data from the fully-rendered image
+      //-----------------------------------------------------------------------
+      
+      int imageSize = psdFile.Rows * psdFile.Columns;
 
-      psdFile.ImageData = new byte[psdFile.Channels][];
-      for (int i = 0; i < psdFile.Channels; i++)
+      psdFile.Layers.Clear();
+      for (short i = 0; i < psdFile.Channels; i++)
       {
-        psdFile.ImageData[i] = new byte[size];
+        var channel = new PhotoshopFile.Layer.Channel(i, psdFile.BaseLayer);
+        channel.ImageData = new byte[imageSize];
+        channel.ImageCompression = psdFile.ImageCompression;
       }
-
+      
       using (RenderArgs ra = new RenderArgs(scratchSurface))
       {
         input.Flatten(scratchSurface);
@@ -149,14 +149,18 @@ namespace PaintDotNet.Data.PhotoshopFileType
           {
             int pos = rowIndex + x;
 
-            psdFile.ImageData[0][pos] = srcPixel->R;
-            psdFile.ImageData[1][pos] = srcPixel->G;
-            psdFile.ImageData[2][pos] = srcPixel->B;
-            psdFile.ImageData[3][pos] = srcPixel->A;
+            psdFile.BaseLayer.Channels[0].ImageData[pos] = srcPixel->R;
+            psdFile.BaseLayer.Channels[1].ImageData[pos] = srcPixel->G;
+            psdFile.BaseLayer.Channels[2].ImageData[pos] = srcPixel->B;
+            psdFile.BaseLayer.Channels[3].ImageData[pos] = srcPixel->A;
             srcPixel++;
           }
         }
       }
+
+      //-----------------------------------------------------------------------
+      // Set the image data for all the layers
+      //-----------------------------------------------------------------------
 
       PaintDotNet.Threading.PrivateThreadPool threadPool = new PaintDotNet.Threading.PrivateThreadPool();
       foreach (BitmapLayer layer in input.Layers)
@@ -390,7 +394,7 @@ namespace PaintDotNet.Data.PhotoshopFileType
 
       if (psdFile.Layers.Count == 0)
       {
-        BitmapLayer layer = ImageDecoderPdn.DecodeImage(psdFile);
+        BitmapLayer layer = ImageDecoderPdn.DecodeImage(psdFile.BaseLayer, true);
         document.Layers.Add(layer);
       }
       else
@@ -402,7 +406,7 @@ namespace PaintDotNet.Data.PhotoshopFileType
           if (!l.Rect.IsEmpty)
           {
             layersList.Add(null);
-            LoadLayerContext llc = new LoadLayerContext(l, BlendModeKeyToBlendOp(l), layersList, layersList.Count - 1);
+            LoadLayerContext llc = new LoadLayerContext(l, BlendModeKeyToBlendOp(l), layersList, layersList.Count - 1, false);
             WaitCallback waitCallback = new WaitCallback(llc.LoadLayer);
             threadPool.QueueUserWorkItem(waitCallback); 
           }
@@ -448,18 +452,21 @@ namespace PaintDotNet.Data.PhotoshopFileType
       UserBlendOp blendOp;
       List<Layer> layersList;
       int idxLayersList;
+      bool isBackground;
 
-      public LoadLayerContext(PhotoshopFile.Layer psdLayer, UserBlendOp blendOp, List<Layer> layersList, int idxLayersList)
+      public LoadLayerContext(PhotoshopFile.Layer psdLayer, UserBlendOp blendOp,
+        List<Layer> layersList, int idxLayersList, bool isBackground)
       {
         this.psdLayer = psdLayer;
         this.blendOp = blendOp;
         this.layersList = layersList;
         this.idxLayersList = idxLayersList;
+        this.isBackground = isBackground;
       }
 
       public void LoadLayer(object context)
       {
-        var layer = ImageDecoderPdn.DecodeImage(psdLayer);
+        var layer = ImageDecoderPdn.DecodeImage(psdLayer, isBackground);
         layer.Name = psdLayer.Name;
         layer.Opacity = psdLayer.Opacity;
         layer.Visible = psdLayer.Visible;

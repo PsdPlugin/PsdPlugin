@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Drawing;
 using System.Linq;
 using System.Text;
 
@@ -7,9 +8,15 @@ namespace PhotoshopFile
 {
   public static class Util
   {
-    public static int BytesFromBits(int bits)
+    public static int BytesPerRow(Rectangle rect, int depth)
     {
-      return (bits + 7) / 8;
+      switch (depth)
+      {
+        case 1:
+          return (rect.Width + 7) / 8;
+        default:
+          return rect.Width * BytesFromDepth(depth);
+      }
     }
 
     /////////////////////////////////////////////////////////////////////////// 
@@ -19,5 +26,20 @@ namespace PhotoshopFile
       return ((value + stride - 1) / stride) * stride;
     }
 
+    /////////////////////////////////////////////////////////////////////////// 
+
+    public static int BytesFromDepth(int depth)
+    {
+      switch (depth)
+      {
+        case 1:
+        case 8:
+          return 1;
+        case 16:
+          return 2;
+        default:
+          throw new ArgumentException("Only color depths of 1, 8, and 16 bits/channel are allowed.");
+      }
+    }
   }
 }
