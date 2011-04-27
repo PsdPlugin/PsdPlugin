@@ -141,7 +141,6 @@ namespace PhotoshopFile
       }
     }
 
-    private int m_rows;
     /// <summary>
     /// The height of the image in pixels.
     /// </summary>

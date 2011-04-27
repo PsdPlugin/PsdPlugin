@@ -403,13 +403,10 @@ namespace PaintDotNet.Data.PhotoshopFileType
         var layersList = new List<Layer>();
         foreach (PhotoshopFile.Layer l in psdFile.Layers)
         {
-          if (!l.Rect.IsEmpty)
-          {
-            layersList.Add(null);
-            LoadLayerContext llc = new LoadLayerContext(l, BlendModeKeyToBlendOp(l), layersList, layersList.Count - 1, false);
-            WaitCallback waitCallback = new WaitCallback(llc.LoadLayer);
-            threadPool.QueueUserWorkItem(waitCallback); 
-          }
+          layersList.Add(null);
+          LoadLayerContext llc = new LoadLayerContext(l, BlendModeKeyToBlendOp(l), layersList, layersList.Count - 1, false);
+          WaitCallback waitCallback = new WaitCallback(llc.LoadLayer);
+          threadPool.QueueUserWorkItem(waitCallback); 
         }
         threadPool.Drain();
 
