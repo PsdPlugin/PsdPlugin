@@ -78,21 +78,24 @@ namespace PaintDotNet.Data.PhotoshopFileType
           int dstIndex = psdLayer.Rect.Left + xPsdLayerStart;
           ColorBgra* dstPixel = dstRow + dstIndex;
 
-          for (int xPsdLayer = xPsdLayerStart; xPsdLayer < xPsdLayerEnd; xPsdLayer++)
+          if (psdLayer.PsdFile.Depth != 32)
           {
-            if (xPsdLayer < xPsdLayerEndCopy)
+            for (int xPsdLayer = xPsdLayerStart; xPsdLayer < xPsdLayerEndCopy; xPsdLayer++)
             {
               int srcIndex = srcRowIndex + xPsdLayer * srcStep;
-              SetPDNColor(dstPixel, psdLayer, channels, alphaChannel, srcIndex);
+              SetPDNColor(dstPixel, psdLayer, channels, srcIndex);
               int maskAlpha = 255;
               if (hasMaskChannel)
-              {
                 maskAlpha = GetMaskAlpha(psdLayer.MaskData, xPsdLayer, yPsdLayer);
-              }
               SetPDNAlpha(dstPixel, alphaChannel, srcIndex, maskAlpha);
-            }
 
-            dstPixel++;
+              dstPixel++;
+            }
+          }
+          else
+          {
+            SetPdnColorRow32(dstPixel, psdLayer, xPsdLayerStart, xPsdLayerEndCopy, yPsdLayer, srcRowIndex);
+            SetPdnAlphaRow32(dstPixel, psdLayer, xPsdLayerStart, xPsdLayerEndCopy, yPsdLayer, srcRowIndex, hasMaskChannel);
           }
         }
       }
@@ -100,10 +103,90 @@ namespace PaintDotNet.Data.PhotoshopFileType
       return pdnLayer;
     }
 
+    unsafe private static void SetPdnColorRow32(ColorBgra* dstPixel, PhotoshopFile.Layer psdLayer,
+      int xPsdLayerStart, int xPsdLayerEndCopy, int yPsdLayer, int srcRowIndex)
+    {
+      switch (psdLayer.PsdFile.ColorMode)
+      {
+        case PsdColorMode.Grayscale:
+          fixed (byte* channelPtr = &psdLayer.Channels[0].ImageData[0])
+          {
+            for (int xPsdLayer = xPsdLayerStart; xPsdLayer < xPsdLayerEndCopy; xPsdLayer++)
+            {
+              int srcIndex = srcRowIndex + xPsdLayer * 4;
+              byte* ptr = channelPtr + srcIndex;
+
+              byte rgbValue = RGBByteFromHDRFloat(ptr);
+              dstPixel->R = rgbValue;
+              dstPixel->G = rgbValue;
+              dstPixel->B = rgbValue;
+              dstPixel++;
+            }
+          }
+          break;
+        case PsdColorMode.RGB:
+          fixed (byte* rChannelPtr = &psdLayer.Channels[0].ImageData[0])
+          {
+            fixed (byte* gChannelPtr = &psdLayer.Channels[1].ImageData[0])
+            {
+              fixed (byte* bChannelPtr = &psdLayer.Channels[2].ImageData[0])
+              {
+                for (int xPsdLayer = xPsdLayerStart; xPsdLayer < xPsdLayerEndCopy; xPsdLayer++)
+                {
+                  int srcIndex = srcRowIndex + xPsdLayer * 4;
+
+                  dstPixel->R = RGBByteFromHDRFloat(rChannelPtr + srcIndex);
+                  dstPixel->G = RGBByteFromHDRFloat(gChannelPtr + srcIndex);
+                  dstPixel->B = RGBByteFromHDRFloat(bChannelPtr + srcIndex);
+                  dstPixel++;
+                }
+              }
+            }
+          }
+          break;
+        default:
+          throw new Exception("32-bit HDR images must be either RGB or grayscale.");
+      }
+    }
+
+    unsafe private static void SetPdnAlphaRow32(ColorBgra* dstPixel, PhotoshopFile.Layer psdLayer,
+      int xPsdLayerStart, int xPsdLayerEndCopy, int yPsdLayer, int srcRowIndex, bool hasMaskChannel)
+    {
+      var dstPixelCopy = dstPixel;
+      if (hasMaskChannel)
+      {
+        for (int xPsdLayer = xPsdLayerStart; xPsdLayer < xPsdLayerEndCopy; xPsdLayer++)
+        {
+          int srcIndex = srcRowIndex + xPsdLayer * 4;
+          var maskAlpha = GetMaskAlpha(psdLayer.MaskData, xPsdLayer, yPsdLayer);
+          dstPixelCopy->A = maskAlpha;
+          dstPixelCopy++;
+        }
+      }
+
+      dstPixelCopy = dstPixel;
+      if (psdLayer.AlphaChannel != null)
+      {
+        fixed (byte* alphaChannelPtr = &psdLayer.AlphaChannel.ImageData[0])
+        {
+          for (int xPsdLayer = xPsdLayerStart; xPsdLayer < xPsdLayerEndCopy; xPsdLayer++)
+          {
+            int srcIndex = srcRowIndex + xPsdLayer * 4;
+            var alpha = RGBByteFromHDRFloat(alphaChannelPtr + srcIndex);
+            if (dstPixelCopy->A < 255)
+              dstPixelCopy->A = (byte)(dstPixel->A * alpha / 255);
+            else
+              dstPixelCopy->A = alpha;
+            dstPixelCopy++;
+          }
+        }
+      }
+    }
+
     /////////////////////////////////////////////////////////////////////////// 
 
     unsafe private static void SetPDNColor(ColorBgra* dstPixel, PhotoshopFile.Layer layer,
-        PhotoshopFile.Layer.Channel[] channels, PhotoshopFile.Layer.Channel alphaChannel, int pos)
+        PhotoshopFile.Layer.Channel[] channels, int pos)
     {
       switch (layer.PsdFile.ColorMode)
       {
@@ -169,9 +252,9 @@ namespace PaintDotNet.Data.PhotoshopFileType
 
     /////////////////////////////////////////////////////////////////////////// 
 
-    private static int GetMaskAlpha(PhotoshopFile.Layer.Mask mask, int x, int y)
+    private static byte GetMaskAlpha(PhotoshopFile.Layer.Mask mask, int x, int y)
     {
-      int c = 255;
+      byte c = 255;
       if (mask.PositionIsRelative)
       {
         x -= mask.Rect.X;
@@ -297,6 +380,23 @@ namespace PaintDotNet.Data.PhotoshopFileType
       dstPixel->R = (byte)nRed;
       dstPixel->G = (byte)nGreen;
       dstPixel->B = (byte)nBlue;
+    }
+
+    ///////////////////////////////////////////////////////////////////////////////
+
+    private static double rgbExponent = 1 / 2.19921875;
+    unsafe private static byte RGBByteFromHDRFloat(byte* ptr)
+    {
+      // Swap endianness of the float value
+      float value;
+      byte* valueBytePtr = (byte*)(&value);
+      for (long i = 0; i < 4; ++i)
+      {
+        *(valueBytePtr + i) = *(ptr + 3 - i);
+      }
+
+      var result = Math.Round(255 * Math.Pow(value, rgbExponent));
+      return (byte)result;
     }
 
     ///////////////////////////////////////////////////////////////////////////////

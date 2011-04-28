@@ -633,7 +633,10 @@ namespace PhotoshopFile
           var length = this.Rows * Util.BytesPerRow(this.BaseLayer.Rect, this.Depth);
           for (short i = 0; i < this.Channels; i++)
           {
-            var channel = new Layer.Channel(i, this.BaseLayer);
+            // Alpha channel is the last one
+            short channelNumber = (i == this.Channels - 1) ? (short)-1 : i;
+
+            var channel = new Layer.Channel(channelNumber, this.BaseLayer);
             channel.ImageCompression = this.ImageCompression;
             channel.Length = length;
             channel.ImageData = reader.ReadBytes(length);

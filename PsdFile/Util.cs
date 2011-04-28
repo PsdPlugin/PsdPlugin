@@ -37,9 +37,12 @@ namespace PhotoshopFile
           return 1;
         case 16:
           return 2;
+        case 32:
+          return 4;
         default:
-          throw new ArgumentException("Only color depths of 1, 8, and 16 bits/channel are allowed.");
+          throw new ArgumentException("Invalid bit depth.");
       }
     }
+
   }
 }
