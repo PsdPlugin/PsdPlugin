@@ -44,5 +44,27 @@ namespace PhotoshopFile
       }
     }
 
+    /////////////////////////////////////////////////////////////////////////// 
+
+    public static short ChannelCount(PsdColorMode colorMode)
+    {
+      switch (colorMode)
+      {
+        case PsdColorMode.Bitmap:
+        case PsdColorMode.Duotone:
+        case PsdColorMode.Grayscale:
+        case PsdColorMode.Indexed:
+          return 1;
+        case PsdColorMode.Lab:
+        case PsdColorMode.Multichannel:
+        case PsdColorMode.RGB:
+          return 3;
+        case PsdColorMode.CMYK:
+          return 4;
+      }
+
+      throw new ArgumentException("Unknown color mode.");
+    }
+
   }
 }

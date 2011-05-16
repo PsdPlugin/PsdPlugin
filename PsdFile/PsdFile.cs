@@ -633,10 +633,7 @@ namespace PhotoshopFile
           var length = this.Rows * Util.BytesPerRow(this.BaseLayer.Rect, this.Depth);
           for (short i = 0; i < this.Channels; i++)
           {
-            // Alpha channel is the last one
-            short channelNumber = (i == this.Channels - 1) ? (short)-1 : i;
-
-            var channel = new Layer.Channel(channelNumber, this.BaseLayer);
+            var channel = new Layer.Channel(i, this.BaseLayer);
             channel.ImageCompression = this.ImageCompression;
             channel.Length = length;
             channel.ImageData = reader.ReadBytes(length);
@@ -661,6 +658,16 @@ namespace PhotoshopFile
             channel.Data = reader.ReadBytes(channel.Length);
           }
           break;
+      }
+
+      // If there is one more channel than we need, then it is the alpha channel
+      if (this.Channels == Util.ChannelCount(this.ColorMode) + 1)
+      {
+        var alphaChannel = this.BaseLayer.Channels[this.Channels - 1];
+        alphaChannel.ID = -1;
+
+        this.BaseLayer.SortedChannels.RemoveAt(this.Channels - 1);
+        this.BaseLayer.SortedChannels.Add(-1, alphaChannel);
       }
     }
 
