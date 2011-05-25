@@ -36,6 +36,7 @@
     <UseVSHostingProcess>true</UseVSHostingProcess>
   </PropertyGroup>
   <ItemGroup>
+    <Reference Include="Microsoft.VisualBasic" />
     <Reference Include="PaintDotNet.Base">
       <HintPath>C:\Program Files\Paint.NET\PaintDotNet.Base.dll</HintPath>
     </Reference>

@@ -27,6 +27,7 @@ using PaintDotNet.Threading;
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Drawing;
 using System.Text;
 using System.Threading;
@@ -379,10 +380,12 @@ namespace PaintDotNet.Data.PhotoshopFileType
 
     protected override Document OnLoad(System.IO.Stream input)
     {
+      // Load and decompress Photoshop file structures
       PsdFile psdFile = new PsdFile();
-
       psdFile.Load(input);
+      CheckSufficientMemory(psdFile);
 
+      // Convert into Paint.NET internal representation
       Document document = new Document(psdFile.Columns, psdFile.Rows);
 
       if (psdFile.Resolution != null)
@@ -417,6 +420,22 @@ namespace PaintDotNet.Data.PhotoshopFileType
 
       }
       return document;
+    }
+
+    private void CheckSufficientMemory(PsdFile psdFile)
+    {
+      // Memory for layers, plus scratch, composite, and background
+      var numLayers = psdFile.Layers.Count + 2;
+      if (psdFile.Layers.Count == 0)
+        numLayers++;
+      long numPixels = psdFile.Columns * psdFile.Rows;
+      ulong bytesRequired = (ulong)(4 * numPixels * numLayers);
+
+      // Check that the file will fit entirely into physical memory.
+      // Otherwise, we will thrash and make the Windows UI nonresponsive.
+      var computerInfo = new Microsoft.VisualBasic.Devices.ComputerInfo();
+      if (bytesRequired > computerInfo.TotalPhysicalMemory)
+        throw new OutOfMemoryException();
     }
 
     private class SaveLayerPixelsContext
