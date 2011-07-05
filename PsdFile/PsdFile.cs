@@ -99,6 +99,9 @@ namespace PhotoshopFile
 
     public void Save(Stream stream)
     {
+      if (Depth != 8)
+        throw new NotImplementedException("Only 8-bit color has been implemented for saving.");
+
       BinaryReverseWriter writer = new BinaryReverseWriter(stream);
 
       writer.AutoFlush = true;
@@ -187,20 +190,26 @@ namespace PhotoshopFile
 
     private int m_depth;
     /// <summary>
-    /// The number of bits per channel. Supported values are 1, 8, and 16.
+    /// The number of bits per channel. Supported values are 1, 8, 16, and 32.
     /// </summary>
     public int Depth
     {
       get { return m_depth; }
       set
       {
-        if (value == 8)
-          m_depth = value;
-        else
-          throw new NotImplementedException("Only 8-bit color has been implemented for saving.");
+        switch (value)
+        {
+          case 1:
+          case 8:
+          case 16:
+          case 32:
+            m_depth = value;
+            break;
+          default:
+            throw new NotImplementedException("Invalid bit depth.");
+        }
       }
     }
-
     private PsdColorMode m_colorMode;
     /// <summary>
     /// The color mode of the file.
@@ -426,13 +435,24 @@ namespace PhotoshopFile
 
       //-----------------------------------------------------------------------
 
-      //Debug.Assert(reader.BaseStream.Position == startPosition + layersAndMaskLength, "LoadLayerAndMaskInfo");
+      // Higher bit depth images store an empty layers section for backcompat,
+      // followed by the real layers section (which is undocumented but
+      // appears largely identical).
+      if ((this.Depth > 8) && (reader.BaseStream.Position < startPosition + layersAndMaskLength))
+      {
+        string signature = new string(reader.ReadChars(8));
+        if ((signature == "8BIMLr16") || (signature == "8BIMLr32"))
+        {
+          LoadLayers(reader);
+          LoadGlobalLayerMask(reader);
+        }
+      }
+      
 
       //-----------------------------------------------------------------------
       // make sure we are not on a wrong offset, so set the stream position 
       // manually
       reader.BaseStream.Position = startPosition + layersAndMaskLength;
-
     }
 
     ///////////////////////////////////////////////////////////////////////////
@@ -704,8 +724,7 @@ namespace PhotoshopFile
 
       public void DecompressChannel(object context)
       {
-        if (ch.ImageCompression == ImageCompression.Rle)
-          ch.DecompressImageData(rect);
+        ch.DecompressImageData(rect);
       }
     }
 

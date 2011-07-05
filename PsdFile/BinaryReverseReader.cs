@@ -50,7 +50,7 @@ namespace PhotoshopFile
       short val = base.ReadInt16();
       unsafe
       {
-        SwapBytes((byte*)&val, 2);
+        Util.SwapBytes((byte*)&val, 2);
       }
       return val;
     }
@@ -59,7 +59,7 @@ namespace PhotoshopFile
       int val = base.ReadInt32();
       unsafe
       {
-        SwapBytes((byte*)&val, 4);
+        Util.SwapBytes((byte*)&val, 4);
       }
       return val;
     }
@@ -68,7 +68,7 @@ namespace PhotoshopFile
       long val = base.ReadInt64();
       unsafe
       {
-        SwapBytes((byte*)&val, 8);
+        Util.SwapBytes((byte*)&val, 8);
       }
       return val;
     }
@@ -78,7 +78,7 @@ namespace PhotoshopFile
       ushort val = base.ReadUInt16();
       unsafe
       {
-        SwapBytes((byte*)&val, 2);
+        Util.SwapBytes((byte*)&val, 2);
       }
       return val;
     }
@@ -88,7 +88,7 @@ namespace PhotoshopFile
       uint val = base.ReadUInt32();
       unsafe
       {
-        SwapBytes((byte*)&val, 4);
+        Util.SwapBytes((byte*)&val, 4);
       }
       return val;
     }
@@ -98,7 +98,7 @@ namespace PhotoshopFile
       ulong val = base.ReadUInt64();
       unsafe
       {
-        SwapBytes((byte*)&val, 8);
+        Util.SwapBytes((byte*)&val, 8);
       }
       return val;
     }
@@ -116,19 +116,6 @@ namespace PhotoshopFile
 
       return new string(c);
     }
-
-    //////////////////////////////////////////////////////////////////
-
-    unsafe static protected void SwapBytes(byte* ptr, int nLength)
-    {
-      for (long i = 0; i < nLength / 2; ++i)
-      {
-        byte t = *(ptr + i);
-        *(ptr + i) = *(ptr + nLength - i - 1);
-        *(ptr + nLength - i - 1) = t;
-      }
-    }
-
   }
 
   //////////////////////////////////////////////////////////////////

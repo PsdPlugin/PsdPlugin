@@ -36,6 +36,7 @@ using System.Diagnostics;
 using System.Drawing;
 using System.Globalization;
 using System.IO;
+using System.IO.Compression;
 using System.Text;
 using System.Threading;
 
@@ -137,6 +138,7 @@ namespace PhotoshopFile
       {
         Debug.WriteLine("Channel.LoadPixelData started at " + reader.BaseStream.Position.ToString(CultureInfo.InvariantCulture));
 
+        var endPosition = reader.BaseStream.Position + this.Length;
         m_imageCompression = (ImageCompression)reader.ReadInt16();
         var dataLength = this.Length - 2;
 
@@ -155,19 +157,174 @@ namespace PhotoshopFile
             // follow this stipulation.
             m_data = reader.ReadBytes(rleDataLength);
             break;
+          case ImageCompression.Zip:
+          case ImageCompression.ZipPrediction:
+            m_data = reader.ReadBytes(dataLength);
+            break;
         }
+
+        Debug.Assert(reader.BaseStream.Position == endPosition, "Pixel data successfully read in.");
       }
 
       public void DecompressImageData(Rectangle rect)
       {
         var bytesPerRow = Util.BytesPerRow(rect, m_layer.PsdFile.Depth);
-        m_imageData = new byte[rect.Height * bytesPerRow];
+        var bytesTotal = rect.Height * bytesPerRow;
 
-        MemoryStream stream = new MemoryStream(m_data);
-        for (int i = 0; i < rect.Height; i++)
+        if (this.ImageCompression != PhotoshopFile.ImageCompression.Raw)
         {
-          int rowIndex = i * bytesPerRow;
-          RleHelper.DecodedRow(stream, m_imageData, rowIndex, bytesPerRow);
+          m_imageData = new byte[bytesTotal];
+
+          MemoryStream stream = new MemoryStream(m_data);
+          switch (this.ImageCompression)
+          {
+            case PhotoshopFile.ImageCompression.Rle:
+              for (int i = 0; i < rect.Height; i++)
+              {
+                int rowIndex = i * bytesPerRow;
+                RleHelper.DecodedRow(stream, m_imageData, rowIndex, bytesPerRow);
+              }
+              break;
+
+            case PhotoshopFile.ImageCompression.Zip:
+            case PhotoshopFile.ImageCompression.ZipPrediction:
+              // .NET implements Deflate (RFC 1951) but not zlib (RFC 1950),
+              // so we have to skip the first two bytes.
+              stream.ReadByte();
+              stream.ReadByte();
+
+              var deflateStream = new DeflateStream(stream, CompressionMode.Decompress);
+              var bytesDecompressed = deflateStream.Read(m_imageData, 0, bytesTotal);
+              Debug.Assert(bytesDecompressed == bytesTotal, "ZIP deflation output is different length than expected.");
+              break;
+          }
+        }
+
+        // Reverse multi-byte pixels to little-endian.  32-bit depth images
+        // with ZipPrediction must be left alone because the data is a
+        // byte stream.
+        bool fReverseEndianness = (m_layer.PsdFile.Depth == 16)
+          || (m_layer.PsdFile.Depth == 32) && (this.ImageCompression != PhotoshopFile.ImageCompression.ZipPrediction);
+        if (fReverseEndianness)
+          ReverseEndianness(rect);
+
+        if (this.ImageCompression == PhotoshopFile.ImageCompression.ZipPrediction)
+        {
+          UnpredictImageData(rect);
+        }
+      }
+
+      private void ReverseEndianness(Rectangle rect)
+      {
+        var byteDepth = Util.BytesFromBitDepth(m_layer.PsdFile.Depth);
+        var pixelsTotal = rect.Width * rect.Height;
+        if (pixelsTotal == 0)
+          return;
+
+        if (byteDepth == 2)
+        {
+          unsafe
+          {
+            fixed (byte* ptr = &m_imageData[0])
+            {
+              for (int i = 0; i < pixelsTotal; i++)
+                Util.SwapBytes2(ptr + i * byteDepth);
+            }
+          }
+        }
+        else if (byteDepth == 4)
+        {
+          unsafe
+          {
+            fixed (byte* ptr = &m_imageData[0])
+            {
+              for (int i = 0; i < pixelsTotal; i++)
+                Util.SwapBytes4(ptr + i * byteDepth);
+            }
+          }
+        }
+        else if (byteDepth > 1)
+        {
+          throw new Exception("Byte-swapping implemented only for 16-bit and 32-bit depths.");
+        }
+      }
+
+
+      unsafe private void UnpredictImageData(Rectangle rect)
+      {
+        if (m_layer.PsdFile.Depth == 16)
+        {
+          fixed (byte* ptrData = &m_imageData[0])
+          {
+            for (int iRow = 0; iRow < rect.Height; iRow++)
+            {
+              UInt16* ptr = (UInt16*)(ptrData + iRow * rect.Width * 2);
+              UInt16* ptrEnd = (UInt16*)(ptrData + (iRow + 1) * rect.Width * 2);
+
+              // Start with column 1 of each row
+              ptr++;
+              while (ptr < ptrEnd)
+              {
+                *ptr = (UInt16)(*ptr + *(ptr - 1));
+                ptr++;
+              }
+            }
+          }
+        }
+        else if (m_layer.PsdFile.Depth == 32)
+        {
+          var reorderedData = new byte[m_imageData.Length];
+          fixed (byte* ptrData = &m_imageData[0]) 
+          {
+            // Undo the prediction on the byte stream
+            for (int iRow = 0; iRow < rect.Height; iRow++)
+            {
+              // The rows are predicted individually.
+              byte* ptr = ptrData + iRow * rect.Width * 4;
+              byte* ptrEnd = ptrData + (iRow + 1) * rect.Width * 4;
+
+              // Start with column 1 of each row
+              ptr++;
+              while (ptr < ptrEnd)
+              {
+                *ptr = (byte)(*ptr + *(ptr - 1));
+                ptr++;
+              }
+            }
+
+            // Within each row, the individual bytes of the 32-bit words are
+            // packed together, high-order bytes before low-order bytes.
+            // We now unpack them into words and reverse to little-endian.
+            int offset1 = rect.Width;
+            int offset2 = 2 * offset1;
+            int offset3 = 3 * offset1;
+            fixed (byte* dstPtrData = &reorderedData[0])
+            {
+              for (int iRow = 0; iRow < rect.Height; iRow++)
+              {
+                byte* dstPtr = dstPtrData + iRow * rect.Width * 4;
+                byte* dstPtrEnd = dstPtrData + (iRow + 1) * rect.Width * 4;
+
+                byte* srcPtr = ptrData + iRow * rect.Width * 4;
+
+                while (dstPtr < dstPtrEnd)
+                {
+                  *(dstPtr++) = *(srcPtr + offset3);
+                  *(dstPtr++) = *(srcPtr + offset2);
+                  *(dstPtr++) = *(srcPtr + offset1);
+                  *(dstPtr++) = *srcPtr;
+
+                  srcPtr++;
+                }
+              }
+            }
+          }
+
+          m_imageData = reorderedData;
+        }
+        else
+        {
+          throw new Exception("ZIP prediction is only available for 16 and 32 bit depths.");
         }
       }
 
@@ -790,7 +947,7 @@ namespace PhotoshopFile
 
       m_name = reader.ReadPascalString();
 
-      int paddingBytes =(int)((reader.BaseStream.Position - namePosition) % 4);
+      int paddingBytes = (int)((reader.BaseStream.Position - namePosition) % 4);
 
       Debug.Print("Layer {0} padding bytes after name", paddingBytes);
       reader.ReadBytes(paddingBytes);

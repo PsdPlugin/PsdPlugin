@@ -62,7 +62,7 @@ namespace PaintDotNet.Data.PhotoshopFileType
 
       int yPsdLayerStart = Math.Max(0, -psdLayer.Rect.Y);
       int yPsdLayerEnd = Math.Min(psdLayer.Rect.Height, surface.Height - psdLayer.Rect.Y);
-      int srcStep = Util.BytesFromDepth(psdLayer.PsdFile.Depth);
+      int byteDepth = Util.BytesFromBitDepth(psdLayer.PsdFile.Depth);
 
       for (int yPsdLayer = yPsdLayerStart; yPsdLayer < yPsdLayerEnd; yPsdLayer++)
       {
@@ -74,28 +74,32 @@ namespace PaintDotNet.Data.PhotoshopFileType
           int xPsdLayerEnd = Math.Min(psdLayer.Rect.Width, psdLayer.PsdFile.Columns - psdLayer.Rect.Left);
           int xPsdLayerEndCopy = Math.Min(xPsdLayerEnd, surface.Width - psdLayer.Rect.X);
 
-          int srcRowIndex = yPsdLayer * psdLayer.Rect.Width * srcStep;
+          int srcRowIndex = yPsdLayer * psdLayer.Rect.Width * byteDepth;
           int dstIndex = psdLayer.Rect.Left + xPsdLayerStart;
           ColorBgra* dstPixel = dstRow + dstIndex;
 
           if (psdLayer.PsdFile.Depth != 32)
           {
+            // Take the higher-order byte from the little-endian image data
+            if (byteDepth == 2)
+              srcRowIndex++;
+
+            var dstPixelCopy = dstPixel;
             for (int xPsdLayer = xPsdLayerStart; xPsdLayer < xPsdLayerEndCopy; xPsdLayer++)
             {
-              int srcIndex = srcRowIndex + xPsdLayer * srcStep;
-              SetPDNColor(dstPixel, psdLayer, channels, srcIndex);
-              int maskAlpha = 255;
-              if (hasMaskChannel)
-                maskAlpha = GetMaskAlpha(psdLayer.MaskData, xPsdLayer, yPsdLayer);
-              SetPDNAlpha(dstPixel, alphaChannel, srcIndex, maskAlpha);
-
-              dstPixel++;
+              int srcIndex = srcRowIndex + xPsdLayer * byteDepth;
+              SetPDNColor(dstPixelCopy, psdLayer, channels, srcIndex);
+              dstPixelCopy++;
             }
+
+            SetPDNAlphaRow(dstPixel, hasMaskChannel, psdLayer.MaskData, alphaChannel,
+              byteDepth, xPsdLayerStart, xPsdLayerEndCopy, yPsdLayer, srcRowIndex);
           }
           else
           {
-            SetPdnColorRow32(dstPixel, psdLayer, xPsdLayerStart, xPsdLayerEndCopy, yPsdLayer, srcRowIndex);
-            SetPdnAlphaRow32(dstPixel, psdLayer, xPsdLayerStart, xPsdLayerEndCopy, yPsdLayer, srcRowIndex, hasMaskChannel);
+            SetPDNColorRow32(dstPixel, psdLayer.PsdFile.ColorMode, channels, xPsdLayerStart, xPsdLayerEndCopy, yPsdLayer, srcRowIndex);
+            SetPDNAlphaRow(dstPixel, hasMaskChannel, psdLayer.MaskData, alphaChannel,
+              byteDepth, xPsdLayerStart, xPsdLayerEndCopy, yPsdLayer, srcRowIndex);
           }
         }
       }
@@ -103,13 +107,15 @@ namespace PaintDotNet.Data.PhotoshopFileType
       return pdnLayer;
     }
 
-    unsafe private static void SetPdnColorRow32(ColorBgra* dstPixel, PhotoshopFile.Layer psdLayer,
-      int xPsdLayerStart, int xPsdLayerEndCopy, int yPsdLayer, int srcRowIndex)
+    /////////////////////////////////////////////////////////////////////////// 
+
+    unsafe private static void SetPDNColorRow32(ColorBgra* dstPixel, PsdColorMode colorMode,
+      PhotoshopFile.Layer.Channel[] channels, int xPsdLayerStart, int xPsdLayerEndCopy, int yPsdLayer, int srcRowIndex)
     {
-      switch (psdLayer.PsdFile.ColorMode)
+      switch (colorMode)
       {
         case PsdColorMode.Grayscale:
-          fixed (byte* channelPtr = &psdLayer.Channels[0].ImageData[0])
+          fixed (byte* channelPtr = &channels[0].ImageData[0])
           {
             for (int xPsdLayer = xPsdLayerStart; xPsdLayer < xPsdLayerEndCopy; xPsdLayer++)
             {
@@ -125,11 +131,11 @@ namespace PaintDotNet.Data.PhotoshopFileType
           }
           break;
         case PsdColorMode.RGB:
-          fixed (byte* rChannelPtr = &psdLayer.Channels[0].ImageData[0])
+          fixed (byte* rChannelPtr = &channels[0].ImageData[0])
           {
-            fixed (byte* gChannelPtr = &psdLayer.Channels[1].ImageData[0])
+            fixed (byte* gChannelPtr = &channels[1].ImageData[0])
             {
-              fixed (byte* bChannelPtr = &psdLayer.Channels[2].ImageData[0])
+              fixed (byte* bChannelPtr = &channels[2].ImageData[0])
               {
                 for (int xPsdLayer = xPsdLayerStart; xPsdLayer < xPsdLayerEndCopy; xPsdLayer++)
                 {
@@ -149,36 +155,91 @@ namespace PaintDotNet.Data.PhotoshopFileType
       }
     }
 
-    unsafe private static void SetPdnAlphaRow32(ColorBgra* dstPixel, PhotoshopFile.Layer psdLayer,
-      int xPsdLayerStart, int xPsdLayerEndCopy, int yPsdLayer, int srcRowIndex, bool hasMaskChannel)
+    /////////////////////////////////////////////////////////////////////////// 
+
+    unsafe private static void SetPDNAlphaRow(ColorBgra* dstPixel,
+      bool hasMaskChannel, PhotoshopFile.Layer.Mask mask, PhotoshopFile.Layer.Channel alphaChannel,
+      int byteDepth, int xPsdLayerStart, int xPsdLayerEndCopy, int yPsdLayer, int srcRowIndex)
     {
+      if (alphaChannel == null)
+        return;
+
+      // Set layer mask if it exists
       var dstPixelCopy = dstPixel;
       if (hasMaskChannel)
       {
+        // Mask may not cover the entire layer
         for (int xPsdLayer = xPsdLayerStart; xPsdLayer < xPsdLayerEndCopy; xPsdLayer++)
         {
-          int srcIndex = srcRowIndex + xPsdLayer * 4;
-          var maskAlpha = GetMaskAlpha(psdLayer.MaskData, xPsdLayer, yPsdLayer);
-          dstPixelCopy->A = maskAlpha;
+          dstPixelCopy->A = 255;
           dstPixelCopy++;
+        }
+        dstPixelCopy = dstPixel;
+
+        // Set parameters for the mask channel
+        int xMaskStart = xPsdLayerStart - mask.Rect.X;
+        int xMaskEnd = xPsdLayerEndCopy - mask.Rect.X;
+        int yMask = yPsdLayer - mask.Rect.Y;
+        if (!mask.PositionIsRelative)
+        {
+          xMaskStart += mask.Layer.Rect.X;
+          xMaskEnd += mask.Layer.Rect.X;
+          yMask += mask.Layer.Rect.Y;
+        }
+        xMaskStart = Math.Max(xMaskStart, 0);
+        xMaskEnd = Math.Max(xMaskEnd, 0);
+        yMask = Math.Max(yMask, 0);
+        xMaskStart = Math.Min(xMaskStart, mask.Rect.Width);
+        xMaskEnd = Math.Min(xMaskEnd, mask.Rect.Width);
+        yMask = Math.Min(yMask, mask.Rect.Height);
+
+        // Set the alpha from the mask
+        fixed (byte* maskDataPtr = &mask.ImageData[0])
+        {
+          byte* maskDataEndPtr = maskDataPtr + mask.ImageData.Length;
+          byte* maskPtr = maskDataPtr + (yMask * mask.Rect.Width + xMaskStart) * byteDepth;
+          if (byteDepth == 2)
+            maskPtr++;  // High-order byte
+          byte* maskEndPtr = maskDataPtr + (yMask * mask.Rect.Width + xMaskEnd) * byteDepth;
+          if (maskEndPtr > maskDataEndPtr)
+            maskEndPtr = maskDataEndPtr;
+          
+          while (maskPtr < maskEndPtr)
+          {
+            if (byteDepth < 4)
+              dstPixelCopy->A = *maskPtr;
+            else
+              dstPixelCopy->A = RGBByteFromHDRFloat(maskPtr);
+
+            maskPtr += byteDepth;
+            dstPixelCopy++;
+          }
         }
       }
 
+      // Real alpha value is then merged in
       dstPixelCopy = dstPixel;
-      if (psdLayer.AlphaChannel != null)
+      fixed (byte* alphaChannelPtr = &alphaChannel.ImageData[0])
       {
-        fixed (byte* alphaChannelPtr = &psdLayer.AlphaChannel.ImageData[0])
+        for (int xPsdLayer = xPsdLayerStart; xPsdLayer < xPsdLayerEndCopy; xPsdLayer++)
         {
-          for (int xPsdLayer = xPsdLayerStart; xPsdLayer < xPsdLayerEndCopy; xPsdLayer++)
-          {
-            int srcIndex = srcRowIndex + xPsdLayer * 4;
-            var alpha = RGBByteFromHDRFloat(alphaChannelPtr + srcIndex);
-            if (dstPixelCopy->A < 255)
-              dstPixelCopy->A = (byte)(dstPixel->A * alpha / 255);
-            else
-              dstPixelCopy->A = alpha;
-            dstPixelCopy++;
-          }
+          int srcIndex = srcRowIndex + xPsdLayer * byteDepth;
+          byte* alphaPtr = alphaChannelPtr + srcIndex;
+
+          // Get alpha value
+          byte alpha = 255;
+          if (byteDepth < 4)
+            alpha = *alphaPtr;
+          else
+            alpha = RGBByteFromHDRFloat(alphaPtr);
+
+          // Merge with the layer mask if it exists
+          if (hasMaskChannel && (dstPixelCopy->A < 255))
+            dstPixelCopy->A = (byte)(dstPixelCopy->A * alpha / 255);
+          else
+            dstPixelCopy->A = alpha;
+
+          dstPixelCopy++;
         }
       }
     }
@@ -234,49 +295,6 @@ namespace PaintDotNet.Data.PhotoshopFileType
             channels[2].ImageData[pos]);
           break;
       }
-    }
-
-    /////////////////////////////////////////////////////////////////////////// 
-
-    unsafe private static void SetPDNAlpha(ColorBgra* dstPixel,
-      PhotoshopFile.Layer.Channel alphaChannel, int srcIndex, int maskAlpha)
-    {
-      byte alpha = 255;
-      if (alphaChannel != null)
-        alpha = alphaChannel.ImageData[srcIndex];
-      if (maskAlpha < 255)
-        alpha = (byte)(alpha * maskAlpha / 255);
-
-      dstPixel->A = alpha;
-    }
-
-    /////////////////////////////////////////////////////////////////////////// 
-
-    private static byte GetMaskAlpha(PhotoshopFile.Layer.Mask mask, int x, int y)
-    {
-      byte c = 255;
-      if (mask.PositionIsRelative)
-      {
-        x -= mask.Rect.X;
-        y -= mask.Rect.Y;
-      }
-      else
-      {
-        x = (x + mask.Layer.Rect.X) - mask.Rect.X;
-        y = (y + mask.Layer.Rect.Y) - mask.Rect.Y;
-      }
-
-      if (y >= 0 && y < mask.Rect.Height &&
-           x >= 0 && x < mask.Rect.Width)
-      {
-        int pos = y * mask.Rect.Width + x;
-        if (pos < mask.ImageData.Length)
-          c = mask.ImageData[pos];
-        else
-          c = 255;
-      }
-
-      return c;
     }
 
     /////////////////////////////////////////////////////////////////////////// 
@@ -387,15 +405,8 @@ namespace PaintDotNet.Data.PhotoshopFileType
     private static double rgbExponent = 1 / 2.19921875;
     unsafe private static byte RGBByteFromHDRFloat(byte* ptr)
     {
-      // Swap endianness of the float value
-      float value;
-      byte* valueBytePtr = (byte*)(&value);
-      for (long i = 0; i < 4; ++i)
-      {
-        *(valueBytePtr + i) = *(ptr + 3 - i);
-      }
-
-      var result = Math.Round(255 * Math.Pow(value, rgbExponent));
+      float* floatPtr = (float*)ptr;
+      var result = Math.Round(255 * Math.Pow(*floatPtr, rgbExponent));
       return (byte)result;
     }
 

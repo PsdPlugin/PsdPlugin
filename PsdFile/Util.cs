@@ -8,6 +8,40 @@ namespace PhotoshopFile
 {
   public static class Util
   {
+    unsafe static public void SwapBytes2(byte* ptr)
+    {
+      byte byte0 = *ptr;
+      *ptr = *(ptr + 1);
+      *(ptr + 1) = byte0;
+    }
+
+    /////////////////////////////////////////////////////////////////////////// 
+
+    unsafe static public void SwapBytes4(byte* ptr)
+    {
+      byte byte0 = *ptr;
+      byte byte1 = *(ptr + 1);
+
+      *ptr = *(ptr + 3);
+      *(ptr + 1) = *(ptr + 2);
+      *(ptr + 2) = byte1;
+      *(ptr + 3) = byte0;
+    }
+
+    /////////////////////////////////////////////////////////////////////////// 
+
+    unsafe static public void SwapBytes(byte* ptr, int nLength)
+    {
+      for (long i = 0; i < nLength / 2; ++i)
+      {
+        byte t = *(ptr + i);
+        *(ptr + i) = *(ptr + nLength - i - 1);
+        *(ptr + nLength - i - 1) = t;
+      }
+    }
+
+    /////////////////////////////////////////////////////////////////////////// 
+
     public static int BytesPerRow(Rectangle rect, int depth)
     {
       switch (depth)
@@ -15,7 +49,7 @@ namespace PhotoshopFile
         case 1:
           return (rect.Width + 7) / 8;
         default:
-          return rect.Width * BytesFromDepth(depth);
+          return rect.Width * BytesFromBitDepth(depth);
       }
     }
 
@@ -28,7 +62,7 @@ namespace PhotoshopFile
 
     /////////////////////////////////////////////////////////////////////////// 
 
-    public static int BytesFromDepth(int depth)
+    public static int BytesFromBitDepth(int depth)
     {
       switch (depth)
       {
