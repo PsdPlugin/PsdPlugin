@@ -170,8 +170,8 @@ namespace PaintDotNet.Data.PhotoshopFileType
         BlendOpToBlendModeKey(layer.BlendOp, psdLayer);
         psdLayer.Visible = layer.Visible;
 
-        SaveLayerPixelsContext slc = new SaveLayerPixelsContext(layer, psdFile, input, psdLayer, psdToken);
-        WaitCallback waitCallback = new WaitCallback(slc.SaveLayer);
+        StoreLayerContext slc = new StoreLayerContext(layer, psdFile, input, psdLayer, psdToken);
+        WaitCallback waitCallback = new WaitCallback(slc.StoreLayer);
         threadPool.QueueUserWorkItem(waitCallback);
       }
       threadPool.Drain();
@@ -267,11 +267,12 @@ namespace PaintDotNet.Data.PhotoshopFileType
       return fFound;
     }
 
-    public static void SaveLayerPixels(BitmapLayer layer, PsdFile psdFile,
+    public static void StoreLayer(BitmapLayer layer, PsdFile psdFile,
         Document input, PhotoshopFile.Layer psdLayer, PsdSaveConfigToken psdToken)
     {      
       Surface surface = layer.Surface;
 
+      // Set layer metadata
       psdLayer.Rect = FindImageRectangle(layer, psdFile, input, psdLayer);
       psdLayer.Name = layer.Name;
       psdLayer.Opacity = layer.Opacity;
@@ -279,8 +280,15 @@ namespace PaintDotNet.Data.PhotoshopFileType
       psdLayer.MaskData = new PhotoshopFile.Layer.Mask(psdLayer);
       psdLayer.BlendingRangesData = new PhotoshopFile.Layer.BlendingRanges(psdLayer);
 
-      int layerSize = psdLayer.Rect.Width * psdLayer.Rect.Height;
+      // Preserve Unicode layer name as Additional Layer Information
+      var luniLayerInfo = new PhotoshopFile.Layer.AdjustmentLayerInfo("luni", psdLayer);
+      var luniData = Encoding.BigEndianUnicode.GetBytes("\u0000\u0000" + layer.Name);
+      Util.SetBigEndianInt32(luniData, 0, psdLayer.Name.Length);
+      luniLayerInfo.Data = luniData;
+      psdLayer.AdjustmentInfo.Add(luniLayerInfo);
 
+      // Store channel metadata
+      int layerSize = psdLayer.Rect.Width * psdLayer.Rect.Height;
       for (int i = -1; i < 3; i++)
       {
         PhotoshopFile.Layer.Channel ch = new PhotoshopFile.Layer.Channel((short)i, psdLayer);
@@ -289,9 +297,9 @@ namespace PaintDotNet.Data.PhotoshopFileType
         ch.ImageData = new byte[layerSize];
       }
 
+      // Store image data into channels
       var channels = psdLayer.ChannelsArray;
       var alphaChannel = psdLayer.AlphaChannel;
-
       unsafe
       {
         int rowIndex = 0;
@@ -488,7 +496,7 @@ namespace PaintDotNet.Data.PhotoshopFileType
         throw new OutOfMemoryException();
     }
 
-    private class SaveLayerPixelsContext
+    private class StoreLayerContext
     {
       private BitmapLayer layer;
       private PsdFile psdFile;
@@ -496,7 +504,7 @@ namespace PaintDotNet.Data.PhotoshopFileType
       private PsdSaveConfigToken psdToken;
       PhotoshopFile.Layer psdLayer;
 
-      public SaveLayerPixelsContext(BitmapLayer layer, PsdFile psdFile,
+      public StoreLayerContext(BitmapLayer layer, PsdFile psdFile,
         Document input, PhotoshopFile.Layer psdLayer, PsdSaveConfigToken psdToken)
       {
         this.layer = layer;
@@ -506,9 +514,9 @@ namespace PaintDotNet.Data.PhotoshopFileType
         this.psdLayer = psdLayer;
       }
 
-      public void SaveLayer(object context)
+      public void StoreLayer(object context)
       {
-        SaveLayerPixels(layer, psdFile, input, psdLayer, psdToken);
+        PhotoshopFileType.StoreLayer(layer, psdFile, input, psdLayer, psdToken);
       }
     }
 

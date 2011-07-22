@@ -223,25 +223,11 @@ namespace PhotoshopFile
 
         if (byteDepth == 2)
         {
-          unsafe
-          {
-            fixed (byte* ptr = &m_imageData[0])
-            {
-              for (int i = 0; i < pixelsTotal; i++)
-                Util.SwapBytes2(ptr + i * byteDepth);
-            }
-          }
+          Util.SwapByteArray2(m_imageData, 0, pixelsTotal);
         }
         else if (byteDepth == 4)
         {
-          unsafe
-          {
-            fixed (byte* ptr = &m_imageData[0])
-            {
-              for (int i = 0; i < pixelsTotal; i++)
-                Util.SwapBytes4(ptr + i * byteDepth);
-            }
-          }
+          Util.SwapByteArray4(m_imageData, 0, pixelsTotal);
         }
         else if (byteDepth > 1)
         {
@@ -657,7 +643,6 @@ namespace PhotoshopFile
         }
 
         m_key = new string(reader.ReadChars(4));
-
         uint dataLength = reader.ReadUInt32();
         m_data = reader.ReadBytes((int)dataLength);
       }
@@ -953,6 +938,7 @@ namespace PhotoshopFile
       reader.ReadBytes(paddingBytes);
 
       //-----------------------------------------------------------------------
+      // Process Additional Layer Information
 
       m_adjustmentInfo.Clear();
 
@@ -969,6 +955,16 @@ namespace PhotoshopFile
         }
       }
 
+      foreach (var adjustmentInfo in m_adjustmentInfo)
+      {
+        switch (adjustmentInfo.Key)
+        {
+          case "luni":
+            var length = Util.GetBigEndianInt32(adjustmentInfo.Data, 0);
+            m_name = Encoding.BigEndianUnicode.GetString(adjustmentInfo.Data, 4, length * 2);
+            break;
+        }
+      }
 
       //-----------------------------------------------------------------------
       // make sure we are not on a wrong offset, so set the stream position 

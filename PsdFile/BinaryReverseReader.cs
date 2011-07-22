@@ -132,23 +132,20 @@ namespace PhotoshopFile
 
     public bool AutoFlush;
 
+    /// <summary>
+    /// Writes a Pascal string to the stream using the current ANSI code page.
+    /// </summary>
+    /// <param name="s">Unicode string to write</param>
     public void WritePascalString(string s)
     {
-      char[] c;
-      if (s.Length > 255)
-        c = s.Substring(0, 255).ToCharArray();
-      else
-        c = s.ToCharArray();
+      string str = (s.Length > 255) ? s.Substring(0, 255) : s;
+      byte[] bytesArray = Encoding.Default.GetBytes(str);
 
-      base.Write((byte)c.Length);
-      base.Write(c);
+      base.Write((byte)bytesArray.Length);
+      base.Write(bytesArray);
 
-      int realLength = c.Length + 1;
-
-      if ((realLength % 2) == 0)
-        return;
-
-      for (int i = 0; i < (2 - (realLength % 2)); i++)
+      // Original string length is even, so Pascal string length is odd
+      if ((bytesArray.Length % 2) == 0)
         base.Write((byte)0);
 
       if (AutoFlush)

@@ -52,6 +52,101 @@ namespace PhotoshopFile
 
     /////////////////////////////////////////////////////////////////////////// 
 
+    public static Int32 GetBigEndianInt32(byte[] byteArray, int idx)
+    {
+      if (byteArray.Length < (idx + 4))
+        throw new IndexOutOfRangeException();
+
+      unsafe
+      {
+        fixed (byte* ptr = &byteArray[idx])
+        {
+          Int32* intPtr = (Int32*)ptr;
+          Int32 result = *intPtr;
+          SwapBytes4((byte*)(&result));
+          return result;
+        }
+      }
+    }
+
+    /////////////////////////////////////////////////////////////////////////// 
+
+    public static void SetBigEndianInt32(byte[] byteArray, int idx, Int32 value)
+    {
+      if (byteArray.Length < (idx + 4))
+        throw new IndexOutOfRangeException();
+
+      unsafe
+      {
+        fixed (byte* ptr = &byteArray[idx])
+        {
+          Int32* intPtr = (Int32*)ptr;
+          *intPtr = value;
+          SwapBytes4(ptr);
+        }
+      }
+    }
+
+    /////////////////////////////////////////////////////////////////////////// 
+
+    /// <summary>
+    /// Reverses the endianness of 2-byte words in a byte array.
+    /// </summary>
+    /// <param name="byteArray">Byte array containing the sequence on which to swap endianness</param>
+    /// <param name="startIdx">Byte index of the first word to swap</param>
+    /// <param name="count">Number of words to swap</param>
+    public static void SwapByteArray2(byte[] byteArray, int startIdx, int count)
+    {
+      int endIdx = startIdx + count * 2;
+      if (byteArray.Length < endIdx)
+        throw new IndexOutOfRangeException();
+
+      unsafe
+      {
+        fixed (byte* arrayPtr = &byteArray[0])
+        {
+          byte* ptr = arrayPtr + startIdx;
+          byte* endPtr = arrayPtr + endIdx;
+          while (ptr < endPtr)
+          {
+            SwapBytes2(ptr);
+            ptr += 2;
+          }
+        }
+      }
+    }
+
+    /////////////////////////////////////////////////////////////////////////// 
+
+    /// <summary>
+    /// Reverses the endianness of 4-byte words in a byte array.
+    /// </summary>
+    /// <param name="byteArray">Byte array containing the sequence on which to swap endianness</param>
+    /// <param name="startIdx">Byte index of the first word to swap</param>
+    /// <param name="count">Number of words to swap</param>
+    public static void SwapByteArray4(byte[] byteArray, int startIdx, int count)
+    {
+      int endIdx = startIdx + count * 4;
+      if (byteArray.Length < endIdx)
+        throw new IndexOutOfRangeException();
+
+      unsafe
+      {
+        fixed (byte* arrayPtr = &byteArray[0])
+        {
+          byte* ptr = arrayPtr + startIdx;
+          byte* endPtr = arrayPtr + endIdx;
+          while (ptr < endPtr)
+          {
+            SwapBytes4(ptr);
+            ptr += 4;
+          }
+        }
+      }
+    }
+
+    /////////////////////////////////////////////////////////////////////////// 
+
     public static int BytesPerRow(Rectangle rect, int depth)
     {
       switch (depth)
