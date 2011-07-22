@@ -179,50 +179,100 @@ namespace PaintDotNet.Data.PhotoshopFileType
       psdFile.Save(output);
     }
 
+    /// <summary>
+    /// Determine the real size of the layer, i.e., the smallest rectangle
+    /// that includes all non-transparent pixels.
+    /// </summary>
+    private static Rectangle FindImageRectangle(BitmapLayer layer, PsdFile psdFile, Document input, PhotoshopFile.Layer psdLayer)
+    {
+      Surface surface = layer.Surface;
+
+      var rectPos = new Util.RectanglePosition
+      {
+        Left = input.Width,
+        Top = input.Height,
+        Right = 0,
+        Bottom = 0
+      };
+
+      unsafe
+      {
+        // Search for top non-transparent pixel
+        bool fFound = false;
+        for (int y = 0; y < input.Height; y++)
+        {
+          if (CheckImageRow(surface, y, 0, input.Width, ref rectPos))
+          {
+            fFound = true;
+            break;
+          }
+        }
+
+        // If layer is non-empty, then search the remaining space to expand
+        // the rectangle as necessary.
+        if (fFound)
+        {
+          // Search for bottom non-transparent pixel
+          for (int y = psdFile.Rows - 1; y > rectPos.Bottom; y--)
+          {
+            if (CheckImageRow(surface, y, 0, input.Width, ref rectPos))
+              break;
+          }
+
+          // Search for left and right non-transparent pixels
+          for (int y = rectPos.Top + 1; y < rectPos.Bottom; y++)
+          {
+            CheckImageRow(surface, y, 0, rectPos.Left, ref rectPos);
+            CheckImageRow(surface, y, rectPos.Right + 1, input.Width, ref rectPos);
+          }
+        }
+        else
+        {
+          rectPos.Left = 0;
+          rectPos.Top = 0;
+        }
+      }
+
+      Debug.Assert(rectPos.Left <= rectPos.Right);
+      Debug.Assert(rectPos.Top <= rectPos.Bottom);
+
+      var result = new Rectangle(rectPos.Left, rectPos.Top, rectPos.Right - rectPos.Left + 1, rectPos.Bottom - rectPos.Top + 1);
+      return result;
+    }
+
+    unsafe private static bool CheckImageRow(Surface surface, int y, int xStart, int xEnd, ref Util.RectanglePosition rectPos)
+    {
+      bool fFound = false;
+
+      ColorBgra* rowStart = surface.GetRowAddress(y);
+      ColorBgra* pixel = rowStart + xStart;
+      for (int x = xStart; x < xEnd; x++)
+      {
+        if (pixel->A > 0)
+        {
+          // Expand the rectangle to include the specified point.  
+          if (x < rectPos.Left)
+            rectPos.Left = x;
+          if (x > rectPos.Right)
+            rectPos.Right = x;
+          if (y < rectPos.Top)
+            rectPos.Top = y;
+          if (y > rectPos.Bottom)
+            rectPos.Bottom = y;
+          fFound = true;
+        }
+        pixel++;
+      }
+
+      return fFound;
+    }
+
     public static void SaveLayerPixels(BitmapLayer layer, PsdFile psdFile,
         Document input, PhotoshopFile.Layer psdLayer, PsdSaveConfigToken psdToken)
     {      
       Surface surface = layer.Surface;
 
-      int rectLeft = input.Width;
-      int rectTop = input.Height;
-      int rectRight = 0;
-      int rectBottom = 0;
-
-      // Determine the real size of this layer, i.e., the smallest rectangle
-      // that includes all all non-invisible pixels
-      unsafe
-      {
-        for (int y = 0; y < psdFile.Rows; y++)
-        {
-          int rowIndex = y * psdFile.Columns;
-          ColorBgra* srcRow = surface.GetRowAddress(y);
-          ColorBgra* srcPixel = srcRow;
-
-          for (int x = 0; x < psdFile.Columns; x++)
-          {
-            int pos = rowIndex + x;
-
-            // Found a non-transparent pixel, potentially increase the size of the rectangle
-            if (srcPixel->A > 0)
-            {
-              // Expand the rectangle
-              if (x < rectLeft)
-                rectLeft = x;
-              if (x > rectRight)
-                rectRight = x;
-              if (y < rectTop)
-                rectTop = y;
-              if (y > rectBottom)
-                rectBottom = y;
-            }
-
-            srcPixel++;
-          }
-        }
-      }
-
-      psdLayer.Rect = new Rectangle(rectLeft, rectTop, rectRight - rectLeft + 1, rectBottom - rectTop + 1);
+      psdLayer.Rect = FindImageRectangle(layer, psdFile, input, psdLayer);
       psdLayer.Name = layer.Name;
       psdLayer.Opacity = layer.Opacity;
       psdLayer.Visible = layer.Visible;

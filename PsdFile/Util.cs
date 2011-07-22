@@ -8,6 +8,16 @@ namespace PhotoshopFile
 {
   public static class Util
   {
+    public struct RectanglePosition
+    {
+      public int Top { get; set; }
+      public int Bottom { get; set; }
+      public int Left { get; set; }
+      public int Right { get; set; }
+    }
+
+    /////////////////////////////////////////////////////////////////////////// 
+
     unsafe static public void SwapBytes2(byte* ptr)
     {
       byte byte0 = *ptr;
