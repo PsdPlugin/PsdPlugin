@@ -281,7 +281,7 @@ namespace PaintDotNet.Data.PhotoshopFileType
       psdLayer.BlendingRangesData = new PhotoshopFile.Layer.BlendingRanges(psdLayer);
 
       // Preserve Unicode layer name as Additional Layer Information
-      var luniLayerInfo = new PhotoshopFile.Layer.AdjustmentLayerInfo("luni", psdLayer);
+      var luniLayerInfo = new PhotoshopFile.Layer.AdjustmentLayerInfo("luni");
       var luniData = Encoding.BigEndianUnicode.GetBytes("\u0000\u0000" + layer.Name);
       Util.SetBigEndianInt32(luniData, 0, psdLayer.Name.Length);
       luniLayerInfo.Data = luniData;

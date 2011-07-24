@@ -607,7 +607,6 @@ namespace PhotoshopFile
 
     public class AdjustmentLayerInfo
     {
-      private Layer m_layer;
 
       private string m_key;
       public string Key
@@ -623,18 +622,14 @@ namespace PhotoshopFile
         set { m_data = value; }
       }
 
-      public AdjustmentLayerInfo(string key, Layer layer)
+      public AdjustmentLayerInfo(string key)
       {
         m_key = key;
-        m_layer = layer;
-        m_layer.AdjustmentInfo.Add(this);
       }
 
-      public AdjustmentLayerInfo(BinaryReverseReader reader, Layer layer)
+      public AdjustmentLayerInfo(BinaryReverseReader reader)
       {
         Debug.WriteLine("AdjustmentLayerInfo started at " + reader.BaseStream.Position.ToString(CultureInfo.InvariantCulture));
-
-        m_layer = layer;
 
         string signature = new string(reader.ReadChars(4));
         if (signature != "8BIM")
@@ -947,7 +942,7 @@ namespace PhotoshopFile
       {
         try
         {
-          m_adjustmentInfo.Add(new AdjustmentLayerInfo(reader, this));
+          m_adjustmentInfo.Add(new AdjustmentLayerInfo(reader));
         }
         catch
         {

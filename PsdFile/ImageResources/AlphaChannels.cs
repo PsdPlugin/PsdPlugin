@@ -51,7 +51,7 @@ namespace PhotoshopFile
       {
         byte stringLength = reader.ReadByte();
         string s = new string(reader.ReadChars(stringLength));
-        if(s.Length>0)
+        if (s.Length > 0)
           m_channelNames.Add(s);
       }
       reader.Close();
