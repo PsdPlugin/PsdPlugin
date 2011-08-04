@@ -12,11 +12,13 @@
 /////////////////////////////////////////////////////////////////////////////////
 
 using PaintDotNet;
+
 using System;
 using System.Collections.Generic;
-using System.Text;
+using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Imaging;
+using System.Text;
 
 using PhotoshopFile;
 
@@ -150,21 +152,41 @@ namespace PaintDotNet.Data.PhotoshopFileType
       bool hasMaskChannel, PhotoshopFile.Layer.Mask mask, PhotoshopFile.Layer.Channel alphaChannel,
       int byteDepth, int xPsdLayerStart, int xPsdLayerEndCopy, int yPsdLayer, int srcRowIndex)
     {
-      if (alphaChannel == null)
-        return;
-
-      // Set layer mask if it exists
       var dstPixelCopy = dstPixel;
-      if (hasMaskChannel)
+
+      // Set alpha to fully-opaque if there is no alpha channel
+      if (alphaChannel == null)
       {
-        // Mask may not cover the entire layer
         for (int xPsdLayer = xPsdLayerStart; xPsdLayer < xPsdLayerEndCopy; xPsdLayer++)
         {
           dstPixelCopy->A = 255;
           dstPixelCopy++;
         }
-        dstPixelCopy = dstPixel;
+      }
+      // Set the alpha channel data
+      else
+      {
+        fixed (byte* alphaChannelPtr = &alphaChannel.ImageData[0])
+        {
+          for (int xPsdLayer = xPsdLayerStart; xPsdLayer < xPsdLayerEndCopy; xPsdLayer++)
+          {
+            int srcIndex = srcRowIndex + xPsdLayer * byteDepth;
+            byte* alphaPtr = alphaChannelPtr + srcIndex;
 
+            // Get alpha value
+            if (byteDepth < 4)
+              dstPixelCopy->A = *alphaPtr;
+            else
+              dstPixelCopy->A = RGBByteFromHDRFloat(alphaPtr);
+
+            dstPixelCopy++;
+          }
+        }
+      }
+
+      // Merge in the layer mask
+      if (hasMaskChannel)
+      {
         // Set parameters for the mask channel
         int xMaskStart = xPsdLayerStart - mask.Rect.X;
         int xMaskEnd = xPsdLayerEndCopy - mask.Rect.X;
@@ -182,53 +204,34 @@ namespace PaintDotNet.Data.PhotoshopFileType
         xMaskEnd = Math.Min(xMaskEnd, mask.Rect.Width);
         yMask = Math.Min(yMask, mask.Rect.Height);
 
-        // Set the alpha from the mask
-        fixed (byte* maskDataPtr = &mask.ImageData[0])
+        // Pointer addressing will fail for an empty mask
+        if (mask.ImageData.Length > 0)
         {
-          byte* maskDataEndPtr = maskDataPtr + mask.ImageData.Length;
-          byte* maskPtr = maskDataPtr + (yMask * mask.Rect.Width + xMaskStart) * byteDepth;
-          if (byteDepth == 2)
-            maskPtr++;  // High-order byte
-          byte* maskEndPtr = maskDataPtr + (yMask * mask.Rect.Width + xMaskEnd) * byteDepth;
-          if (maskEndPtr > maskDataEndPtr)
-            maskEndPtr = maskDataEndPtr;
-          
-          while (maskPtr < maskEndPtr)
+          // Set the alpha from the mask
+          dstPixelCopy = dstPixel;
+          fixed (byte* maskDataPtr = &mask.ImageData[0])
           {
-            if (byteDepth < 4)
-              dstPixelCopy->A = *maskPtr;
-            else
-              dstPixelCopy->A = RGBByteFromHDRFloat(maskPtr);
+            byte* maskDataEndPtr = maskDataPtr + mask.ImageData.Length;
+            byte* maskPtr = maskDataPtr + (yMask * mask.Rect.Width + xMaskStart) * byteDepth;
+            if (byteDepth == 2)
+              maskPtr++;  // High-order byte
+            byte* maskEndPtr = maskDataPtr + (yMask * mask.Rect.Width + xMaskEnd) * byteDepth;
+            if (maskEndPtr > maskDataEndPtr)
+              maskEndPtr = maskDataEndPtr;
 
-            maskPtr += byteDepth;
-            dstPixelCopy++;
+            while (maskPtr < maskEndPtr)
+            {
+              var maskAlpha = (byteDepth < 4)
+                ? *maskPtr
+                : RGBByteFromHDRFloat(maskPtr);
+
+              if (maskAlpha < 255)
+                dstPixelCopy->A = (byte)(dstPixelCopy->A * maskAlpha / 255);
+
+              maskPtr += byteDepth;
+              dstPixelCopy++;
+            }
           }
-        }
-      }
-
-      // Real alpha value is then merged in
-      dstPixelCopy = dstPixel;
-      fixed (byte* alphaChannelPtr = &alphaChannel.ImageData[0])
-      {
-        for (int xPsdLayer = xPsdLayerStart; xPsdLayer < xPsdLayerEndCopy; xPsdLayer++)
-        {
-          int srcIndex = srcRowIndex + xPsdLayer * byteDepth;
-          byte* alphaPtr = alphaChannelPtr + srcIndex;
-
-          // Get alpha value
-          byte alpha = 255;
-          if (byteDepth < 4)
-            alpha = *alphaPtr;
-          else
-            alpha = RGBByteFromHDRFloat(alphaPtr);
-
-          // Merge with the layer mask if it exists
-          if (hasMaskChannel && (dstPixelCopy->A < 255))
-            dstPixelCopy->A = (byte)(dstPixelCopy->A * alpha / 255);
-          else
-            dstPixelCopy->A = alpha;
-
-          dstPixelCopy++;
         }
       }
     }
