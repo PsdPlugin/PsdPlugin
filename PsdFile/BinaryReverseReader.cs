@@ -39,6 +39,7 @@ namespace PhotoshopFile
       }
       return val;
     }
+
     public override int ReadInt32()
     {
       int val = base.ReadInt32();
@@ -48,6 +49,7 @@ namespace PhotoshopFile
       }
       return val;
     }
+
     public override long ReadInt64()
     {
       long val = base.ReadInt64();

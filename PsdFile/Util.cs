@@ -219,4 +219,42 @@ namespace PhotoshopFile
     }
 
   }
+
+  public class UFixed16_16
+  {
+    public UInt16 Integer { get; set; }
+    public UInt16 Fraction { get; set; }
+
+    public UFixed16_16(UInt16 integer, UInt16 fraction)
+    {
+      Integer = integer;
+      Fraction = fraction;
+    }
+
+    /// <summary>
+    /// Split the high and low words of a 32-bit unsigned integer into a
+    /// fixed-point number.
+    /// </summary>
+    public UFixed16_16(UInt32 value)
+    {
+      Integer = (UInt16)(value >> 16);
+      Fraction = (UInt16)(value & 0x0000ffff);
+    }
+
+    public UFixed16_16(double value)
+    {
+      if (value >= 65536.0) throw new OverflowException();
+      if (value < 0) throw new OverflowException();
+
+      Integer = (UInt16)value;
+      Fraction = (UInt16)((value - Integer) * 65536);
+    }
+
+    public static implicit operator double(UFixed16_16 value)
+    {
+      return (double)value.Integer + value.Fraction / 65536.0;
+    }
+
+  }
+  
 }

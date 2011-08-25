@@ -84,25 +84,26 @@ namespace PaintDotNet.Data.PhotoshopFileType
 
       ResolutionInfo resInfo = new ResolutionInfo();
 
-      resInfo.HeightUnit = ResolutionInfo.Unit.In;
-      resInfo.WidthUnit = ResolutionInfo.Unit.In;
+      resInfo.HeightDisplayUnit = ResolutionInfo.Unit.In;
+      resInfo.WidthDisplayUnit = ResolutionInfo.Unit.In;
 
       if (input.DpuUnit == MeasurementUnit.Inch)
       {
-        resInfo.HResUnit = ResolutionInfo.ResUnit.PxPerInch;
-        resInfo.VResUnit = ResolutionInfo.ResUnit.PxPerInch;
+        resInfo.HResDisplayUnit = ResolutionInfo.ResUnit.PxPerInch;
+        resInfo.VResDisplayUnit = ResolutionInfo.ResUnit.PxPerInch;
 
-        resInfo.HRes = (short)input.DpuX;
-        resInfo.VRes = (short)input.DpuY;
+        resInfo.HDpi = new UFixed16_16(input.DpuX);
+        resInfo.VDpi = new UFixed16_16(input.DpuY);
       }
       else
       {
-        resInfo.HResUnit = ResolutionInfo.ResUnit.PxPerCent;
-        resInfo.VResUnit = ResolutionInfo.ResUnit.PxPerCent;
+        resInfo.HResDisplayUnit = ResolutionInfo.ResUnit.PxPerCm;
+        resInfo.VResDisplayUnit = ResolutionInfo.ResUnit.PxPerCm;
 
-
-        resInfo.HRes = (short)(input.DpuX / 2.54);
-        resInfo.VRes = (short)(input.DpuY / 2.54);
+        // Always stored as pixels/inch even if the display unit is
+        // pixels/centimeter.
+        resInfo.HDpi = new UFixed16_16(input.DpuX * 2.54);
+        resInfo.VDpi = new UFixed16_16(input.DpuY * 2.54);
       }
 
       psdFile.Resolution = resInfo;
@@ -437,9 +438,12 @@ namespace PaintDotNet.Data.PhotoshopFileType
 
       if (psdFile.Resolution != null)
       {
+        // The PSD format always stores resolution in pixels/inch, regardless
+        // of the display units.  We do not want to lose precision by round-
+        // tripping the conversion, so we stick with .
         document.DpuUnit = MeasurementUnit.Inch;
-        document.DpuX = psdFile.Resolution.HRes;
-        document.DpuY = psdFile.Resolution.VRes;
+        document.DpuX = psdFile.Resolution.HDpi;
+        document.DpuY = psdFile.Resolution.VDpi;
       }
 
       if (psdFile.Layers.Count == 0)

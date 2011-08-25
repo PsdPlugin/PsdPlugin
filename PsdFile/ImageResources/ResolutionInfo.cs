@@ -24,46 +24,44 @@ namespace PhotoshopFile
   public class ResolutionInfo : ImageResource
   {
     /// <summary>
-    /// Fixed-point number: pixels per inch
+    /// Horizontal DPI.
     /// </summary>
-    private short m_hRes;
-    public short HRes
-    {
-      get { return m_hRes; }
-      set { m_hRes = value; }
-    }
+    public UFixed16_16 HDpi { get; set; }
 
     /// <summary>
-    /// Fixed-point number: pixels per inch
+    /// Vertical DPI.
     /// </summary>
-    private short m_vRes;
-    public short VRes
-    {
-      get { return m_vRes; }
-      set { m_vRes = value; }
-    }
+    public UFixed16_16 VDpi { get; set; }
 
     /// <summary>
-    /// 1=pixels per inch, 2=pixels per centimeter
+    /// 1 = pixels per inch, 2 = pixels per centimeter
     /// </summary>
     public enum ResUnit
     {
       PxPerInch = 1,
-      PxPerCent = 2
+      PxPerCm = 2
     }
 
-    private ResUnit m_hResUnit;
-    public ResUnit HResUnit
+    /// <summary>
+    /// Display units for horizontal resolution.  They are still stored as
+    /// pixels/inch.
+    /// </summary>
+    private ResUnit m_hResDisplayUnit;
+    public ResUnit HResDisplayUnit
     {
-      get { return m_hResUnit; }
-      set { m_hResUnit = value; }
+      get { return m_hResDisplayUnit; }
+      set { m_hResDisplayUnit = value; }
     }
 
-    private ResUnit m_vResUnit;
-    public ResUnit VResUnit
+    /// <summary>
+    /// Display units for vertical resolution.  They are still stored as
+    /// pixels/inch.
+    /// </summary>
+    private ResUnit m_vResDisplayUnit;
+    public ResUnit VResDisplayUnit
     {
-      get { return m_vResUnit; }
-      set { m_vResUnit = value; }
+      get { return m_vResDisplayUnit; }
+      set { m_vResDisplayUnit = value; }
     }
 
     /// <summary>
@@ -77,38 +75,38 @@ namespace PhotoshopFile
       Picas = 4,
       Columns = 5
     }
-    private Unit m_widthUnit;
 
-    public Unit WidthUnit
+    private Unit m_widthDisplayUnit;
+    public Unit WidthDisplayUnit
     {
-      get { return m_widthUnit; }
-      set { m_widthUnit = value; }
+      get { return m_widthDisplayUnit; }
+      set { m_widthDisplayUnit = value; }
     }
 
-    private Unit m_heightUnit;
-
-    public Unit HeightUnit
+    private Unit m_heightDisplayUnit;
+    public Unit HeightDisplayUnit
     {
-      get { return m_heightUnit; }
-      set { m_heightUnit = value; }
+      get { return m_heightDisplayUnit; }
+      set { m_heightDisplayUnit = value; }
     }
 
     public ResolutionInfo(): base()
     {
       base.ID = (short)ResourceID.ResolutionInfo;
     }
+
     public ResolutionInfo(ImageResource imgRes)
       : base(imgRes)
     {
       BinaryReverseReader reader = imgRes.DataReader;
 
-      this.m_hRes = reader.ReadInt16();
-      this.m_hResUnit = (ResUnit)reader.ReadInt32();
-      this.m_widthUnit = (Unit)reader.ReadInt16();
+      this.HDpi = new UFixed16_16(reader.ReadUInt32());
+      this.m_hResDisplayUnit = (ResUnit)reader.ReadInt16();
+      this.m_widthDisplayUnit = (Unit)reader.ReadInt16();
 
-      this.m_vRes = reader.ReadInt16();
-      this.m_vResUnit = (ResUnit)reader.ReadInt32();
-      this.m_heightUnit = (Unit)reader.ReadInt16();
+      this.VDpi = new UFixed16_16(reader.ReadUInt32());
+      this.m_vResDisplayUnit = (ResUnit)reader.ReadInt16();
+      this.m_heightDisplayUnit = (Unit)reader.ReadInt16();
 
       reader.Close();
     }
@@ -118,13 +116,15 @@ namespace PhotoshopFile
       System.IO.MemoryStream stream = new System.IO.MemoryStream();
       BinaryReverseWriter writer = new BinaryReverseWriter(stream);
 
-      writer.Write((Int16)m_hRes);
-      writer.Write((Int32)m_hResUnit);
-      writer.Write((Int16)m_widthUnit);
+      writer.Write(HDpi.Integer);
+      writer.Write(HDpi.Fraction);
+      writer.Write((Int16)m_hResDisplayUnit);
+      writer.Write((Int16)m_widthDisplayUnit);
 
-      writer.Write((Int16)m_vRes);
-      writer.Write((Int32)m_vResUnit);
-      writer.Write((Int16)m_heightUnit);
+      writer.Write(VDpi.Integer);
+      writer.Write(VDpi.Fraction);
+      writer.Write((Int16)m_vResDisplayUnit);
+      writer.Write((Int16)m_heightDisplayUnit);
 
       writer.Close();
       stream.Close();
