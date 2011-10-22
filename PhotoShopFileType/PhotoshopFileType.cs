@@ -121,6 +121,7 @@ namespace PaintDotNet.Data.PhotoshopFileType
         var channel = new PhotoshopFile.Layer.Channel(i, psdFile.BaseLayer);
         channel.ImageData = new byte[imageSize];
         channel.ImageCompression = psdFile.ImageCompression;
+        psdFile.BaseLayer.Channels.Add(channel);
       }
       
       using (RenderArgs ra = new RenderArgs(scratchSurface))
@@ -128,6 +129,7 @@ namespace PaintDotNet.Data.PhotoshopFileType
         input.Flatten(scratchSurface);
       }
 
+      var channelsArray = psdFile.BaseLayer.Channels.ToIdArray();
       unsafe
       {
         for (int y = 0; y < psdFile.Rows; y++)
@@ -140,10 +142,10 @@ namespace PaintDotNet.Data.PhotoshopFileType
           {
             int pos = rowIndex + x;
 
-            psdFile.BaseLayer.Channels[0].ImageData[pos] = srcPixel->R;
-            psdFile.BaseLayer.Channels[1].ImageData[pos] = srcPixel->G;
-            psdFile.BaseLayer.Channels[2].ImageData[pos] = srcPixel->B;
-            psdFile.BaseLayer.Channels[3].ImageData[pos] = srcPixel->A;
+            channelsArray[0].ImageData[pos] = srcPixel->R;
+            channelsArray[1].ImageData[pos] = srcPixel->G;
+            channelsArray[2].ImageData[pos] = srcPixel->B;
+            channelsArray[3].ImageData[pos] = srcPixel->A;
             srcPixel++;
           }
         }
@@ -156,9 +158,10 @@ namespace PaintDotNet.Data.PhotoshopFileType
       PaintDotNet.Threading.PrivateThreadPool threadPool = new PaintDotNet.Threading.PrivateThreadPool();
       foreach (BitmapLayer layer in input.Layers)
       {
-        PhotoshopFile.Layer psdLayer = new PhotoshopFile.Layer(psdFile);
+        var psdLayer = new PhotoshopFile.Layer(psdFile);
         BlendOpToBlendModeKey(layer.BlendOp, psdLayer);
         psdLayer.Visible = layer.Visible;
+        psdFile.Layers.Add(psdLayer);
 
         StoreLayerContext slc = new StoreLayerContext(layer, psdFile, input, psdLayer, psdToken);
         WaitCallback waitCallback = new WaitCallback(slc.StoreLayer);
@@ -282,13 +285,13 @@ namespace PaintDotNet.Data.PhotoshopFileType
       for (int i = -1; i < 3; i++)
       {
         PhotoshopFile.Layer.Channel ch = new PhotoshopFile.Layer.Channel((short)i, psdLayer);
-
         ch.ImageCompression = psdToken.RleCompress ? ImageCompression.Rle : ImageCompression.Raw;
         ch.ImageData = new byte[layerSize];
+        psdLayer.Channels.Add(ch);
       }
 
       // Store image data into channels
-      var channels = psdLayer.ChannelsArray;
+      var channels = psdLayer.Channels.ToIdArray();
       var alphaChannel = psdLayer.AlphaChannel;
       unsafe
       {

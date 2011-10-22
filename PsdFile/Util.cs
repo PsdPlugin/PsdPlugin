@@ -220,6 +220,9 @@ namespace PhotoshopFile
 
   }
 
+  /// <summary>
+  /// Fixed-point decimal, with 16-bit integer and 16-bit fraction.
+  /// </summary>
   public class UFixed16_16
   {
     public UInt16 Integer { get; set; }

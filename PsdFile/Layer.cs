@@ -22,6 +22,7 @@ using System.Drawing;
 using System.Globalization;
 using System.IO;
 using System.IO.Compression;
+using System.Linq;
 using System.Text;
 using System.Threading;
 
@@ -95,8 +96,6 @@ namespace PhotoshopFile
       {
         m_id = id;
         m_layer = layer;
-        m_layer.Channels.Add(this);
-        m_layer.SortedChannels.Add(this.ID, this);
       }
 
       internal Channel(BinaryReverseReader reader, Layer layer)
@@ -105,7 +104,6 @@ namespace PhotoshopFile
         
         m_id = reader.ReadInt16();
         Length = reader.ReadInt32();
-
         m_layer = layer;
       }
 
@@ -368,6 +366,44 @@ namespace PhotoshopFile
 
     ///////////////////////////////////////////////////////////////////////////
 
+    public class ChannelList : List<Channel>
+    {
+      /// <summary>
+      /// Returns channels with nonnegative IDs as an array, so that accessing
+      /// a channel by Id can be optimized into pointer arithmetic rather than
+      /// being implemented as a List scan.
+      /// 
+      /// <remarks>Note: This is crucial for blitting lots of pixels back and forth.</remarks>
+      /// </summary>
+      public Channel[] ToIdArray()
+      {
+        var maxId = this.Max(x => x.ID);
+        var idArray = new Channel[maxId + 1];
+        foreach (var channel in this)
+        {
+          if (channel.ID >= 0)
+            idArray[channel.ID] = channel;
+        }
+        return idArray;
+      }
+
+      public ChannelList() : base()
+      {
+      }
+
+      public Channel GetId(int id)
+      {
+        return this.Single(x => x.ID == id);
+      }
+
+      public bool ContainsId(int id)
+      {
+        return this.Exists(x => x.ID == id);
+      }
+    }
+
+    ///////////////////////////////////////////////////////////////////////////
+    
     public class Mask
     {
       private Layer m_layer;
@@ -560,7 +596,6 @@ namespace PhotoshopFile
       public BlendingRanges(Layer layer)
       {
         m_layer = layer;
-        m_layer.BlendingRangesData = this;
       }
 
       ///////////////////////////////////////////////////////////////////////////
@@ -669,39 +704,14 @@ namespace PhotoshopFile
       set { m_rect = value; }
     }
 
+    private ChannelList m_channels = new ChannelList();
 
     /// <summary>
     /// Channel information.
     /// </summary>
-    private List<Channel> m_channels = new List<Channel>();
-
-    public List<Channel> Channels
+    public ChannelList Channels
     {
       get { return m_channels; }
-    }
-
-    /// <summary>
-    /// Returns channels with nonnegative IDs as an array, for faster indexing.
-    /// </summary>
-    public Channel[] ChannelsArray
-    {
-      get
-      {
-        short maxChannelId = -1;
-        foreach (short channelId in SortedChannels.Keys)
-        {
-          if (channelId > maxChannelId)
-            maxChannelId = channelId;
-        }
-
-        Channel[] channelsArray = new Channel[maxChannelId + 1];
-        for (short i=0; i <= maxChannelId; i++)
-        {
-          if (SortedChannels.ContainsKey(i))
-            channelsArray[i] = SortedChannels[i];
-        }
-        return channelsArray;
-      }
     }
 
     /// <summary>
@@ -711,19 +721,10 @@ namespace PhotoshopFile
     {
       get
       {
-        if (SortedChannels.ContainsKey(-1))
-          return SortedChannels[-1];
+        if (Channels.ContainsId(-1))
+          return this.Channels.GetId(-1);
         else
           return null;
-      }
-    }
-
-    private SortedList<short, Channel> m_sortedChannels = new SortedList<short, Channel>();
-    public SortedList<short, Channel> SortedChannels
-    {
-      get
-      {
-        return m_sortedChannels;
       }
     }
 
@@ -748,7 +749,7 @@ namespace PhotoshopFile
     /// <term>hLit</term><description>hard light</description>
     /// <term>sLit</term><description>soft light</description>
     /// <term>diff</term><description>difference</description>
-    /// <term>smud</term><description>exlusion</description>
+    /// <term>smud</term><description>exclusion</description>
     /// <term>div </term><description>color dodge</description>
     /// <term>idiv</term><description>color burn</description>
     /// </list>
@@ -846,7 +847,6 @@ namespace PhotoshopFile
     public Layer(PsdFile psdFile)
     {
       m_psdFile = psdFile;
-      m_psdFile.Layers.Add(this);
     }
 
     public Layer(BinaryReverseReader reader, PsdFile psdFile)
@@ -868,7 +868,6 @@ namespace PhotoshopFile
       {
         Channel ch = new Channel(reader, this);
         m_channels.Add(ch);
-        m_sortedChannels.Add(ch.ID, ch);
       }
 
       //-----------------------------------------------------------------------

@@ -47,7 +47,6 @@ namespace PhotoshopFile
     {
       this.BaseLayer = new Layer(this);
       this.BaseLayer.Rect = new Rectangle(0, 0, 0, 0);
-      this.Layers.Clear();
     }
 
     ///////////////////////////////////////////////////////////////////////////
@@ -540,8 +539,8 @@ namespace PhotoshopFile
 
       foreach (Layer layer in m_layers)
       {
-        if (layer.SortedChannels.ContainsKey(-2))
-          layer.MaskData.ImageData = layer.SortedChannels[-2].ImageData;
+        if (layer.Channels.ContainsId(-2))
+          layer.MaskData.ImageData = layer.Channels.GetId(-2).ImageData;
       }
     }
 
@@ -642,6 +641,7 @@ namespace PhotoshopFile
             channel.ImageCompression = this.ImageCompression;
             channel.Length = length;
             channel.ImageData = reader.ReadBytes(length);
+            this.BaseLayer.Channels.Add(channel);
           }
           break;
 
@@ -656,6 +656,7 @@ namespace PhotoshopFile
             var channel = new Layer.Channel(i, this.BaseLayer);
             channel.ImageCompression = this.ImageCompression;
             channel.Length = (int)totalRleLength;
+            this.BaseLayer.Channels.Add(channel);
           }
           
           foreach (var channel in this.BaseLayer.Channels)
@@ -668,11 +669,8 @@ namespace PhotoshopFile
       // If there is one more channel than we need, then it is the alpha channel
       if (this.Channels == Util.ChannelCount(this.ColorMode) + 1)
       {
-        var alphaChannel = this.BaseLayer.Channels[this.Channels - 1];
+        var alphaChannel = this.BaseLayer.Channels.Last();
         alphaChannel.ID = -1;
-
-        this.BaseLayer.SortedChannels.RemoveAt(this.Channels - 1);
-        this.BaseLayer.SortedChannels.Add(-1, alphaChannel);
       }
     }
 
@@ -733,18 +731,10 @@ namespace PhotoshopFile
     Rle = 1,
     /// <summary>
     /// ZIP without prediction.
-    /// <remarks>
-    /// This is currently not implemented since it is not documented.
-    /// Loading will result in an image where all channels are set to zero.
-    /// </remarks>
     /// </summary>
     Zip = 2,
     /// <summary>
     /// ZIP with prediction.
-    /// <remarks>
-    /// This is currently not implemented since it is not documented. 
-    /// Loading will result in an image where all channels are set to zero.
-    /// </remarks>
     /// </summary>
     ZipPrediction = 3
   }

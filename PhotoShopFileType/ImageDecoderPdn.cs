@@ -47,8 +47,8 @@ namespace PaintDotNet.Data.PhotoshopFileType
       var clearColor = isBackground ? (ColorBgra)0xffffffff : (ColorBgra)0;
       surface.Clear(clearColor);
 
-      bool hasMaskChannel = psdLayer.SortedChannels.ContainsKey(-2);
-      var channels = psdLayer.ChannelsArray;
+      bool hasMaskChannel = psdLayer.Channels.ContainsId(-2);
+      var channels = psdLayer.Channels.ToIdArray();
       var alphaChannel = psdLayer.AlphaChannel;
 
       int yPsdLayerStart = Math.Max(0, -psdLayer.Rect.Y);
