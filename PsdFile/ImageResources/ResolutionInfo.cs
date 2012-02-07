@@ -65,13 +65,13 @@ namespace PhotoshopFile
     }
 
     /// <summary>
-    /// 1=in, 2=cm, 3=pt, 4=picas, 5=columns
+    /// Physical units.
     /// </summary>
     public enum Unit
     {
-      In = 1,
-      Cm = 2,
-      Pt = 3,
+      Inches = 1,
+      Centimeters = 2,
+      Points = 3,
       Picas = 4,
       Columns = 5
     }
