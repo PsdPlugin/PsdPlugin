@@ -5,7 +5,7 @@
 //
 // This software is provided under the MIT License:
 //   Copyright (c) 2006-2007 Frank Blumenberg
-//   Copyright (c) 2010-2011 Tao Yue
+//   Copyright (c) 2010-2012 Tao Yue
 //
 // See LICENSE.txt for complete licensing and attribution information.
 //
@@ -21,6 +21,8 @@ namespace PhotoshopFile
 {
   public static class Util
   {
+    public static char[] SIGNATURE_8BIM = "8BIM".ToCharArray();
+    
     public struct RectanglePosition
     {
       public int Top { get; set; }
@@ -51,8 +53,6 @@ namespace PhotoshopFile
       *(ptr + 3) = byte0;
     }
 
-    /////////////////////////////////////////////////////////////////////////// 
-
     unsafe static public void SwapBytes(byte* ptr, int nLength)
     {
       for (long i = 0; i < nLength / 2; ++i)
@@ -81,8 +81,6 @@ namespace PhotoshopFile
         }
       }
     }
-
-    /////////////////////////////////////////////////////////////////////////// 
 
     public static void SetBigEndianInt32(byte[] byteArray, int idx, Int32 value)
     {
@@ -129,8 +127,6 @@ namespace PhotoshopFile
       }
     }
 
-    /////////////////////////////////////////////////////////////////////////// 
-
     /// <summary>
     /// Reverses the endianness of 4-byte words in a byte array.
     /// </summary>
@@ -171,14 +167,10 @@ namespace PhotoshopFile
       }
     }
 
-    /////////////////////////////////////////////////////////////////////////// 
-
     public static int RoundUp(int value, int stride)
     {
       return ((value + stride - 1) / stride) * stride;
     }
-
-    /////////////////////////////////////////////////////////////////////////// 
 
     public static int BytesFromBitDepth(int depth)
     {
@@ -195,8 +187,6 @@ namespace PhotoshopFile
           throw new ArgumentException("Invalid bit depth.");
       }
     }
-
-    /////////////////////////////////////////////////////////////////////////// 
 
     public static short ChannelCount(PsdColorMode colorMode)
     {
@@ -250,7 +240,10 @@ namespace PhotoshopFile
       if (value < 0) throw new OverflowException();
 
       Integer = (UInt16)value;
-      Fraction = (UInt16)((value - Integer) * 65536);
+
+      // Round instead of truncate, because doubles may not represent the
+      // fraction exactly.
+      Fraction = (UInt16)((value - Integer) * 65536 + 0.5);  
     }
 
     public static implicit operator double(UFixed16_16 value)

@@ -5,7 +5,7 @@
 //
 // This software is provided under the MIT License:
 //   Copyright (c) 2006-2007 Frank Blumenberg
-//   Copyright (c) 2010-2011 Tao Yue
+//   Copyright (c) 2010-2012 Tao Yue
 //
 // Portions of this file are provided under the BSD 3-clause License:
 //   Copyright (c) 2006, Jonas Beckeman
@@ -21,7 +21,7 @@ using System.Text;
 namespace PhotoshopFile
 {
   /// <summary>
-  /// Reads primitive data types as binary values in in big-endian format
+  /// Reads primitive data types as binary values in big-endian byte order.
   /// </summary>
   public class BinaryReverseReader : BinaryReader
   {

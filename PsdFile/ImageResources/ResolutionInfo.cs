@@ -5,7 +5,7 @@
 //
 // This software is provided under the MIT License:
 //   Copyright (c) 2006-2007 Frank Blumenberg
-//   Copyright (c) 2010-2011 Tao Yue
+//   Copyright (c) 2010-2012 Tao Yue
 //
 // Portions of this file are provided under the BSD 3-clause License:
 //   Copyright (c) 2006, Jonas Beckeman
@@ -23,6 +23,11 @@ namespace PhotoshopFile
   /// </summary>
   public class ResolutionInfo : ImageResource
   {
+    public override ResourceID ID
+    {
+      get { return ResourceID.ResolutionInfo; }
+    }
+
     /// <summary>
     /// Horizontal DPI.
     /// </summary>
@@ -43,26 +48,16 @@ namespace PhotoshopFile
     }
 
     /// <summary>
-    /// Display units for horizontal resolution.  They are still stored as
-    /// pixels/inch.
+    /// Display units for horizontal resolution.  This only affects the
+    /// user interface; the resolution is still stored in the PSD file
+    /// as pixels/inch.
     /// </summary>
-    private ResUnit m_hResDisplayUnit;
-    public ResUnit HResDisplayUnit
-    {
-      get { return m_hResDisplayUnit; }
-      set { m_hResDisplayUnit = value; }
-    }
+    public ResUnit HResDisplayUnit { get; set; }
 
     /// <summary>
-    /// Display units for vertical resolution.  They are still stored as
-    /// pixels/inch.
+    /// Display units for vertical resolution.
     /// </summary>
-    private ResUnit m_vResDisplayUnit;
-    public ResUnit VResDisplayUnit
-    {
-      get { return m_vResDisplayUnit; }
-      set { m_vResDisplayUnit = value; }
-    }
+    public ResUnit VResDisplayUnit { get; set; }
 
     /// <summary>
     /// Physical units.
@@ -89,47 +84,34 @@ namespace PhotoshopFile
       get { return m_heightDisplayUnit; }
       set { m_heightDisplayUnit = value; }
     }
-
-    public ResolutionInfo(): base()
+    
+    public ResolutionInfo() : base(String.Empty)
     {
-      base.ID = (short)ResourceID.ResolutionInfo;
     }
 
-    public ResolutionInfo(ImageResource imgRes)
-      : base(imgRes)
+    public ResolutionInfo(BinaryReverseReader reader, string name)
+      : base(name)
     {
-      BinaryReverseReader reader = imgRes.DataReader;
-
       this.HDpi = new UFixed16_16(reader.ReadUInt32());
-      this.m_hResDisplayUnit = (ResUnit)reader.ReadInt16();
-      this.m_widthDisplayUnit = (Unit)reader.ReadInt16();
+      this.HResDisplayUnit = (ResUnit)reader.ReadInt16();
+      this.WidthDisplayUnit = (Unit)reader.ReadInt16();
 
       this.VDpi = new UFixed16_16(reader.ReadUInt32());
-      this.m_vResDisplayUnit = (ResUnit)reader.ReadInt16();
-      this.m_heightDisplayUnit = (Unit)reader.ReadInt16();
-
-      reader.Close();
+      this.VResDisplayUnit = (ResUnit)reader.ReadInt16();
+      this.HeightDisplayUnit = (Unit)reader.ReadInt16();
     }
 
-    protected override void StoreData()
+    protected override void WriteData(BinaryReverseWriter writer)
     {
-      System.IO.MemoryStream stream = new System.IO.MemoryStream();
-      BinaryReverseWriter writer = new BinaryReverseWriter(stream);
-
       writer.Write(HDpi.Integer);
       writer.Write(HDpi.Fraction);
-      writer.Write((Int16)m_hResDisplayUnit);
-      writer.Write((Int16)m_widthDisplayUnit);
+      writer.Write((Int16)HResDisplayUnit);
+      writer.Write((Int16)WidthDisplayUnit);
 
       writer.Write(VDpi.Integer);
       writer.Write(VDpi.Fraction);
-      writer.Write((Int16)m_vResDisplayUnit);
-      writer.Write((Int16)m_heightDisplayUnit);
-
-      writer.Close();
-      stream.Close();
-
-      Data = stream.ToArray();
+      writer.Write((Int16)VResDisplayUnit);
+      writer.Write((Int16)HeightDisplayUnit);
     }
 
   }

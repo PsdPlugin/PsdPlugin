@@ -57,17 +57,20 @@
     <Compile Include="..\PsdFile\BinaryReverseReader.cs">
       <Link>PsdFile\BinaryReverseReader.cs</Link>
     </Compile>
-    <Compile Include="..\PsdFile\ImageResource.cs">
-      <Link>PsdFile\ImageResource.cs</Link>
+    <Compile Include="..\PsdFile\ImageResources\AlphaChannelNames.cs">
+      <Link>PsdFile\ImageResources\AlphaChannelNames.cs</Link>
     </Compile>
-    <Compile Include="..\PsdFile\ImageResources\AlphaChannels.cs">
-      <Link>PsdFile\AlphaChannels.cs</Link>
+    <Compile Include="..\PsdFile\ImageResources\RawImageResource.cs">
+      <Link>PsdFile\ImageResources\RawImageResource.cs</Link>
     </Compile>
     <Compile Include="..\PsdFile\ImageResources\ResolutionInfo.cs">
-      <Link>PsdFile\ResolutionInfo.cs</Link>
+      <Link>PsdFile\ImageResources\ResolutionInfo.cs</Link>
     </Compile>
     <Compile Include="..\PsdFile\ImageResources\Thumbnail.cs">
-      <Link>PsdFile\Thumbnail.cs</Link>
+      <Link>PsdFile\ImageResources\Thumbnail.cs</Link>
+    </Compile>
+    <Compile Include="..\PsdFile\ImageResource.cs">
+      <Link>PsdFile\ImageResource.cs</Link>
     </Compile>
     <Compile Include="..\PsdFile\Layer.cs">
       <Link>PsdFile\Layer.cs</Link>

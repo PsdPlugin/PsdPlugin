@@ -5,7 +5,7 @@
 //
 // This software is provided under the MIT License:
 //   Copyright (c) 2006-2007 Frank Blumenberg
-//   Copyright (c) 2010-2011 Tao Yue
+//   Copyright (c) 2010-2012 Tao Yue
 //
 // Portions of this file are provided under the BSD 3-clause License:
 //   Copyright (c) 2006, Jonas Beckeman
@@ -301,7 +301,7 @@ namespace PhotoshopFile
     // finding the ResolutionInfo.
     private static bool IsResolutionInfo(ImageResource res)
     {
-      return res.ID == (int)ResourceID.ResolutionInfo;
+      return res.ID == ResourceID.ResolutionInfo;
     }
 
     public ResolutionInfo Resolution
@@ -330,39 +330,22 @@ namespace PhotoshopFile
 
       m_imageResources.Clear();
 
-      uint imgResLength = reader.ReadUInt32();
-      if (imgResLength <= 0)
+      var imageResourcesLength = reader.ReadUInt32();
+      if (imageResourcesLength <= 0)
         return;
 
-      long startPosition = reader.BaseStream.Position;
-
-      while ((reader.BaseStream.Position - startPosition) < imgResLength)
+      var startPosition = reader.BaseStream.Position;
+      var endPosition = startPosition + imageResourcesLength;
+      while (reader.BaseStream.Position < endPosition)
       {
-        ImageResource imgRes = new ImageResource(reader);
-
-        ResourceID resID = (ResourceID)imgRes.ID;
-        switch (resID)
-        {
-          case ResourceID.ResolutionInfo:
-            imgRes = new ResolutionInfo(imgRes);
-            break;
-          case ResourceID.Thumbnail1:
-          case ResourceID.Thumbnail2:
-            imgRes = new Thumbnail(imgRes);
-            break;
-          case ResourceID.AlphaChannelNames:
-            imgRes = new AlphaChannels(imgRes);
-            break;
-        }
-
-        m_imageResources.Add(imgRes);
-
+        var imageResource = ImageResourceFactory.CreateImageResource(reader);
+        m_imageResources.Add(imageResource);
       }
 
       //-----------------------------------------------------------------------
       // make sure we are not on a wrong offset, so set the stream position 
       // manually
-      reader.BaseStream.Position = startPosition + imgResLength;
+      reader.BaseStream.Position = startPosition + imageResourcesLength;
     }
 
     ///////////////////////////////////////////////////////////////////////////

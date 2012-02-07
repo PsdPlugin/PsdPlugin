@@ -5,7 +5,7 @@
 //
 // This software is provided under the MIT License:
 //   Copyright (c) 2006-2007 Frank Blumenberg
-//   Copyright (c) 2010-2011 Tao Yue
+//   Copyright (c) 2010-2012 Tao Yue
 //
 // Portions of this file are provided under the BSD 3-clause License:
 //   Copyright (c) 2006, Jonas Beckeman
@@ -17,6 +17,7 @@
 using System;
 using System.Diagnostics;
 using System.Globalization;
+using System.IO;
 
 namespace PhotoshopFile
 {
@@ -49,10 +50,10 @@ namespace PhotoshopFile
     RawFormatImageMode = 1029,
     JPEGQuality = 1030,
     GridGuidesInfo = 1032,
-    Thumbnail1 = 1033,
+    ThumbnailBgr = 1033,
     CopyrightInfo = 1034,
     URL = 1035,
-    Thumbnail2 = 1036,
+    ThumbnailRgb = 1036,
     GlobalAngle = 1037,
     ColorSamplers = 1038,
     ICCProfile = 1039, //The raw bytes of an ICC format profile, see the ICC34.pdf and ICC34.h files from the Internation Color Consortium located in the documentation section
@@ -84,117 +85,107 @@ namespace PhotoshopFile
     PrintFlagsInfo = 10000
   }
 
+  public struct ImageResourceInfo
+  {
+    public short ID;
+    public string Name;
+    public short OSType;
+  }
 
   /// <summary>
-  /// Summary description for ImageResource.
+  /// Abstract class for Image Resources
   /// </summary>
-  public class ImageResource
+  public abstract class ImageResource
   {
-    private short m_id;
-    public short ID
+    public string Name { get; set; }
+
+    public abstract ResourceID ID { get; }
+
+    public ImageResource(string name)
     {
-      get { return m_id; }
-      set { m_id = value; }
+      Name = name;
     }
 
-    private string m_name=String.Empty;
-    public string Name
-    {
-      get { return m_name; }
-      set { m_name = value; }
-    }
-
-    private byte[] m_data;
-    public byte[] Data
-    {
-      get { return m_data; }
-      set { m_data = value; }
-    }
-
-    private string m_osType = String.Empty;
-
-    public string OSType
-    {
-      get { return m_osType; }
-      set { m_osType = value; }
-    }
-
-    public ImageResource()
-    {
-    }
-
-    public ImageResource(short id)
-    {
-      m_id = id;
-    }
-
-    public ImageResource(ImageResource imgRes)
-    {
-      m_id = imgRes.m_id;
-      m_name = imgRes.m_name;
-
-      m_data = new byte[imgRes.m_data.Length];
-      imgRes.m_data.CopyTo(m_data, 0);
-    }
-
-    //////////////////////////////////////////////////////////////////
-
-    public ImageResource(BinaryReverseReader reader)
-    {
-      m_osType = new string(reader.ReadChars(4));
-      m_id = reader.ReadInt16();
-      m_name = reader.ReadPascalString();
-
-      uint settingLength = reader.ReadUInt32();
-      m_data = reader.ReadBytes((int)settingLength);
-
-      if (reader.BaseStream.Position % 2 == 1)
-        reader.ReadByte();
-    }
-
-    //////////////////////////////////////////////////////////////////
-
+    /// <summary>
+    /// Write out the image resource block: header and data.
+    /// </summary>
     public void Save(BinaryReverseWriter writer)
     {
-      StoreData();
+      writer.Write(Util.SIGNATURE_8BIM);
+      writer.Write((UInt16)ID);
+      writer.WritePascalString(Name);
 
-      if (String.IsNullOrEmpty(m_osType))
-        m_osType = "8BIM";
+      // Write length placeholder and data block
+      writer.Write((UInt32)0);
+      var startPosition = writer.BaseStream.Position;
+      WriteData(writer);
+      
+      // Back up and put in the actual size of the data block
+      var endPosition = writer.BaseStream.Position;
+      var dataLength = endPosition - startPosition;
+      writer.BaseStream.Position = startPosition - 4;
+      writer.Write((UInt32)dataLength);
+      writer.BaseStream.Position = endPosition;
 
-      writer.Write(m_osType.ToCharArray());
-      writer.Write(m_id);
-
-      writer.WritePascalString(m_name);
-
-      writer.Write((int)m_data.Length);
-      writer.Write(m_data);
 
       if (writer.BaseStream.Position % 2 == 1)
         writer.Write((byte)0);
     }
 
-    //////////////////////////////////////////////////////////////////
-
-    protected virtual void StoreData()
-    {
-
-    }
-
-    //////////////////////////////////////////////////////////////////
-
-    public BinaryReverseReader DataReader
-    {
-      get
-      {
-        return new BinaryReverseReader(new System.IO.MemoryStream(this.m_data));
-      }
-    }
-
-    //////////////////////////////////////////////////////////////////
+    /// <summary>
+    /// Write the data for this image resource.
+    /// </summary>
+    protected abstract void WriteData(BinaryReverseWriter writer);
 
     public override string ToString()
     {
-      return String.Format(CultureInfo.InvariantCulture, "{0} {1}", (ResourceID)m_id, m_name);
+      return String.Format(CultureInfo.InvariantCulture, "{0} {1}", (ResourceID)ID, Name);
     }
   }
+
+  /// <summary>
+  /// Creates the appropriate subclass of ImageResource.
+  /// </summary>
+  public static class ImageResourceFactory
+  {
+    public static ImageResource CreateImageResource(BinaryReverseReader reader)
+    {
+      var signature = new string(reader.ReadChars(4));
+      var resourceIdInt = reader.ReadUInt16();
+      var name = reader.ReadPascalString();
+      var resourceDataLength = (int)reader.ReadUInt32();
+      var endPosition = reader.BaseStream.Position + resourceDataLength;
+
+      ImageResource resource = null;
+      var resourceId = (ResourceID)resourceIdInt;
+      switch (resourceId)
+      {
+        case ResourceID.ResolutionInfo:
+          resource = new ResolutionInfo(reader, name);
+          break;
+        case ResourceID.ThumbnailRgb:
+        case ResourceID.ThumbnailBgr:
+          resource = new Thumbnail(reader, resourceId, name, resourceDataLength);
+          break;
+        case ResourceID.AlphaChannelNames:
+          resource = new AlphaChannelNames(reader, name, resourceDataLength);
+          break;
+        default:
+          resource = new RawImageResource(reader, name, resourceId, resourceDataLength);
+          break;
+      }
+
+      if (reader.BaseStream.Position % 2 == 1)
+        reader.ReadByte();
+
+      // Reposition the reader if we do not consume the full resource block.
+      // This preserves forward-compatibility in case a resource block is
+      // later extended with additional properties.
+      if (reader.BaseStream.Position < endPosition)
+        reader.BaseStream.Position = endPosition;
+
+      return resource;
+    }
+  }
+
 }
