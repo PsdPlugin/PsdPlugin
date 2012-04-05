@@ -650,7 +650,7 @@ namespace PhotoshopFile
       }
 
       // If there is one more channel than we need, then it is the alpha channel
-      if (this.Channels == Util.ChannelCount(this.ColorMode) + 1)
+      if (this.Channels == this.ColorMode.ChannelCount() + 1)
       {
         var alphaChannel = this.BaseLayer.Channels.Last();
         alphaChannel.ID = -1;

@@ -5,7 +5,7 @@
 //
 // This software is provided under the MIT License:
 //   Copyright (c) 2006-2007 Frank Blumenberg
-//   Copyright (c) 2010-2011 Tao Yue
+//   Copyright (c) 2010-2012 Tao Yue
 //
 // Portions of this file are provided under the BSD 3-clause License:
 //   Copyright (c) 2006, Jonas Beckeman
@@ -734,7 +734,6 @@ namespace PhotoshopFile
     /// </summary>
     /// <remarks>
     /// <list type="table">
-    /// </item>
     /// <term>norm</term><description>normal</description>
     /// <term>dark</term><description>darken</description>
     /// <term>lite</term><description>lighten</description>
@@ -953,6 +952,35 @@ namespace PhotoshopFile
 
     ///////////////////////////////////////////////////////////////////////////
 
+    /// <summary>
+    /// Create ImageData for any missing channels.
+    /// </summary>
+    public void CreateMissingChannels()
+    {
+      var channelCount = this.PsdFile.ColorMode.ChannelCount();
+      for (short id = 0; id < channelCount; id++)
+      {
+        if (!this.Channels.ContainsId(id))
+        {
+          var size = this.Rect.Height * this.Rect.Width;
+
+          var ch = new Channel(id, this);
+          ch.ImageData = new byte[size];
+          unsafe
+          {
+            fixed (byte* ptr = &ch.ImageData[0])
+            {
+              Util.Fill(ptr, 255, size);
+            }
+          }
+
+          this.Channels.Add(ch);
+        }
+      }
+    }
+
+    ///////////////////////////////////////////////////////////////////////////
+
     public void PrepareSave(PaintDotNet.Threading.PrivateThreadPool threadPool)
     {
       foreach (Channel ch in m_channels)
@@ -1030,6 +1058,5 @@ namespace PhotoshopFile
         ch.CompressImageData();
       }
     }
-
   }
 }

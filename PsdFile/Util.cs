@@ -33,6 +33,21 @@ namespace PhotoshopFile
 
     /////////////////////////////////////////////////////////////////////////// 
 
+    /// <summary>
+    /// Fill a buffer with a byte value.
+    /// </summary>
+    unsafe static public void Fill(byte* ptr, byte value, int size)
+    {
+      var pEnd = ptr + size;
+      while (ptr < pEnd)
+      {
+        *ptr = 255;
+        ptr++;
+      }
+    }
+
+    /////////////////////////////////////////////////////////////////////////// 
+
     unsafe static public void SwapBytes2(byte* ptr)
     {
       byte byte0 = *ptr;
@@ -188,7 +203,7 @@ namespace PhotoshopFile
       }
     }
 
-    public static short ChannelCount(PsdColorMode colorMode)
+    public static short ChannelCount(this PsdColorMode colorMode)
     {
       switch (colorMode)
       {

@@ -464,16 +464,22 @@ namespace PaintDotNet.Data.PhotoshopFileType
 
       if (psdFile.Layers.Count == 0)
       {
-        BitmapLayer layer = ImageDecoderPdn.DecodeImage(psdFile.BaseLayer, true);
+        psdFile.BaseLayer.CreateMissingChannels();
+        var layer = ImageDecoderPdn.DecodeImage(psdFile.BaseLayer, true);
         document.Layers.Add(layer);
       }
       else
       {
-        PaintDotNet.Threading.PrivateThreadPool threadPool = new PaintDotNet.Threading.PrivateThreadPool();
+        var threadPool = new PaintDotNet.Threading.PrivateThreadPool();
         var layersList = new List<Layer>();
         foreach (PhotoshopFile.Layer l in psdFile.Layers)
         {
+          // Create a slot for the layer in the list.  We have to pass this
+          // into the parallelized code since the tasks will finish in an 
+          // unpredictable order.
           layersList.Add(null);
+          l.CreateMissingChannels();
+
           LoadLayerContext llc = new LoadLayerContext(l, BlendModeKeyToBlendOp(l), layersList, layersList.Count - 1, false);
           WaitCallback waitCallback = new WaitCallback(llc.LoadLayer);
           threadPool.QueueUserWorkItem(waitCallback); 
