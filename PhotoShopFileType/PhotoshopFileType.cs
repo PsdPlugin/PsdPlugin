@@ -158,7 +158,7 @@ namespace PaintDotNet.Data.PhotoshopFileType
       foreach (BitmapLayer layer in input.Layers)
       {
         var psdLayer = new PhotoshopFile.Layer(psdFile);
-        BlendOpToBlendModeKey(layer.BlendOp, psdLayer);
+        psdLayer.BlendModeKey = layer.BlendOp.ToPsdBlendMode();
         psdLayer.Visible = layer.Visible;
         psdFile.Layers.Add(psdLayer);
 
@@ -315,119 +315,6 @@ namespace PaintDotNet.Data.PhotoshopFileType
       }
     }
 
-    private static void BlendOpToBlendModeKey(UserBlendOp op, PhotoshopFile.Layer layer)
-    {
-      switch (op.ToString())
-      {
-        case "Normal":
-          layer.BlendModeKey = "norm";
-          break;
-        case "Additive":
-          layer.BlendModeKey = "lddg";
-          break;
-        case "Color Burn":
-          layer.BlendModeKey = "idiv";
-          break;
-        case "Color Dodge":
-          layer.BlendModeKey = "div ";
-          break;
-        case "Darken":
-          layer.BlendModeKey = "dark";
-          break;
-        case "Difference":
-          layer.BlendModeKey = "diff";
-          break;
-        case "Lighten":
-          layer.BlendModeKey = "lite";
-          break;
-        case "Multiply":
-          layer.BlendModeKey = "mul ";
-          break;
-        case "Overlay":
-          layer.BlendModeKey = "over";
-          break;
-        case "Screen":
-          layer.BlendModeKey = "scrn";
-          break;
-
-        // Paint.NET blend modes without a Photoshop equivalent are saved as Normal
-        case "Glow":
-          layer.BlendModeKey = "norm";
-          break;
-        case "Negation":
-          layer.BlendModeKey = "norm";
-          break;
-        case "Reflect":
-          layer.BlendModeKey = "norm";
-          break;
-        case "Xor":
-          layer.BlendModeKey = "norm";
-          break;
-        default:
-          layer.BlendModeKey = "norm";
-          break;
-      }
-    }
-
-    private static UserBlendOp BlendModeKeyToBlendOp(PhotoshopFile.Layer layer)
-    {
-      UserBlendOp blendOp = UserBlendOps.CreateBlendOp(typeof(UserBlendOps.NormalBlendOp));
-      switch (layer.BlendModeKey)
-      {
-        case "norm":
-          blendOp = UserBlendOps.CreateBlendOp(typeof(UserBlendOps.NormalBlendOp));
-          break;
-        case "dark":
-          blendOp = UserBlendOps.CreateBlendOp(typeof(UserBlendOps.DarkenBlendOp));
-          break;
-        case "diff":
-          blendOp = UserBlendOps.CreateBlendOp(typeof(UserBlendOps.DifferenceBlendOp));
-          break;
-        case "div ":
-          blendOp = UserBlendOps.CreateBlendOp(typeof(UserBlendOps.ColorDodgeBlendOp));
-          break;
-        case "idiv":
-          blendOp = UserBlendOps.CreateBlendOp(typeof(UserBlendOps.ColorBurnBlendOp));
-          break;
-        case "lddg":
-          blendOp = UserBlendOps.CreateBlendOp(typeof(UserBlendOps.AdditiveBlendOp));
-          break;
-        case "lite":
-          blendOp = UserBlendOps.CreateBlendOp(typeof(UserBlendOps.LightenBlendOp));
-          break;
-        case "mul ":
-          blendOp = UserBlendOps.CreateBlendOp(typeof(UserBlendOps.MultiplyBlendOp));
-          break;
-        case "over":
-          blendOp = UserBlendOps.CreateBlendOp(typeof(UserBlendOps.OverlayBlendOp));
-          break;
-        case "scrn":
-          blendOp = UserBlendOps.CreateBlendOp(typeof(UserBlendOps.ScreenBlendOp));
-          break;
-
-        // Photoshop blend modes without a Paint.NET equivalent are loaded as Normal
-        case "colr":
-          break;
-        case "diss":
-          break;
-        case "hLit":
-          break;
-        case "hue ":
-          break;
-        case "lbrn":
-          break;
-        case "lum ":
-          break;
-        case "sat ":
-          break;
-        case "sLit":
-          break;
-        case "smud":
-          break;
-      }
-      return blendOp;
-    }
-
     protected override Document OnLoad(System.IO.Stream input)
     {
       // Load and decompress Photoshop file structures
@@ -480,7 +367,9 @@ namespace PaintDotNet.Data.PhotoshopFileType
           layersList.Add(null);
           l.CreateMissingChannels();
 
-          LoadLayerContext llc = new LoadLayerContext(l, BlendModeKeyToBlendOp(l), layersList, layersList.Count - 1, false);
+          LoadLayerContext llc = new LoadLayerContext(l,
+            BlendOpMapping.FromPsdBlendMode(l.BlendModeKey),
+            layersList, layersList.Count - 1, false);
           WaitCallback waitCallback = new WaitCallback(llc.LoadLayer);
           threadPool.QueueUserWorkItem(waitCallback); 
         }

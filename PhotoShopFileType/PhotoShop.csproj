@@ -82,6 +82,7 @@
       <Link>PsdFile\Util.cs</Link>
     </Compile>
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="BlendOpMapping.cs" />
     <Compile Include="ImageDecoderPdn.cs" />
     <Compile Include="PhotoshopFileType.cs" />
     <Compile Include="PsdSaveConfigToken.cs" />
