@@ -39,7 +39,7 @@ namespace PhotoshopFile
     {
     }
 
-    public Thumbnail(BinaryReverseReader reader, ResourceID id, string name, int numBytes)
+    public Thumbnail(PsdBinaryReader reader, ResourceID id, string name, int numBytes)
       : base(name)
     {
       const int HEADER_LENGTH = 28;
@@ -85,7 +85,7 @@ namespace PhotoshopFile
       }
     }
 
-    protected override void WriteData(BinaryReverseWriter writer)
+    protected override void WriteData(PsdBinaryWriter writer)
     {
       throw new NotImplementedException();
     }

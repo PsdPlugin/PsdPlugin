@@ -98,7 +98,7 @@ namespace PhotoshopFile
         m_layer = layer;
       }
 
-      internal Channel(BinaryReverseReader reader, Layer layer)
+      internal Channel(PsdBinaryReader reader, Layer layer)
       {
         Debug.WriteLine("Channel started at " + reader.BaseStream.Position.ToString(CultureInfo.InvariantCulture));
         
@@ -107,7 +107,7 @@ namespace PhotoshopFile
         m_layer = layer;
       }
 
-      internal void Save(BinaryReverseWriter writer)
+      internal void Save(PsdBinaryWriter writer)
       {
         Debug.WriteLine("Channel Save started at " + writer.BaseStream.Position.ToString(CultureInfo.InvariantCulture));
 
@@ -117,7 +117,7 @@ namespace PhotoshopFile
 
       //////////////////////////////////////////////////////////////////
 
-      internal void LoadPixelData(BinaryReverseReader reader, Rectangle rect)
+      internal void LoadPixelData(PsdBinaryReader reader, Rectangle rect)
       {
         Debug.WriteLine("Channel.LoadPixelData started at " + reader.BaseStream.Position.ToString(CultureInfo.InvariantCulture));
 
@@ -303,7 +303,7 @@ namespace PhotoshopFile
         {
           MemoryStream dataStream = new MemoryStream();
           MemoryStream headerStream = new MemoryStream();
-          BinaryReverseWriter headerWriter = new BinaryReverseWriter(headerStream);
+          PsdBinaryWriter headerWriter = new PsdBinaryWriter(headerStream);
 
           //---------------------------------------------------------------
 
@@ -340,7 +340,7 @@ namespace PhotoshopFile
 
       }
 
-      internal void SavePixelData(BinaryReverseWriter writer)
+      internal void SavePixelData(PsdBinaryWriter writer)
       {
         Debug.WriteLine("Channel SavePixelData started at " + writer.BaseStream.Position.ToString(CultureInfo.InvariantCulture));
 
@@ -352,14 +352,14 @@ namespace PhotoshopFile
 
       //////////////////////////////////////////////////////////////////
 
-      public BinaryReverseReader DataReader
+      public PsdBinaryReader DataReader
       {
         get
         {
           if (m_data == null)
             return null;
 
-          return new BinaryReverseReader(new System.IO.MemoryStream(this.m_data));
+          return new PsdBinaryReader(new System.IO.MemoryStream(this.m_data));
         }
       }
     }
@@ -478,7 +478,7 @@ namespace PhotoshopFile
 
       ///////////////////////////////////////////////////////////////////////////
 
-      internal Mask(BinaryReverseReader reader, Layer layer)
+      internal Mask(PsdBinaryReader reader, Layer layer)
       {
         Debug.WriteLine("Mask started at " + reader.BaseStream.Position.ToString(CultureInfo.InvariantCulture));
 
@@ -528,7 +528,7 @@ namespace PhotoshopFile
 
       ///////////////////////////////////////////////////////////////////////////
 
-      public void Save(BinaryReverseWriter writer)
+      public void Save(PsdBinaryWriter writer)
       {
         Debug.WriteLine("Mask Save started at " + writer.BaseStream.Position.ToString(CultureInfo.InvariantCulture));
 
@@ -538,7 +538,7 @@ namespace PhotoshopFile
           return;
         }
 
-        using (new LengthWriter(writer))
+        using (new PsdBlockLengthWriter(writer))
         {
           writer.Write(m_rect.Top);
           writer.Write(m_rect.Left);
@@ -600,7 +600,7 @@ namespace PhotoshopFile
 
       ///////////////////////////////////////////////////////////////////////////
 
-      public BlendingRanges(BinaryReverseReader reader, Layer layer)
+      public BlendingRanges(PsdBinaryReader reader, Layer layer)
       {
         Debug.WriteLine("BlendingRanges started at " + reader.BaseStream.Position.ToString(CultureInfo.InvariantCulture));
 
@@ -614,7 +614,7 @@ namespace PhotoshopFile
 
       ///////////////////////////////////////////////////////////////////////////
 
-      public void Save(BinaryReverseWriter writer)
+      public void Save(PsdBinaryWriter writer)
       {
         Debug.WriteLine("BlendingRanges Save started at " + writer.BaseStream.Position.ToString(CultureInfo.InvariantCulture));
 
@@ -647,7 +647,7 @@ namespace PhotoshopFile
         m_key = key;
       }
 
-      public AdjustmentLayerInfo(BinaryReverseReader reader)
+      public AdjustmentLayerInfo(PsdBinaryReader reader)
       {
         Debug.WriteLine("AdjustmentLayerInfo started at " + reader.BaseStream.Position.ToString(CultureInfo.InvariantCulture));
 
@@ -662,7 +662,7 @@ namespace PhotoshopFile
         m_data = reader.ReadBytes((int)dataLength);
       }
 
-      public void Save(BinaryReverseWriter writer)
+      public void Save(PsdBinaryWriter writer)
       {
         Debug.WriteLine("AdjustmentLayerInfo Save started at " + writer.BaseStream.Position.ToString(CultureInfo.InvariantCulture));
 
@@ -676,11 +676,11 @@ namespace PhotoshopFile
 
       //////////////////////////////////////////////////////////////////
 
-      public BinaryReverseReader DataReader
+      public PsdBinaryReader DataReader
       {
         get
         {
-          return new BinaryReverseReader(new System.IO.MemoryStream(this.m_data));
+          return new PsdBinaryReader(new System.IO.MemoryStream(this.m_data));
         }
       }
     }
@@ -848,7 +848,7 @@ namespace PhotoshopFile
       m_psdFile = psdFile;
     }
 
-    public Layer(BinaryReverseReader reader, PsdFile psdFile)
+    public Layer(PsdBinaryReader reader, PsdFile psdFile)
     {
       Debug.WriteLine("Layer started at " + reader.BaseStream.Position.ToString(CultureInfo.InvariantCulture));
 
@@ -991,7 +991,7 @@ namespace PhotoshopFile
       }
     }
 
-    public void Save(BinaryReverseWriter writer)
+    public void Save(PsdBinaryWriter writer)
     {
       Debug.WriteLine("Layer Save started at " + writer.BaseStream.Position.ToString(CultureInfo.InvariantCulture));
 
@@ -1022,7 +1022,7 @@ namespace PhotoshopFile
 
       //-----------------------------------------------------------------------
 
-      using (new LengthWriter(writer))
+      using (new PsdBlockLengthWriter(writer))
       {
         m_maskData.Save(writer);
         m_blendingRangesData.Save(writer);

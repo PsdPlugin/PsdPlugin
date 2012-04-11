@@ -54,9 +54,6 @@
     <Reference Include="WindowsBase" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="..\PsdFile\BinaryReverseReader.cs">
-      <Link>PsdFile\BinaryReverseReader.cs</Link>
-    </Compile>
     <Compile Include="..\PsdFile\ImageResources\AlphaChannelNames.cs">
       <Link>PsdFile\ImageResources\AlphaChannelNames.cs</Link>
     </Compile>
@@ -74,6 +71,12 @@
     </Compile>
     <Compile Include="..\PsdFile\Layer.cs">
       <Link>PsdFile\Layer.cs</Link>
+    </Compile>
+    <Compile Include="..\PsdFile\PsdBinaryReader.cs">
+      <Link>PsdFile\PsdBinaryReader.cs</Link>
+    </Compile>
+    <Compile Include="..\PsdFile\PsdBinaryWriter.cs">
+      <Link>PsdFile\PsdBinaryWriter.cs</Link>
     </Compile>
     <Compile Include="..\PsdFile\PsdFile.cs">
       <Link>PsdFile\PsdFile.cs</Link>

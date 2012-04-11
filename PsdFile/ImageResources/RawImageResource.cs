@@ -34,14 +34,14 @@ namespace PhotoshopFile
     {
     }
 
-    public RawImageResource(BinaryReverseReader reader, string name, ResourceID resourceId, int numBytes)
+    public RawImageResource(PsdBinaryReader reader, string name, ResourceID resourceId, int numBytes)
       : base(name)
     {
       this.id = resourceId;
       Data = reader.ReadBytes(numBytes);
     }
     
-    protected override void WriteData(BinaryReverseWriter writer)
+    protected override void WriteData(PsdBinaryWriter writer)
     {
       writer.Write(Data);
     }

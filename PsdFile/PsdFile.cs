@@ -61,7 +61,7 @@ namespace PhotoshopFile
 
     public void Load(Stream stream)
     {
-      BinaryReverseReader reader = new BinaryReverseReader(stream);
+      PsdBinaryReader reader = new PsdBinaryReader(stream);
 
       LoadHeader(reader);
       LoadColorModeData(reader);
@@ -86,7 +86,7 @@ namespace PhotoshopFile
       if (Depth != 8)
         throw new NotImplementedException("Only 8-bit color has been implemented for saving.");
 
-      BinaryReverseWriter writer = new BinaryReverseWriter(stream);
+      var writer = new PsdBinaryWriter(stream);
 
       writer.AutoFlush = true;
 
@@ -207,7 +207,7 @@ namespace PhotoshopFile
 
     ///////////////////////////////////////////////////////////////////////////
 
-    private void LoadHeader(BinaryReverseReader reader)
+    private void LoadHeader(PsdBinaryReader reader)
     {
       Debug.WriteLine("LoadHeader started at " + reader.BaseStream.Position.ToString(CultureInfo.InvariantCulture));
 
@@ -231,7 +231,7 @@ namespace PhotoshopFile
 
     ///////////////////////////////////////////////////////////////////////////
 
-    private void SaveHeader(BinaryReverseWriter writer)
+    private void SaveHeader(PsdBinaryWriter writer)
     {
       Debug.WriteLine("SaveHeader started at " + writer.BaseStream.Position.ToString(CultureInfo.InvariantCulture));
 
@@ -261,7 +261,7 @@ namespace PhotoshopFile
     /// </summary>
     public byte[] ColorModeData = new byte[0];
 
-    private void LoadColorModeData(BinaryReverseReader reader)
+    private void LoadColorModeData(PsdBinaryReader reader)
     {
       Debug.WriteLine("LoadColorModeData started at " + reader.BaseStream.Position.ToString(CultureInfo.InvariantCulture));
 
@@ -272,7 +272,7 @@ namespace PhotoshopFile
       }
     }
 
-    private void SaveColorModeData(BinaryReverseWriter writer)
+    private void SaveColorModeData(PsdBinaryWriter writer)
     {
       Debug.WriteLine("SaveColorModeData started at " + writer.BaseStream.Position.ToString(CultureInfo.InvariantCulture));
 
@@ -324,7 +324,7 @@ namespace PhotoshopFile
 
     ///////////////////////////////////////////////////////////////////////////
 
-    private void LoadImageResources(BinaryReverseReader reader)
+    private void LoadImageResources(PsdBinaryReader reader)
     {
       Debug.WriteLine("LoadImageResources started at " + reader.BaseStream.Position.ToString(CultureInfo.InvariantCulture));
 
@@ -350,11 +350,11 @@ namespace PhotoshopFile
 
     ///////////////////////////////////////////////////////////////////////////
 
-    private void SaveImageResources(BinaryReverseWriter writer)
+    private void SaveImageResources(PsdBinaryWriter writer)
     {
      Debug.WriteLine("SaveImageResources started at " + writer.BaseStream.Position.ToString(CultureInfo.InvariantCulture));
 
-      using (new LengthWriter(writer))
+      using (new PsdBlockLengthWriter(writer))
       {
         foreach (ImageResource imgRes in m_imageResources)
           imgRes.Save(writer);
@@ -386,7 +386,7 @@ namespace PhotoshopFile
 
     ///////////////////////////////////////////////////////////////////////////
 
-    private void LoadLayerAndMaskInfo(BinaryReverseReader reader)
+    private void LoadLayerAndMaskInfo(PsdBinaryReader reader)
     {
       Debug.WriteLine("LoadLayerAndMaskInfo started at " + reader.BaseStream.Position.ToString(CultureInfo.InvariantCulture));
 
@@ -424,11 +424,11 @@ namespace PhotoshopFile
 
     ///////////////////////////////////////////////////////////////////////////
 
-    private void SaveLayerAndMaskInfo(BinaryReverseWriter writer)
+    private void SaveLayerAndMaskInfo(PsdBinaryWriter writer)
     {
       Debug.WriteLine("SaveLayerAndMaskInfo started at " + writer.BaseStream.Position.ToString(CultureInfo.InvariantCulture));
 
-      using (new LengthWriter(writer))
+      using (new PsdBlockLengthWriter(writer))
       {
         SaveLayers(writer);
         SaveGlobalLayerMask(writer);
@@ -437,7 +437,7 @@ namespace PhotoshopFile
 
     ///////////////////////////////////////////////////////////////////////////
 
-    private void LoadLayers(BinaryReverseReader reader)
+    private void LoadLayers(PsdBinaryReader reader)
     {
       Debug.WriteLine("LoadLayers started at " + reader.BaseStream.Position.ToString(CultureInfo.InvariantCulture));
 
@@ -542,11 +542,11 @@ namespace PhotoshopFile
       threadPool.Drain();
     }
 
-    private void SaveLayers(BinaryReverseWriter writer)
+    private void SaveLayers(PsdBinaryWriter writer)
     {
       Debug.WriteLine("SaveLayers started at " + writer.BaseStream.Position.ToString(CultureInfo.InvariantCulture));
 
-      using (new LengthWriter(writer))
+      using (new PsdBlockLengthWriter(writer))
       {
         short numberOfLayers = (short)m_layers.Count;
         if (AbsoluteAlpha)
@@ -576,7 +576,7 @@ namespace PhotoshopFile
 
     byte[] GlobalLayerMaskData = new byte[0];
 
-    private void LoadGlobalLayerMask(BinaryReverseReader reader)
+    private void LoadGlobalLayerMask(PsdBinaryReader reader)
     {
       Debug.WriteLine("LoadGlobalLayerMask started at " + reader.BaseStream.Position.ToString(CultureInfo.InvariantCulture));
 
@@ -590,7 +590,7 @@ namespace PhotoshopFile
 
     ///////////////////////////////////////////////////////////////////////////
 
-    private void SaveGlobalLayerMask(BinaryReverseWriter writer)
+    private void SaveGlobalLayerMask(PsdBinaryWriter writer)
     {
       Debug.WriteLine("SaveGlobalLayerMask started at " + writer.BaseStream.Position.ToString(CultureInfo.InvariantCulture));
 
@@ -608,7 +608,7 @@ namespace PhotoshopFile
 
     ///////////////////////////////////////////////////////////////////////////
 
-    private void LoadImage(BinaryReverseReader reader)
+    private void LoadImage(PsdBinaryReader reader)
     {
       Debug.WriteLine("LoadImage started at " + reader.BaseStream.Position.ToString(CultureInfo.InvariantCulture));
 
@@ -659,7 +659,7 @@ namespace PhotoshopFile
 
     ///////////////////////////////////////////////////////////////////////////
 
-    private void SaveImage(BinaryReverseWriter writer)
+    private void SaveImage(PsdBinaryWriter writer)
     {
       Debug.WriteLine("SaveImage started at " + writer.BaseStream.Position.ToString(CultureInfo.InvariantCulture));
 

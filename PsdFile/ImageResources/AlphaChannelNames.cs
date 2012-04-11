@@ -36,7 +36,7 @@ namespace PhotoshopFile
     {
     }
 
-    public AlphaChannelNames(BinaryReverseReader reader, string name, int resourceDataLength)
+    public AlphaChannelNames(PsdBinaryReader reader, string name, int resourceDataLength)
       : base(name)
     {
       var endPosition = reader.BaseStream.Position + resourceDataLength;
@@ -51,7 +51,7 @@ namespace PhotoshopFile
       }
     }
 
-    protected override void WriteData(BinaryReverseWriter writer)
+    protected override void WriteData(PsdBinaryWriter writer)
     {
       foreach (var channelName in channelNames)
       {

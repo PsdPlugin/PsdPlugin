@@ -89,7 +89,7 @@ namespace PhotoshopFile
     {
     }
 
-    public ResolutionInfo(BinaryReverseReader reader, string name)
+    public ResolutionInfo(PsdBinaryReader reader, string name)
       : base(name)
     {
       this.HDpi = new UFixed16_16(reader.ReadUInt32());
@@ -101,7 +101,7 @@ namespace PhotoshopFile
       this.HeightDisplayUnit = (Unit)reader.ReadInt16();
     }
 
-    protected override void WriteData(BinaryReverseWriter writer)
+    protected override void WriteData(PsdBinaryWriter writer)
     {
       writer.Write(HDpi.Integer);
       writer.Write(HDpi.Fraction);

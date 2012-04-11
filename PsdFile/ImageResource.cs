@@ -109,7 +109,7 @@ namespace PhotoshopFile
     /// <summary>
     /// Write out the image resource block: header and data.
     /// </summary>
-    public void Save(BinaryReverseWriter writer)
+    public void Save(PsdBinaryWriter writer)
     {
       writer.Write(Util.SIGNATURE_8BIM);
       writer.Write((UInt16)ID);
@@ -135,7 +135,7 @@ namespace PhotoshopFile
     /// <summary>
     /// Write the data for this image resource.
     /// </summary>
-    protected abstract void WriteData(BinaryReverseWriter writer);
+    protected abstract void WriteData(PsdBinaryWriter writer);
 
     public override string ToString()
     {
@@ -148,7 +148,7 @@ namespace PhotoshopFile
   /// </summary>
   public static class ImageResourceFactory
   {
-    public static ImageResource CreateImageResource(BinaryReverseReader reader)
+    public static ImageResource CreateImageResource(PsdBinaryReader reader)
     {
       var signature = new string(reader.ReadChars(4));
       var resourceIdInt = reader.ReadUInt16();
