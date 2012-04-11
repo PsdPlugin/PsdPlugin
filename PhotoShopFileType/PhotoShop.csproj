@@ -75,6 +75,9 @@
     <Compile Include="..\PsdFile\Layer.cs">
       <Link>PsdFile\Layer.cs</Link>
     </Compile>
+    <Compile Include="..\PsdFile\LayerInfo.cs">
+      <Link>PsdFile\LayerInfo.cs</Link>
+    </Compile>
     <Compile Include="..\PsdFile\PsdBinaryReader.cs">
       <Link>PsdFile\PsdBinaryReader.cs</Link>
     </Compile>

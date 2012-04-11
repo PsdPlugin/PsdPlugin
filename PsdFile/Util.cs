@@ -80,41 +80,6 @@ namespace PhotoshopFile
 
     /////////////////////////////////////////////////////////////////////////// 
 
-    public static Int32 GetBigEndianInt32(byte[] byteArray, int idx)
-    {
-      if (byteArray.Length < (idx + 4))
-        throw new IndexOutOfRangeException();
-
-      unsafe
-      {
-        fixed (byte* ptr = &byteArray[idx])
-        {
-          Int32* intPtr = (Int32*)ptr;
-          Int32 result = *intPtr;
-          SwapBytes4((byte*)(&result));
-          return result;
-        }
-      }
-    }
-
-    public static void SetBigEndianInt32(byte[] byteArray, int idx, Int32 value)
-    {
-      if (byteArray.Length < (idx + 4))
-        throw new IndexOutOfRangeException();
-
-      unsafe
-      {
-        fixed (byte* ptr = &byteArray[idx])
-        {
-          Int32* intPtr = (Int32*)ptr;
-          *intPtr = value;
-          SwapBytes4(ptr);
-        }
-      }
-    }
-
-    /////////////////////////////////////////////////////////////////////////// 
-
     /// <summary>
     /// Reverses the endianness of 2-byte words in a byte array.
     /// </summary>

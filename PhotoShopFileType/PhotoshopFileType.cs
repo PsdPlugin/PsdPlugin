@@ -272,13 +272,6 @@ namespace PaintDotNet.Data.PhotoshopFileType
       psdLayer.MaskData = new PhotoshopFile.Layer.Mask(psdLayer);
       psdLayer.BlendingRangesData = new PhotoshopFile.Layer.BlendingRanges(psdLayer);
 
-      // Preserve Unicode layer name as Additional Layer Information
-      var luniLayerInfo = new PhotoshopFile.Layer.AdjustmentLayerInfo("luni");
-      var luniData = Encoding.BigEndianUnicode.GetBytes("\u0000\u0000" + layer.Name);
-      Util.SetBigEndianInt32(luniData, 0, psdLayer.Name.Length);
-      luniLayerInfo.Data = luniData;
-      psdLayer.AdjustmentInfo.Add(luniLayerInfo);
-
       // Store channel metadata
       int layerSize = psdLayer.Rect.Width * psdLayer.Rect.Height;
       for (int i = -1; i < 3; i++)
@@ -384,6 +377,16 @@ namespace PaintDotNet.Data.PhotoshopFileType
       return document;
     }
 
+    /// <summary>
+    /// Verify that the PSD file will fit into physical memory once loaded
+    /// and converted to Paint.NET format.
+    /// 
+    /// <remarks>
+    /// This check is necessary because layers in Paint.NET have the same
+    /// dimensions as the canvas.  Thus, PSD files that contain lots of
+    /// tiny adjustment layers may blow up in size by several
+    /// orders of magnitude.</remarks>
+    /// </summary>
     private void CheckSufficientMemory(PsdFile psdFile)
     {
       // Memory for layers, plus scratch, composite, and background
@@ -394,7 +397,7 @@ namespace PaintDotNet.Data.PhotoshopFileType
       ulong bytesRequired = (ulong)(4 * numPixels * numLayers);
 
       // Check that the file will fit entirely into physical memory.
-      // Otherwise, we will thrash and make the Windows UI nonresponsive.
+      // Otherwise, we will thrash and make the Paint.NET UI nonresponsive.
       var computerInfo = new Microsoft.VisualBasic.Devices.ComputerInfo();
       if (bytesRequired > computerInfo.TotalPhysicalMemory)
         throw new OutOfMemoryException();

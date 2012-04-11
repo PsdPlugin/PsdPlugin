@@ -625,69 +625,6 @@ namespace PhotoshopFile
 
     ///////////////////////////////////////////////////////////////////////////
 
-    public class AdjustmentLayerInfo
-    {
-
-      private string m_key;
-      public string Key
-      {
-        get { return m_key; }
-        set { m_key = value; }
-      }
-
-      private byte[] m_data;
-      public byte[] Data
-      {
-        get { return m_data; }
-        set { m_data = value; }
-      }
-
-      public AdjustmentLayerInfo(string key)
-      {
-        m_key = key;
-      }
-
-      public AdjustmentLayerInfo(PsdBinaryReader reader)
-      {
-        Debug.WriteLine("AdjustmentLayerInfo started at " + reader.BaseStream.Position.ToString(CultureInfo.InvariantCulture));
-
-        string signature = new string(reader.ReadChars(4));
-        if (signature != "8BIM")
-        {
-          throw new IOException("Could not read an image resource");
-        }
-
-        m_key = new string(reader.ReadChars(4));
-        uint dataLength = reader.ReadUInt32();
-        m_data = reader.ReadBytes((int)dataLength);
-      }
-
-      public void Save(PsdBinaryWriter writer)
-      {
-        Debug.WriteLine("AdjustmentLayerInfo Save started at " + writer.BaseStream.Position.ToString(CultureInfo.InvariantCulture));
-
-        string signature = "8BIM";
-
-        writer.Write(signature.ToCharArray());
-        writer.Write(m_key.ToCharArray());
-        writer.Write((uint)m_data.Length);
-        writer.Write(m_data);
-      }
-
-      //////////////////////////////////////////////////////////////////
-
-      public PsdBinaryReader DataReader
-      {
-        get
-        {
-          return new PsdBinaryReader(new System.IO.MemoryStream(this.m_data));
-        }
-      }
-    }
-
-
-    ///////////////////////////////////////////////////////////////////////////
-
     private PsdFile m_psdFile;
     internal PsdFile PsdFile
     {
@@ -728,7 +665,7 @@ namespace PhotoshopFile
       }
     }
 
-    private string m_blendModeKey="norm";
+    private string m_blendModeKey = "norm";
     /// <summary>
     /// The blend mode key for the layer
     /// </summary>
@@ -834,11 +771,11 @@ namespace PhotoshopFile
       set { m_maskData = value; }
     }
 
-    private List<AdjustmentLayerInfo> m_adjustmentInfo = new List<AdjustmentLayerInfo>();
-    public List<Layer.AdjustmentLayerInfo> AdjustmentInfo
+    private List<LayerInfo> additionalInfo = new List<LayerInfo>();
+    public List<LayerInfo> AdditionalInfo
     {
-      get { return m_adjustmentInfo; }
-      set { m_adjustmentInfo = value; }
+      get { return additionalInfo; }
+      set { additionalInfo = value; }
     }
 
     ///////////////////////////////////////////////////////////////////////////
@@ -918,36 +855,29 @@ namespace PhotoshopFile
       //-----------------------------------------------------------------------
       // Process Additional Layer Information
 
-      m_adjustmentInfo.Clear();
-
       long adjustmentLayerEndPos = extraDataStartPosition + extraDataSize;
-      while (reader.BaseStream.Position < adjustmentLayerEndPos)
+      try
       {
-        try
-        {
-          m_adjustmentInfo.Add(new AdjustmentLayerInfo(reader));
-        }
-        catch
-        {
-          reader.BaseStream.Position = adjustmentLayerEndPos;
-        }
+        while (reader.BaseStream.Position < adjustmentLayerEndPos)
+          additionalInfo.Add(LayerInfoFactory.CreateLayerInfo(reader));
+      }
+      catch
+      {
+        // An exception would leave us in the wrong stream position.  We must
+        // therefore reset the position to continue parsing the file.
+        reader.BaseStream.Position = adjustmentLayerEndPos;
       }
 
-      foreach (var adjustmentInfo in m_adjustmentInfo)
+      foreach (var adjustmentInfo in additionalInfo)
       {
         switch (adjustmentInfo.Key)
         {
           case "luni":
-            var length = Util.GetBigEndianInt32(adjustmentInfo.Data, 0);
-            m_name = Encoding.BigEndianUnicode.GetString(adjustmentInfo.Data, 4, length * 2);
+            m_name = ((LayerUnicodeName)adjustmentInfo).Name;
             break;
         }
       }
 
-      //-----------------------------------------------------------------------
-      // make sure we are not on a wrong offset, so set the stream position 
-      // manually
-      reader.BaseStream.Position = adjustmentLayerEndPos;
     }
 
     ///////////////////////////////////////////////////////////////////////////
@@ -989,6 +919,23 @@ namespace PhotoshopFile
         WaitCallback waitCallback = new WaitCallback(ccc.CompressChannel);
         threadPool.QueueUserWorkItem(waitCallback);
       }
+      
+      // Create or update the Unicode layer name to be consistent with the
+      // ANSI layer name.
+      var layerUnicodeNames = AdditionalInfo.Where(x => x is LayerUnicodeName);
+      if (layerUnicodeNames.Count() > 1)
+        throw new Exception("Layer has more than one LayerUnicodeName.");
+
+      var layerUnicodeName = (LayerUnicodeName) layerUnicodeNames.FirstOrDefault();
+      if (layerUnicodeName == null)
+      {
+        layerUnicodeName = new LayerUnicodeName(Name);
+        AdditionalInfo.Add(layerUnicodeName);
+      }
+      else if (layerUnicodeName.Name != Name)
+      {
+        layerUnicodeName.Name = Name;
+      }
     }
 
     public void Save(PsdBinaryWriter writer)
@@ -1008,8 +955,7 @@ namespace PhotoshopFile
 
       //-----------------------------------------------------------------------
 
-      string signature = "8BIM";
-      writer.Write(signature.ToCharArray());
+      writer.Write(Util.SIGNATURE_8BIM);
       writer.Write(m_blendModeKey.ToCharArray());
       writer.Write(m_opacity);
       writer.Write((byte)(m_clipping ? 1 : 0));
@@ -1037,7 +983,7 @@ namespace PhotoshopFile
         for (int i = 0; i < paddingBytes;i++ )
           writer.Write((byte)0);
 
-        foreach (AdjustmentLayerInfo info in m_adjustmentInfo)
+        foreach (LayerInfo info in additionalInfo)
         {
           info.Save(writer);
         }
