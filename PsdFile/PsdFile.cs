@@ -528,11 +528,11 @@ namespace PhotoshopFile
     }
 
     /// <summary>
-    /// Prepare to save the document image data and all the layers' image data,
-    /// compressing in parallel.
+    /// Check the validity of the PSD file and generate necessary data.
     /// </summary>
     public void PrepareSave()
     {
+
       PaintDotNet.Threading.PrivateThreadPool threadPool = new PaintDotNet.Threading.PrivateThreadPool();
       var imageLayers = m_layers.Concat(new List<Layer>() { this.BaseLayer });
       foreach (Layer layer in imageLayers)
@@ -540,6 +540,37 @@ namespace PhotoshopFile
         layer.PrepareSave(threadPool);
       }
       threadPool.Drain();
+
+      SetVersionInfo();
+    }
+
+    /// <summary>
+    /// Set the VersionInfo resource on the file.
+    /// </summary>
+    public void SetVersionInfo()
+    {
+      var versionInfos = ImageResources.Where(x => x.ID == ResourceID.VersionInfo);
+      if (versionInfos.Count() > 1)
+        throw new Exception("Image has more than one VersionInfo resource.");
+
+      var versionInfo = (VersionInfo)versionInfos.SingleOrDefault();
+      if (versionInfo == null)
+      {
+        versionInfo = new VersionInfo();
+        ImageResources.Add(versionInfo);
+      }
+
+      // Get the version string.  We don't use the fourth part (revision).
+      var assembly = System.Reflection.Assembly.GetExecutingAssembly();
+      var version = assembly.GetName().Version;
+      var versionString = version.Major + "." + version.Minor + "." + version.Build;
+
+      // Strings are not localized since they are not shown to the user.
+      versionInfo.Version = 1;
+      versionInfo.HasRealMergedData = true;
+      versionInfo.ReaderName = "Paint.NET PSD Plugin";
+      versionInfo.WriterName = "Paint.NET PSD Plugin " + versionString;
+      versionInfo.FileVersion = 1;
     }
 
     private void SaveLayers(PsdBinaryWriter writer)

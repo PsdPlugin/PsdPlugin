@@ -21,7 +21,6 @@ using System.IO;
 
 namespace PhotoshopFile
 {
-
   public enum ResourceID
   {
     Undefined = 0,
@@ -42,10 +41,10 @@ namespace PhotoshopFile
     DuotoneImageInfo = 1018,
     BlackWhiteRange = 1019,
     EPSOptions = 1021,
-    QuickMaskInfo = 1022, //2 bytes containing Quick Mask channel ID, 1 byte boolean indicating whether the mask was initially empty.
-    LayerStateInfo = 1024, //2 bytes containing the index of target layer. 0=bottom layer.
+    QuickMaskInfo = 1022,
+    LayerStateInfo = 1024,
     WorkingPathUnsaved = 1025,
-    LayersGroupInfo = 1026, //2 bytes per layer containing a group ID for the dragging groups. Layers in a group have the same group ID.
+    LayersGroupInfo = 1026,
     IPTC_NAA = 1028,
     RawFormatImageMode = 1029,
     JPEGQuality = 1030,
@@ -56,31 +55,28 @@ namespace PhotoshopFile
     ThumbnailRgb = 1036,
     GlobalAngle = 1037,
     ColorSamplers = 1038,
-    ICCProfile = 1039, //The raw bytes of an ICC format profile, see the ICC34.pdf and ICC34.h files from the Internation Color Consortium located in the documentation section
+    ICCProfile = 1039,
     Watermark = 1040,
-    ICCUntagged = 1041, //1 byte that disables any assumed profile handling when opening the file. 1 = intentionally untagged.
-    EffectsVisible = 1042, //1 byte global flag to show/hide all the effects layer. Only present when they are hidden.
-    SpotHalftone = 1043, // 4 bytes for version, 4 bytes for length, and the variable length data.
+    ICCUntagged = 1041,
+    EffectsVisible = 1042,
+    SpotHalftone = 1043,
     DocumentSpecific = 1044,
-    UnicodeAlphaNames = 1045, // 4 bytes for length and the string as a unicode string
-    IndexedColorTableCount = 1046, // 2 bytes for the number of colors in table that are actually defined
+    UnicodeAlphaNames = 1045,
+    IndexedColorTableCount = 1046,
     TransparentIndex = 1047,
-    GlobalAltitude = 1049,  // 4 byte entry for altitude
+    GlobalAltitude = 1049,
     Slices = 1050,
-    WorkflowURL = 1051, //Unicode string, 4 bytes of length followed by unicode string
-    JumpToXPEP = 1052, //2 bytes major version, 2 bytes minor version,
-    //4 bytes count. Following is repeated for count: 4 bytes block size,
-    //4 bytes key, if key = 'jtDd' then next is a Boolean for the dirty flag
-    //otherwise it's a 4 byte entry for the mod date
-    AlphaIdentifiers = 1053, //4 bytes of length, followed by 4 bytes each for every alpha identifier.
-    URLList = 1054, //4 byte count of URLs, followed by 4 byte long, 4 byte ID, and unicode string for each count.
-    VersionInfo = 1057, //4 byte version, 1 byte HasRealMergedData, unicode string of writer name, unicode string of reader name, 4 bytes of file version.
-    Unknown4 = 1058, //pretty long, 302 bytes in one file. Holds creation date, maybe Photoshop license number
-    XMLInfo = 1060, //some kind of XML definition of file. The xpacket tag seems to hold binary data
-    Unknown = 1061, //seems to be common!
-    Unknown2 = 1062, //seems to be common!
-    Unknown3 = 1064, //seems to be common!
-    PathInfo = 2000, //2000-2999 actually I think?
+    WorkflowURL = 1051,
+    JumpToXPEP = 1052,
+    AlphaIdentifiers = 1053,
+    URLList = 1054,
+    VersionInfo = 1057,
+    Unknown4 = 1058,
+    XMLInfo = 1060,
+    CaptionDigest = 1061,
+    PrintScale = 1062,
+    PixelAspectRatio = 1064,
+    PathInfo = 2000,  // 2000-2999: Path Information
     ClippingPathName = 2999,
     PrintFlagsInfo = 10000
   }
@@ -169,6 +165,9 @@ namespace PhotoshopFile
           break;
         case ResourceID.AlphaChannelNames:
           resource = new AlphaChannelNames(reader, name, resourceDataLength);
+          break;
+        case ResourceID.VersionInfo:
+          resource = new VersionInfo(reader, name, resourceDataLength);
           break;
         default:
           resource = new RawImageResource(reader, name, resourceId, resourceDataLength);
