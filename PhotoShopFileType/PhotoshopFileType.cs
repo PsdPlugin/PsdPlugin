@@ -329,8 +329,8 @@ namespace PaintDotNet.Data.PhotoshopFileType
         {
           document.DpuUnit = MeasurementUnit.Centimeter;
 
-          // HACK: Add 0.0005 because Paint.NET truncates to three decimal
-          // places when you set DpuX and DpuY on a Document.
+          // HACK: Paint.NET truncates DpuX and DpuY to three decimal places,
+          // so add 0.0005 to get a rounded value instead.
           document.DpuX = psdFile.Resolution.HDpi / 2.54 + 0.0005;
           document.DpuY = psdFile.Resolution.VDpi / 2.54 + 0.0005;
         }
@@ -351,28 +351,20 @@ namespace PaintDotNet.Data.PhotoshopFileType
       else
       {
         var threadPool = new PaintDotNet.Threading.PrivateThreadPool();
-        var layersList = new List<Layer>();
-        foreach (PhotoshopFile.Layer l in psdFile.Layers)
-        {
-          // Create a slot for the layer in the list.  We have to pass this
-          // into the parallelized code since the tasks will finish in an 
-          // unpredictable order.
-          layersList.Add(null);
-          l.CreateMissingChannels();
+        var pdnLayers = new Layer[psdFile.Layers.Count];
 
-          LoadLayerContext llc = new LoadLayerContext(l,
-            BlendOpMapping.FromPsdBlendMode(l.BlendModeKey),
-            layersList, layersList.Count - 1, false);
-          WaitCallback waitCallback = new WaitCallback(llc.LoadLayer);
-          threadPool.QueueUserWorkItem(waitCallback); 
+        for (int i = 0; i < psdFile.Layers.Count; i++)
+        {
+          var psdLayer = psdFile.Layers[i];
+          psdLayer.CreateMissingChannels();
+
+          var context = new LoadLayerContext(psdLayer, pdnLayers, i);
+          WaitCallback waitCallback = new WaitCallback(context.LoadLayer);
+          threadPool.QueueUserWorkItem(waitCallback);
         }
         threadPool.Drain();
 
-        foreach (var layer in layersList)
-        {
-          document.Layers.Add(layer);
-        }
-
+        document.Layers.AddRange(pdnLayers);
       }
       return document;
     }
@@ -430,30 +422,27 @@ namespace PaintDotNet.Data.PhotoshopFileType
     private class LoadLayerContext
     {
       PhotoshopFile.Layer psdLayer;
-      UserBlendOp blendOp;
-      List<Layer> layersList;
-      int idxLayersList;
-      bool isBackground;
 
-      public LoadLayerContext(PhotoshopFile.Layer psdLayer, UserBlendOp blendOp,
-        List<Layer> layersList, int idxLayersList, bool isBackground)
+      Layer[] pdnLayers;
+      int idxPdnLayer;
+
+      public LoadLayerContext(PhotoshopFile.Layer psdLayer,
+        Layer[] pdnLayers, int idxPdnLayer)
       {
         this.psdLayer = psdLayer;
-        this.blendOp = blendOp;
-        this.layersList = layersList;
-        this.idxLayersList = idxLayersList;
-        this.isBackground = isBackground;
+        this.pdnLayers = pdnLayers;
+        this.idxPdnLayer = idxPdnLayer;
       }
 
       public void LoadLayer(object context)
       {
-        var layer = ImageDecoderPdn.DecodeImage(psdLayer, isBackground);
-        layer.Name = psdLayer.Name;
-        layer.Opacity = psdLayer.Opacity;
-        layer.Visible = psdLayer.Visible;
-        layer.SetBlendOp(blendOp);
+        var pdnLayer = ImageDecoderPdn.DecodeImage(psdLayer, isBackground: false);
+        pdnLayer.Name = psdLayer.Name;
+        pdnLayer.Opacity = psdLayer.Opacity;
+        pdnLayer.Visible = psdLayer.Visible;
+        pdnLayer.SetBlendOp(BlendOpMapping.FromPsdBlendMode(psdLayer.BlendModeKey));
 
-        layersList[idxLayersList] = layer;
+        pdnLayers[idxPdnLayer] = pdnLayer;
       }
     }
   }
