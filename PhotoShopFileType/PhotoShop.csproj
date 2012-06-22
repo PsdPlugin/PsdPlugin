@@ -66,17 +66,32 @@
     <Compile Include="..\PsdFile\ImageResources\Thumbnail.cs">
       <Link>PsdFile\ImageResources\Thumbnail.cs</Link>
     </Compile>
-    <Compile Include="..\PsdFile\ImageResource.cs">
-      <Link>PsdFile\ImageResource.cs</Link>
-    </Compile>
     <Compile Include="..\PsdFile\ImageResources\VersionInfo.cs">
       <Link>PsdFile\ImageResources\VersionInfo.cs</Link>
     </Compile>
-    <Compile Include="..\PsdFile\Layer.cs">
-      <Link>PsdFile\Layer.cs</Link>
+    <Compile Include="..\PsdFile\Layers\LayerInfo\LayerUnicodeName.cs">
+      <Link>PsdFile\Layers\LayerInfo\LayerUnicodeName.cs</Link>
     </Compile>
-    <Compile Include="..\PsdFile\LayerInfo.cs">
-      <Link>PsdFile\LayerInfo.cs</Link>
+    <Compile Include="..\PsdFile\Layers\LayerInfo\RawLayerInfo.cs">
+      <Link>PsdFile\Layers\LayerInfo\RawLayerInfo.cs</Link>
+    </Compile>
+    <Compile Include="..\PsdFile\Layers\BlendingRanges.cs">
+      <Link>PsdFile\Layers\BlendingRanges.cs</Link>
+    </Compile>
+    <Compile Include="..\PsdFile\Layers\Channel.cs">
+      <Link>PsdFile\Layers\Channel.cs</Link>
+    </Compile>
+    <Compile Include="..\PsdFile\Layers\Layer.cs">
+      <Link>PsdFile\Layers\Layer.cs</Link>
+    </Compile>
+    <Compile Include="..\PsdFile\Layers\LayerInfo.cs">
+      <Link>PsdFile\Layers\LayerInfo.cs</Link>
+    </Compile>
+    <Compile Include="..\PsdFile\Layers\Mask.cs">
+      <Link>PsdFile\Layers\Mask.cs</Link>
+    </Compile>
+    <Compile Include="..\PsdFile\ImageResource.cs">
+      <Link>PsdFile\ImageResource.cs</Link>
     </Compile>
     <Compile Include="..\PsdFile\PsdBinaryReader.cs">
       <Link>PsdFile\PsdBinaryReader.cs</Link>
@@ -105,6 +120,7 @@
       <DependentUpon>PsdSaveConfigWidget.cs</DependentUpon>
     </EmbeddedResource>
   </ItemGroup>
+  <ItemGroup />
   <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.

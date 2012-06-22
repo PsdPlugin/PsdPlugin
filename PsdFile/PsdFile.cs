@@ -473,7 +473,7 @@ namespace PhotoshopFile
 
       foreach (Layer layer in m_layers)
       {
-        foreach (Layer.Channel channel in layer.Channels)
+        foreach (Channel channel in layer.Channels)
         {
           Rectangle rect = (channel.ID == -2)
             ? layer.MaskData.Rect
@@ -505,7 +505,7 @@ namespace PhotoshopFile
       var imageLayers = m_layers.Concat(new List<Layer>() { this.BaseLayer });
       foreach (Layer layer in imageLayers)
       {
-        foreach (Layer.Channel channel in layer.Channels)
+        foreach (Channel channel in layer.Channels)
         {
           Rectangle rect = (channel.ID == -2)
             ? layer.MaskData.Rect
@@ -592,7 +592,7 @@ namespace PhotoshopFile
 
         foreach (Layer layer in m_layers)
         {
-          foreach (Layer.Channel channel in layer.Channels)
+          foreach (Channel channel in layer.Channels)
           {
             channel.SavePixelData(writer);
           }
@@ -651,7 +651,7 @@ namespace PhotoshopFile
           var length = this.Rows * Util.BytesPerRow(this.BaseLayer.Rect, this.Depth);
           for (short i = 0; i < this.Channels; i++)
           {
-            var channel = new Layer.Channel(i, this.BaseLayer);
+            var channel = new Channel(i, this.BaseLayer);
             channel.ImageCompression = this.ImageCompression;
             channel.Length = length;
             channel.ImageData = reader.ReadBytes(length);
@@ -667,7 +667,7 @@ namespace PhotoshopFile
             for (int j = 0; j < this.Rows; j++)
               totalRleLength += reader.ReadUInt16();
 
-            var channel = new Layer.Channel(i, this.BaseLayer);
+            var channel = new Channel(i, this.BaseLayer);
             channel.ImageCompression = this.ImageCompression;
             channel.Length = (int)totalRleLength;
             this.BaseLayer.Channels.Add(channel);
@@ -710,10 +710,10 @@ namespace PhotoshopFile
 
     private class DecompressChannelContext
     {
-      private PhotoshopFile.Layer.Channel ch;
+      private Channel ch;
       private Rectangle rect;
 
-      public DecompressChannelContext(PhotoshopFile.Layer.Channel ch, Rectangle rect)
+      public DecompressChannelContext(Channel ch, Rectangle rect)
       {
         this.ch = ch;
         this.rect = rect;

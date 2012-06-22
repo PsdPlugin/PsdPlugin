@@ -117,7 +117,7 @@ namespace PaintDotNet.Data.PhotoshopFileType
       psdFile.Layers.Clear();
       for (short i = 0; i < psdFile.Channels; i++)
       {
-        var channel = new PhotoshopFile.Layer.Channel(i, psdFile.BaseLayer);
+        var channel = new Channel(i, psdFile.BaseLayer);
         channel.ImageData = new byte[imageSize];
         channel.ImageCompression = psdFile.ImageCompression;
         psdFile.BaseLayer.Channels.Add(channel);
@@ -269,14 +269,14 @@ namespace PaintDotNet.Data.PhotoshopFileType
       psdLayer.Name = layer.Name;
       psdLayer.Opacity = layer.Opacity;
       psdLayer.Visible = layer.Visible;
-      psdLayer.MaskData = new PhotoshopFile.Layer.Mask(psdLayer);
-      psdLayer.BlendingRangesData = new PhotoshopFile.Layer.BlendingRanges(psdLayer);
+      psdLayer.MaskData = new Mask(psdLayer);
+      psdLayer.BlendingRangesData = new BlendingRanges(psdLayer);
 
       // Store channel metadata
       int layerSize = psdLayer.Rect.Width * psdLayer.Rect.Height;
       for (int i = -1; i < 3; i++)
       {
-        PhotoshopFile.Layer.Channel ch = new PhotoshopFile.Layer.Channel((short)i, psdLayer);
+        Channel ch = new Channel((short)i, psdLayer);
         ch.ImageCompression = psdToken.RleCompress ? ImageCompression.Rle : ImageCompression.Raw;
         ch.ImageData = new byte[layerSize];
         psdLayer.Channels.Add(ch);

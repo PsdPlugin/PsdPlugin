@@ -108,7 +108,7 @@ namespace PaintDotNet.Data.PhotoshopFileType
     /////////////////////////////////////////////////////////////////////////// 
     
     unsafe private static void SetPDNColorRow(ColorBgra* pDestStart, ColorBgra* pDestEnd,
-      int idxSrc, int byteDepth, PhotoshopFile.Layer psdLayer, PhotoshopFile.Layer.Channel[] channels)
+      int idxSrc, int byteDepth, PhotoshopFile.Layer psdLayer, Channel[] channels)
     {
       var pDest = pDestStart;
       while (pDest < pDestEnd)
@@ -122,7 +122,7 @@ namespace PaintDotNet.Data.PhotoshopFileType
     /////////////////////////////////////////////////////////////////////////// 
 
     unsafe private static void SetPDNColorRow32(ColorBgra* pDestStart, ColorBgra* pDestEnd,
-      int idxSrc, PsdColorMode colorMode, PhotoshopFile.Layer psdLayer, PhotoshopFile.Layer.Channel[] channels)
+      int idxSrc, PsdColorMode colorMode, PhotoshopFile.Layer psdLayer, Channel[] channels)
     {
       var pDest = pDestStart;
       switch (colorMode)
@@ -169,7 +169,7 @@ namespace PaintDotNet.Data.PhotoshopFileType
 
     private static unsafe void SetPDNAlphaRow(
       ColorBgra* pDestStart, ColorBgra* pDestEnd, int idxSrc, int byteDepth,
-      PhotoshopFile.Layer.Channel alphaChannel)
+      Channel alphaChannel)
     {
       // Set alpha to fully-opaque if there is no alpha channel
       if (alphaChannel == null)
@@ -204,7 +204,7 @@ namespace PaintDotNet.Data.PhotoshopFileType
     /////////////////////////////////////////////////////////////////////////// 
 
     unsafe private static void SetPDNMaskRow(ColorBgra* pDestStart, ColorBgra* pDestEnd,
-      int ySrc, int xSrcStart, int byteDepth, PhotoshopFile.Layer.Mask mask)
+      int ySrc, int xSrcStart, int byteDepth, Mask mask)
     {
       if (mask.ImageData.Length == 0)
         return;
@@ -256,7 +256,7 @@ namespace PaintDotNet.Data.PhotoshopFileType
     /////////////////////////////////////////////////////////////////////////// 
 
     unsafe private static void SetPDNColor(ColorBgra* dstPixel, PhotoshopFile.Layer layer,
-        PhotoshopFile.Layer.Channel[] channels, int pos)
+        Channel[] channels, int pos)
     {
       switch (layer.PsdFile.ColorMode)
       {

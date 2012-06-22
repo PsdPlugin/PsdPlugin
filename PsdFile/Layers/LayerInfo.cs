@@ -11,12 +11,8 @@
 //
 /////////////////////////////////////////////////////////////////////////////////
 
-using System;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
-using System.Linq;
-using System.Text;
 
 namespace PhotoshopFile
 {
@@ -71,58 +67,6 @@ namespace PhotoshopFile
         WriteData(writer);
       }
 
-    }
-  }
-
-  public class RawLayerInfo : LayerInfo
-  {
-    private string key;
-    public override string Key
-    {
-      get { return key; }
-    }
-
-    public byte[] Data { get; private set; }
-
-    public RawLayerInfo(string key)
-    {
-      this.key = key;
-    }
-
-    public RawLayerInfo(PsdBinaryReader reader, string key, int dataLength)
-    {
-      this.key = key;
-      Data = reader.ReadBytes((int)dataLength);
-    }
-
-    protected override void WriteData(PsdBinaryWriter writer)
-    {
-      writer.Write(Data);
-    }
-  }
-
-  public class LayerUnicodeName : LayerInfo
-  {
-    public override string Key
-    {
-      get { return "luni"; }
-    }
-
-    public string Name { get; set; }
-
-    public LayerUnicodeName(string name)
-    {
-      Name = name;
-    }
-
-    public LayerUnicodeName(PsdBinaryReader reader)
-    {
-      Name = reader.ReadUnicodeString();
-    }
-
-    protected override void WriteData(PsdBinaryWriter writer)
-    {
-      writer.WriteUnicodeString(Name);
     }
   }
 }
