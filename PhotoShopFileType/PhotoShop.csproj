@@ -115,6 +115,8 @@
     <Compile Include="BlendOpMapping.cs" />
     <Compile Include="ImageDecoderPdn.cs" />
     <Compile Include="PhotoshopFileType.cs" />
+    <Compile Include="PsdLoad.cs" />
+    <Compile Include="PsdSave.cs" />
     <Compile Include="PsdSaveConfigToken.cs" />
     <Compile Include="PsdSaveConfigWidget.cs">
       <SubType>UserControl</SubType>
