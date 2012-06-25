@@ -106,7 +106,7 @@ namespace PhotoshopFile
         Flush();
     }
 
-    public void Write(short value)
+    public void Write(Int16 value)
     {
       unsafe
       {
@@ -118,7 +118,7 @@ namespace PhotoshopFile
         Flush();
     }
 
-    public void Write(int value)
+    public void Write(Int32 value)
     {
       unsafe
       {
@@ -130,7 +130,7 @@ namespace PhotoshopFile
         Flush();
     }
 
-    public void Write(long value)
+    public void Write(Int64 value)
     {
       unsafe
       {
@@ -142,7 +142,7 @@ namespace PhotoshopFile
         Flush();
     }
 
-    public void Write(ushort value)
+    public void Write(UInt16 value)
     {
       unsafe
       {
@@ -154,7 +154,7 @@ namespace PhotoshopFile
         Flush();
     }
 
-    public void Write(uint value)
+    public void Write(UInt32 value)
     {
       unsafe
       {
@@ -166,7 +166,7 @@ namespace PhotoshopFile
         Flush();
     }
 
-    public void Write(ulong value)
+    public void Write(UInt64 value)
     {
       unsafe
       {
@@ -178,52 +178,4 @@ namespace PhotoshopFile
         Flush();
     }
   }
-
-  /// <summary>
-  /// Writes the actual length in front of the data block upon disposal.
-  /// </summary>
-  class PsdBlockLengthWriter : IDisposable
-  {
-    private bool disposed = false;
-
-    long lengthPosition;
-    long startPosition;
-    PsdBinaryWriter writer;
-
-    public PsdBlockLengthWriter(PsdBinaryWriter writer)
-    {
-      this.writer = writer;
-
-      // Store position so that we can return to it when the length is known.
-      lengthPosition = writer.BaseStream.Position;
-
-      // Write a sentinel value as a placeholder for the length.
-      writer.Write((uint)0xFEEDFEED);
-
-      // Store the start position of the data block so that we can calculate
-      // its length when we're done writing.
-      startPosition = writer.BaseStream.Position;
-    }
-
-    public void Write()
-    {
-      var endPosition = writer.BaseStream.Position;
-
-      writer.BaseStream.Position = lengthPosition;
-      long length = endPosition - startPosition;
-      writer.Write((uint)length);
-
-      writer.BaseStream.Position = endPosition;
-    }
-
-    public void Dispose()
-    {
-      if (!this.disposed)
-      {
-        Write();
-        this.disposed = true;
-      }
-    }
-  }
-
 }

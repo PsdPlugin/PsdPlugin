@@ -40,9 +40,9 @@ namespace PaintDotNet.Data.PhotoshopFileType
     public static BitmapLayer DecodeImage(PhotoshopFile.Layer psdLayer, bool isBackground)
     {
       BitmapLayer pdnLayer = isBackground
-        ? PaintDotNet.Layer.CreateBackgroundLayer(psdLayer.PsdFile.Columns, psdLayer.PsdFile.Rows)
-        : new BitmapLayer(psdLayer.PsdFile.Columns, psdLayer.PsdFile.Rows);
-      int byteDepth = Util.BytesFromBitDepth(psdLayer.PsdFile.Depth);
+        ? PaintDotNet.Layer.CreateBackgroundLayer(psdLayer.PsdFile.ColumnCount, psdLayer.PsdFile.RowCount)
+        : new BitmapLayer(psdLayer.PsdFile.ColumnCount, psdLayer.PsdFile.RowCount);
+      int byteDepth = Util.BytesFromBitDepth(psdLayer.PsdFile.BitDepth);
       bool hasMaskChannel = psdLayer.Channels.ContainsId(-2);
       var channels = psdLayer.Channels.ToIdArray();
 
@@ -76,7 +76,7 @@ namespace PaintDotNet.Data.PhotoshopFileType
           var pDestStart = pDestRow + (psdLayer.Rect.X + xSrcStart);
           var pDestEnd = pDestRow + xDestEnd;
 
-          if (psdLayer.PsdFile.Depth != 32)
+          if (psdLayer.PsdFile.BitDepth != 32)
           {
             // For 16-bit images, take the higher-order byte from the image
             // data, which is now in little-endian order.
@@ -233,7 +233,7 @@ namespace PaintDotNet.Data.PhotoshopFileType
         byte* pMask = pMaskData + (yMask * mask.Rect.Width + xMaskStart) * byteDepth;
         byte* pMaskEnd = pMaskData + (yMask + 1) * mask.Rect.Width * byteDepth;
 
-        // Take the high-order byte if values are 16-bit little-endian
+        // Take the high-order byte if values are 16-bit (little-endian)
         if (byteDepth == 2)
           pMask++;
 

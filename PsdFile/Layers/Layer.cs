@@ -28,33 +28,17 @@ namespace PhotoshopFile
 {
   public class Layer
   {
-    ///////////////////////////////////////////////////////////////////////////
+    internal PsdFile PsdFile { get; private set; }
 
-    private PsdFile m_psdFile;
-    internal PsdFile PsdFile
-    {
-      get { return m_psdFile; }
-    }
-
-    private Rectangle m_rect = Rectangle.Empty;
     /// <summary>
     /// The rectangle containing the contents of the layer.
     /// </summary>
-    public Rectangle Rect
-    {
-      get { return m_rect; }
-      set { m_rect = value; }
-    }
-
-    private ChannelList m_channels = new ChannelList();
+    public Rectangle Rect { get; set; }
 
     /// <summary>
-    /// Channel information.
+    /// Image channels.
     /// </summary>
-    public ChannelList Channels
-    {
-      get { return m_channels; }
-    }
+    public ChannelList Channels { get; private set; }
 
     /// <summary>
     /// Returns alpha channel if it exists, otherwise null.
@@ -64,151 +48,100 @@ namespace PhotoshopFile
       get
       {
         if (Channels.ContainsId(-1))
-          return this.Channels.GetId(-1);
+          return Channels.GetId(-1);
         else
           return null;
       }
     }
 
-    private string m_blendModeKey = "norm";
+    private string blendModeKey;
     /// <summary>
-    /// The blend mode key for the layer
+    /// Photoshop blend mode key for the layer
     /// </summary>
-    /// <remarks>
-    /// <list type="table">
-    /// <term>norm</term><description>normal</description>
-    /// <term>dark</term><description>darken</description>
-    /// <term>lite</term><description>lighten</description>
-    /// <term>hue </term><description>hue</description>
-    /// <term>sat </term><description>saturation</description>
-    /// <term>colr</term><description>color</description>
-    /// <term>lum </term><description>luminosity</description>
-    /// <term>mul </term><description>multiply</description>
-    /// <term>scrn</term><description>screen</description>
-    /// <term>diss</term><description>dissolve</description>
-    /// <term>over</term><description>overlay</description>
-    /// <term>hLit</term><description>hard light</description>
-    /// <term>sLit</term><description>soft light</description>
-    /// <term>diff</term><description>difference</description>
-    /// <term>smud</term><description>exclusion</description>
-    /// <term>div </term><description>color dodge</description>
-    /// <term>idiv</term><description>color burn</description>
-    /// </list>
-    /// </remarks>
     public string BlendModeKey
     {
-      get { return m_blendModeKey; }
+      get { return blendModeKey; }
       set
       {
         if (value.Length != 4) throw new ArgumentException("Key length must be 4");
-        m_blendModeKey = value;
+        blendModeKey = value;
       }
     }
 
-
-    private byte m_opacity;
     /// <summary>
     /// 0 = transparent ... 255 = opaque
     /// </summary>
-    public byte Opacity
-    {
-      get { return m_opacity; }
-      set { m_opacity = value; }
-    }
+    public byte Opacity { get; set; }
 
-
-    private bool m_clipping;
     /// <summary>
     /// false = base, true = non-base
     /// </summary>
-    public bool Clipping
-    {
-      get { return m_clipping; }
-      set { m_clipping = value; }
-    }
+    public bool Clipping { get; set; }
 
     private static int protectTransBit = BitVector32.CreateMask();
     private static int visibleBit = BitVector32.CreateMask(protectTransBit);
-
-    BitVector32 m_flags = new BitVector32();
+    BitVector32 flags = new BitVector32();
 
     /// <summary>
     /// If true, the layer is visible.
     /// </summary>
     public bool Visible
     {
-      get { return !m_flags[visibleBit]; }
-      set { m_flags[visibleBit] = !value; }
+      get { return !flags[visibleBit]; }
+      set { flags[visibleBit] = !value; }
     }
-
 
     /// <summary>
     /// Protect the transparency
     /// </summary>
     public bool ProtectTrans
     {
-      get { return m_flags[protectTransBit]; }
-      set { m_flags[protectTransBit] = value; }
+      get { return flags[protectTransBit]; }
+      set { flags[protectTransBit] = value; }
     }
 
-
-    private string m_name;
     /// <summary>
     /// The descriptive layer name
     /// </summary>
-    public string Name
-    {
-      get { return m_name; }
-      set { m_name = value; }
-    }
+    public string Name { get; set; }
 
-    private BlendingRanges m_blendingRangesData;
-    public BlendingRanges BlendingRangesData
-    {
-      get { return m_blendingRangesData; }
-      set { m_blendingRangesData = value; }
-    }
+    public BlendingRanges BlendingRangesData { get; set; }
 
-    private Mask m_maskData;
-    public Mask MaskData
-    {
-      get { return m_maskData; }
-      set { m_maskData = value; }
-    }
+    public Mask MaskData { get; set; }
 
-    private List<LayerInfo> additionalInfo = new List<LayerInfo>();
-    public List<LayerInfo> AdditionalInfo
-    {
-      get { return additionalInfo; }
-      set { additionalInfo = value; }
-    }
+    public List<LayerInfo> AdditionalInfo { get; set; }
 
     ///////////////////////////////////////////////////////////////////////////
 
     public Layer(PsdFile psdFile)
     {
-      m_psdFile = psdFile;
+      PsdFile = psdFile;
+      Rect = Rectangle.Empty;
+      Channels = new ChannelList();
+      BlendModeKey = PsdBlendMode.Normal;
+      AdditionalInfo = new List<LayerInfo>();
     }
 
     public Layer(PsdBinaryReader reader, PsdFile psdFile)
     {
       Debug.WriteLine("Layer started at " + reader.BaseStream.Position.ToString(CultureInfo.InvariantCulture));
 
-      m_psdFile = psdFile;
-      m_rect = new Rectangle();
-      m_rect.Y = reader.ReadInt32();
-      m_rect.X = reader.ReadInt32();
-      m_rect.Height = reader.ReadInt32() - m_rect.Y;
-      m_rect.Width = reader.ReadInt32() - m_rect.X;
+      PsdFile = psdFile;
+      var rect = new Rectangle();
+      rect.Y = reader.ReadInt32();
+      rect.X = reader.ReadInt32();
+      rect.Height = reader.ReadInt32() - rect.Y;
+      rect.Width = reader.ReadInt32() - rect.X;
+      Rect = rect;
 
       //-----------------------------------------------------------------------
 
       int numberOfChannels = reader.ReadUInt16();
-      this.m_channels.Clear();
+      Channels = new ChannelList();
       for (int channel = 0; channel < numberOfChannels; channel++)
       {
         Channel ch = new Channel(reader, this);
-        m_channels.Add(ch);
+        Channels.Add(ch);
       }
 
       //-----------------------------------------------------------------------
@@ -217,15 +150,14 @@ namespace PhotoshopFile
       if (signature != "8BIM")
         throw (new IOException("Layer ChannelHeader error!"));
 
-      m_blendModeKey = new string(reader.ReadChars(4));
-      m_opacity = reader.ReadByte();
-
-      m_clipping = reader.ReadByte() > 0;
+      BlendModeKey = new string(reader.ReadChars(4));
+      Opacity = reader.ReadByte();
+      Clipping = reader.ReadBoolean();
 
       //-----------------------------------------------------------------------
 
-      byte flags = reader.ReadByte();
-      m_flags = new BitVector32(flags);
+      var flagsByte = reader.ReadByte();
+      flags = new BitVector32(flagsByte);
 
       //-----------------------------------------------------------------------
 
@@ -235,25 +167,22 @@ namespace PhotoshopFile
 
       Debug.WriteLine("Layer extraDataSize started at " + reader.BaseStream.Position.ToString(CultureInfo.InvariantCulture));
 
-      // this is the total size of the MaskData, the BlendingRangesData, the 
-      // Name and the AdjustmentLayerInfo
-      uint extraDataSize = reader.ReadUInt32();
+      // This is the total size of the MaskData, the BlendingRangesData, the 
+      // Name and the AdjustmentLayerInfo.
+      var extraDataSize = reader.ReadUInt32();
+      var extraDataStartPosition = reader.BaseStream.Position;
 
-      // remember the start position for calculation of the 
-      // AdjustmentLayerInfo size
-      long extraDataStartPosition = reader.BaseStream.Position;
-
-      m_maskData = new Mask(reader, this);
-      m_blendingRangesData = new BlendingRanges(reader, this);
+      MaskData = new Mask(reader, this);
+      BlendingRangesData = new BlendingRanges(reader, this);
 
       //-----------------------------------------------------------------------
 
+      // Read layer name, padded to length multiple of 4
       long namePosition = reader.BaseStream.Position;
+      Name = reader.ReadPascalString();
 
-      m_name = reader.ReadPascalString();
-
+      // Calculation works because ReadPascalString has already padded to even
       int paddingBytes = (int)((reader.BaseStream.Position - namePosition) % 4);
-
       Debug.Print("Layer {0} padding bytes after name", paddingBytes);
       reader.ReadBytes(paddingBytes);
 
@@ -261,10 +190,11 @@ namespace PhotoshopFile
       // Process Additional Layer Information
 
       long adjustmentLayerEndPos = extraDataStartPosition + extraDataSize;
+      AdditionalInfo = new List<LayerInfo>();
       try
       {
         while (reader.BaseStream.Position < adjustmentLayerEndPos)
-          additionalInfo.Add(LayerInfoFactory.CreateLayerInfo(reader));
+          AdditionalInfo.Add(LayerInfoFactory.CreateLayerInfo(reader));
       }
       catch
       {
@@ -273,12 +203,12 @@ namespace PhotoshopFile
         reader.BaseStream.Position = adjustmentLayerEndPos;
       }
 
-      foreach (var adjustmentInfo in additionalInfo)
+      foreach (var adjustmentInfo in AdditionalInfo)
       {
         switch (adjustmentInfo.Key)
         {
           case "luni":
-            m_name = ((LayerUnicodeName)adjustmentInfo).Name;
+            Name = ((LayerUnicodeName)adjustmentInfo).Name;
             break;
         }
       }
@@ -318,13 +248,13 @@ namespace PhotoshopFile
 
     public void PrepareSave(PaintDotNet.Threading.PrivateThreadPool threadPool)
     {
-      foreach (Channel ch in m_channels)
+      foreach (var ch in Channels)
       {
         CompressChannelContext ccc = new CompressChannelContext(ch);
         WaitCallback waitCallback = new WaitCallback(ccc.CompressChannel);
         threadPool.QueueUserWorkItem(waitCallback);
       }
-      
+
       // Create or update the Unicode layer name to be consistent with the
       // ANSI layer name.
       var layerUnicodeNames = AdditionalInfo.Where(x => x is LayerUnicodeName);
@@ -347,25 +277,25 @@ namespace PhotoshopFile
     {
       Debug.WriteLine("Layer Save started at " + writer.BaseStream.Position.ToString(CultureInfo.InvariantCulture));
 
-      writer.Write(m_rect.Top);
-      writer.Write(m_rect.Left);
-      writer.Write(m_rect.Bottom);
-      writer.Write(m_rect.Right);
+      writer.Write(Rect.Top);
+      writer.Write(Rect.Left);
+      writer.Write(Rect.Bottom);
+      writer.Write(Rect.Right);
 
       //-----------------------------------------------------------------------
 
-      writer.Write((short)m_channels.Count);
-      foreach (Channel ch in m_channels)
+      writer.Write((short)Channels.Count);
+      foreach (var ch in Channels)
         ch.Save(writer);
 
       //-----------------------------------------------------------------------
 
       writer.Write(Util.SIGNATURE_8BIM);
-      writer.Write(m_blendModeKey.ToCharArray());
-      writer.Write(m_opacity);
-      writer.Write((byte)(m_clipping ? 1 : 0));
+      writer.Write(BlendModeKey.ToCharArray());
+      writer.Write(Opacity);
+      writer.Write(Clipping);
 
-      writer.Write((byte)m_flags.Data);
+      writer.Write((byte)flags.Data);
 
       //-----------------------------------------------------------------------
 
@@ -375,20 +305,19 @@ namespace PhotoshopFile
 
       using (new PsdBlockLengthWriter(writer))
       {
-        m_maskData.Save(writer);
-        m_blendingRangesData.Save(writer);
+        MaskData.Save(writer);
+        BlendingRangesData.Save(writer);
 
-        long namePosition = writer.BaseStream.Position;
+        var namePosition = writer.BaseStream.Position;
+        writer.WritePascalString(Name);
 
-        writer.WritePascalString(m_name);
-
+        // Calculation works because WritePascalString has already padded to even
         int paddingBytes = (int)((writer.BaseStream.Position - namePosition) % 4);
         Debug.Print("Layer {0} write padding bytes after name", paddingBytes);
-
-        for (int i = 0; i < paddingBytes;i++ )
+        for (int i = 0; i < paddingBytes; i++)
           writer.Write((byte)0);
 
-        foreach (LayerInfo info in additionalInfo)
+        foreach (LayerInfo info in AdditionalInfo)
         {
           info.Save(writer);
         }

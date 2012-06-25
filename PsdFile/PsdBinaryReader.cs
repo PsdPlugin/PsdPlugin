@@ -57,9 +57,9 @@ namespace PhotoshopFile
       return reader.ReadBoolean();
     }
 
-    public short ReadInt16()
+    public Int16 ReadInt16()
     {
-      short val = reader.ReadInt16();
+      var val = reader.ReadInt16();
       unsafe
       {
         Util.SwapBytes((byte*)&val, 2);
@@ -67,9 +67,9 @@ namespace PhotoshopFile
       return val;
     }
 
-    public int ReadInt32()
+    public Int32 ReadInt32()
     {
-      int val = reader.ReadInt32();
+      var val = reader.ReadInt32();
       unsafe
       {
         Util.SwapBytes((byte*)&val, 4);
@@ -77,9 +77,9 @@ namespace PhotoshopFile
       return val;
     }
 
-    public long ReadInt64()
+    public Int64 ReadInt64()
     {
-      long val = reader.ReadInt64();
+      var val = reader.ReadInt64();
       unsafe
       {
         Util.SwapBytes((byte*)&val, 8);
@@ -87,9 +87,9 @@ namespace PhotoshopFile
       return val;
     }
 
-    public ushort ReadUInt16()
+    public UInt16 ReadUInt16()
     {
-      ushort val = reader.ReadUInt16();
+      var val = reader.ReadUInt16();
       unsafe
       {
         Util.SwapBytes((byte*)&val, 2);
@@ -97,9 +97,9 @@ namespace PhotoshopFile
       return val;
     }
 
-    public uint ReadUInt32()
+    public UInt32 ReadUInt32()
     {
-      uint val = reader.ReadUInt32();
+      var val = reader.ReadUInt32();
       unsafe
       {
         Util.SwapBytes((byte*)&val, 4);
@@ -107,9 +107,9 @@ namespace PhotoshopFile
       return val;
     }
 
-    public ulong ReadUInt64()
+    public UInt64 ReadUInt64()
     {
-      ulong val = reader.ReadUInt64();
+      var val = reader.ReadUInt64();
       unsafe
       {
         Util.SwapBytes((byte*)&val, 8);

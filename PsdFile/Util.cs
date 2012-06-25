@@ -34,7 +34,7 @@ namespace PhotoshopFile
     /////////////////////////////////////////////////////////////////////////// 
 
     /// <summary>
-    /// Fill a buffer with a byte value.
+    /// Fills a buffer with a byte value.
     /// </summary>
     unsafe static public void Fill(byte* ptr, byte value, int size)
     {
@@ -48,6 +48,9 @@ namespace PhotoshopFile
 
     /////////////////////////////////////////////////////////////////////////// 
 
+    /// <summary>
+    /// Reverses the endianness of a 2-byte word.
+    /// </summary>
     unsafe static public void SwapBytes2(byte* ptr)
     {
       byte byte0 = *ptr;
@@ -57,6 +60,9 @@ namespace PhotoshopFile
 
     /////////////////////////////////////////////////////////////////////////// 
 
+    /// <summary>
+    /// Reverses the endianness of a 4-byte word.
+    /// </summary>
     unsafe static public void SwapBytes4(byte* ptr)
     {
       byte byte0 = *ptr;
@@ -68,6 +74,9 @@ namespace PhotoshopFile
       *(ptr + 3) = byte0;
     }
 
+    /// <summary>
+    /// Reverses the endianness of a word of arbitrary length.
+    /// </summary>
     unsafe static public void SwapBytes(byte* ptr, int nLength)
     {
       for (long i = 0; i < nLength / 2; ++i)

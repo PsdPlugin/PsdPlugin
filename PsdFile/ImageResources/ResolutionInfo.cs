@@ -71,19 +71,9 @@ namespace PhotoshopFile
       Columns = 5
     }
 
-    private Unit m_widthDisplayUnit;
-    public Unit WidthDisplayUnit
-    {
-      get { return m_widthDisplayUnit; }
-      set { m_widthDisplayUnit = value; }
-    }
+    public Unit WidthDisplayUnit { get; set; }
 
-    private Unit m_heightDisplayUnit;
-    public Unit HeightDisplayUnit
-    {
-      get { return m_heightDisplayUnit; }
-      set { m_heightDisplayUnit = value; }
-    }
+    public Unit HeightDisplayUnit { get; set; }
     
     public ResolutionInfo() : base(String.Empty)
     {

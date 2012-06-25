@@ -99,6 +99,12 @@
     <Compile Include="..\PsdFile\PsdBinaryWriter.cs">
       <Link>PsdFile\PsdBinaryWriter.cs</Link>
     </Compile>
+    <Compile Include="..\PsdFile\PsdBlendMode.cs">
+      <Link>PsdFile\PsdBlendMode.cs</Link>
+    </Compile>
+    <Compile Include="..\PsdFile\PsdBlockLengthWriter.cs">
+      <Link>PsdFile\PsdBlockLengthWriter.cs</Link>
+    </Compile>
     <Compile Include="..\PsdFile\PsdFile.cs">
       <Link>PsdFile\PsdFile.cs</Link>
     </Compile>

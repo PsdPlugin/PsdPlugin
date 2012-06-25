@@ -14,6 +14,7 @@
 //
 /////////////////////////////////////////////////////////////////////////////////
 
+using System;
 using System.Diagnostics;
 using System.Globalization;
 
@@ -21,28 +22,19 @@ namespace PhotoshopFile
 {
   public class BlendingRanges
   {
-    private Layer m_layer;
     /// <summary>
     /// The layer to which this channel belongs
     /// </summary>
-    public Layer Layer
-    {
-      get { return m_layer; }
-    }
+    public Layer Layer { get; private set; }
 
-    private byte[] m_data = new byte[0];
-
-    public byte[] Data
-    {
-      get { return m_data; }
-      set { m_data = value; }
-    }
+    public byte[] Data { get; set; }
 
     ///////////////////////////////////////////////////////////////////////////
 
     public BlendingRanges(Layer layer)
     {
-      m_layer = layer;
+      Layer = layer;
+      Data = new byte[0];
     }
 
     ///////////////////////////////////////////////////////////////////////////
@@ -51,12 +43,12 @@ namespace PhotoshopFile
     {
       Debug.WriteLine("BlendingRanges started at " + reader.BaseStream.Position.ToString(CultureInfo.InvariantCulture));
 
-      m_layer = layer;
-      int dataLength = reader.ReadInt32();
+      Layer = layer;
+      var dataLength = reader.ReadInt32();
       if (dataLength <= 0)
         return;
 
-      m_data = reader.ReadBytes(dataLength);
+      Data = reader.ReadBytes(dataLength);
     }
 
     ///////////////////////////////////////////////////////////////////////////
@@ -65,8 +57,8 @@ namespace PhotoshopFile
     {
       Debug.WriteLine("BlendingRanges Save started at " + writer.BaseStream.Position.ToString(CultureInfo.InvariantCulture));
 
-      writer.Write((uint)m_data.Length);
-      writer.Write(m_data);
+      writer.Write((UInt32)Data.Length);
+      writer.Write(Data);
     }
   }
 }

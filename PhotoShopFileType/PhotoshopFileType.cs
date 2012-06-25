@@ -63,25 +63,25 @@ namespace PaintDotNet.Data.PhotoshopFileType
 
     protected override void OnSave(Document input, System.IO.Stream output, SaveConfigToken token, Surface scratchSurface, ProgressEventHandler callback)
     {
-      PsdSaveConfigToken psdToken = (PsdSaveConfigToken)token;
-      PsdFile psdFile = new PsdFile();
+      var psdToken = (PsdSaveConfigToken)token;
+      var psdFile = new PsdFile();
 
       //-----------------------------------------------------------------------
 
-      psdFile.Rows = input.Height;
-      psdFile.Columns = input.Width;
+      psdFile.RowCount = input.Height;
+      psdFile.ColumnCount = input.Width;
 
       // We only save in 8 bits per channel RGBA format, which corresponds to
       // Paint.NET's internal representation.
-      psdFile.Channels = 4; 
+      psdFile.ChannelCount = 4; 
       psdFile.ColorMode = PsdColorMode.RGB;
-      psdFile.Depth = 8;
+      psdFile.BitDepth = 8;
 
       //-----------------------------------------------------------------------
       // No color mode data is necessary for RGB
       //-----------------------------------------------------------------------
 
-      ResolutionInfo resInfo = new ResolutionInfo();
+      var resInfo = new ResolutionInfo();
 
       resInfo.HeightDisplayUnit = ResolutionInfo.Unit.Inches;
       resInfo.WidthDisplayUnit = ResolutionInfo.Unit.Inches;
@@ -112,10 +112,10 @@ namespace PaintDotNet.Data.PhotoshopFileType
       // Set document image data from the fully-rendered image
       //-----------------------------------------------------------------------
       
-      int imageSize = psdFile.Rows * psdFile.Columns;
+      int imageSize = psdFile.RowCount * psdFile.ColumnCount;
 
       psdFile.Layers.Clear();
-      for (short i = 0; i < psdFile.Channels; i++)
+      for (short i = 0; i < psdFile.ChannelCount; i++)
       {
         var channel = new Channel(i, psdFile.BaseLayer);
         channel.ImageData = new byte[imageSize];
@@ -123,7 +123,7 @@ namespace PaintDotNet.Data.PhotoshopFileType
         psdFile.BaseLayer.Channels.Add(channel);
       }
       
-      using (RenderArgs ra = new RenderArgs(scratchSurface))
+      using (var ra = new RenderArgs(scratchSurface))
       {
         input.Flatten(scratchSurface);
       }
@@ -131,13 +131,13 @@ namespace PaintDotNet.Data.PhotoshopFileType
       var channelsArray = psdFile.BaseLayer.Channels.ToIdArray();
       unsafe
       {
-        for (int y = 0; y < psdFile.Rows; y++)
+        for (int y = 0; y < psdFile.RowCount; y++)
         {
-          int rowIndex = y * psdFile.Columns;
+          int rowIndex = y * psdFile.ColumnCount;
           ColorBgra* srcRow = scratchSurface.GetRowAddress(y);
           ColorBgra* srcPixel = srcRow;
 
-          for (int x = 0; x < psdFile.Columns; x++)
+          for (int x = 0; x < psdFile.ColumnCount; x++)
           {
             int pos = rowIndex + x;
 
@@ -154,7 +154,7 @@ namespace PaintDotNet.Data.PhotoshopFileType
       // Set the image data for all the layers
       //-----------------------------------------------------------------------
 
-      PaintDotNet.Threading.PrivateThreadPool threadPool = new PaintDotNet.Threading.PrivateThreadPool();
+      var threadPool = new PaintDotNet.Threading.PrivateThreadPool();
       foreach (BitmapLayer layer in input.Layers)
       {
         var psdLayer = new PhotoshopFile.Layer(psdFile);
@@ -162,8 +162,8 @@ namespace PaintDotNet.Data.PhotoshopFileType
         psdLayer.Visible = layer.Visible;
         psdFile.Layers.Add(psdLayer);
 
-        StoreLayerContext slc = new StoreLayerContext(layer, psdFile, input, psdLayer, psdToken);
-        WaitCallback waitCallback = new WaitCallback(slc.StoreLayer);
+        var slc = new StoreLayerContext(layer, psdFile, input, psdLayer, psdToken);
+        var waitCallback = new WaitCallback(slc.StoreLayer);
         threadPool.QueueUserWorkItem(waitCallback);
       }
       threadPool.Drain();
@@ -175,9 +175,10 @@ namespace PaintDotNet.Data.PhotoshopFileType
     /// Determine the real size of the layer, i.e., the smallest rectangle
     /// that includes all non-transparent pixels.
     /// </summary>
-    private static Rectangle FindImageRectangle(BitmapLayer layer, PsdFile psdFile, Document input, PhotoshopFile.Layer psdLayer)
+    private static Rectangle FindImageRectangle(BitmapLayer layer,
+      PsdFile psdFile, Document input, PhotoshopFile.Layer psdLayer)
     {
-      Surface surface = layer.Surface;
+      var surface = layer.Surface;
 
       var rectPos = new Util.RectanglePosition
       {
@@ -205,7 +206,7 @@ namespace PaintDotNet.Data.PhotoshopFileType
         if (fFound)
         {
           // Search for bottom non-transparent pixel
-          for (int y = psdFile.Rows - 1; y > rectPos.Bottom; y--)
+          for (int y = psdFile.RowCount - 1; y > rectPos.Bottom; y--)
           {
             if (CheckImageRow(surface, y, 0, input.Width, ref rectPos))
               break;
@@ -228,11 +229,13 @@ namespace PaintDotNet.Data.PhotoshopFileType
       Debug.Assert(rectPos.Left <= rectPos.Right);
       Debug.Assert(rectPos.Top <= rectPos.Bottom);
 
-      var result = new Rectangle(rectPos.Left, rectPos.Top, rectPos.Right - rectPos.Left + 1, rectPos.Bottom - rectPos.Top + 1);
+      var result = new Rectangle(rectPos.Left, rectPos.Top,
+        rectPos.Right - rectPos.Left + 1, rectPos.Bottom - rectPos.Top + 1);
       return result;
     }
 
-    unsafe private static bool CheckImageRow(Surface surface, int y, int xStart, int xEnd, ref Util.RectanglePosition rectPos)
+    unsafe private static bool CheckImageRow(Surface surface, int y,
+      int xStart, int xEnd, ref Util.RectanglePosition rectPos)
     {
       bool fFound = false;
 
@@ -276,7 +279,7 @@ namespace PaintDotNet.Data.PhotoshopFileType
       int layerSize = psdLayer.Rect.Width * psdLayer.Rect.Height;
       for (int i = -1; i < 3; i++)
       {
-        Channel ch = new Channel((short)i, psdLayer);
+        var ch = new Channel((short)i, psdLayer);
         ch.ImageCompression = psdToken.RleCompress ? ImageCompression.Rle : ImageCompression.Raw;
         ch.ImageData = new byte[layerSize];
         psdLayer.Channels.Add(ch);
@@ -311,12 +314,12 @@ namespace PaintDotNet.Data.PhotoshopFileType
     protected override Document OnLoad(System.IO.Stream input)
     {
       // Load and decompress Photoshop file structures
-      PsdFile psdFile = new PsdFile();
+      var psdFile = new PsdFile();
       psdFile.Load(input);
       CheckSufficientMemory(psdFile);
 
       // Convert into Paint.NET internal representation
-      Document document = new Document(psdFile.Columns, psdFile.Rows);
+      var document = new Document(psdFile.ColumnCount, psdFile.RowCount);
 
       if (psdFile.Resolution != null)
       {
@@ -359,7 +362,7 @@ namespace PaintDotNet.Data.PhotoshopFileType
           psdLayer.CreateMissingChannels();
 
           var context = new LoadLayerContext(psdLayer, pdnLayers, i);
-          WaitCallback waitCallback = new WaitCallback(context.LoadLayer);
+          var waitCallback = new WaitCallback(context.LoadLayer);
           threadPool.QueueUserWorkItem(waitCallback);
         }
         threadPool.Drain();
@@ -385,7 +388,7 @@ namespace PaintDotNet.Data.PhotoshopFileType
       var numLayers = psdFile.Layers.Count + 2;
       if (psdFile.Layers.Count == 0)
         numLayers++;
-      long numPixels = psdFile.Columns * psdFile.Rows;
+      long numPixels = psdFile.ColumnCount * psdFile.RowCount;
       ulong bytesRequired = (ulong)(4 * numPixels * numLayers);
 
       // Check that the file will fit entirely into physical memory.

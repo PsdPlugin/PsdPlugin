@@ -70,10 +70,10 @@ namespace PhotoshopFile
         // Reverse BGR pixels from old thumbnail format
         if (id == ResourceID.ThumbnailBgr)
         {
-          //for(int y=0;y<m_thumbnailImage.Height;y++)
-          //  for (int x = 0; x < m_thumbnailImage.Width; x++)
+          //for(int y=0;y<thumbnailImage.Height;y++)
+          //  for (int x = 0; x < thumbnailImage.Width; x++)
           //  {
-          //    Color c=m_thumbnailImage.GetPixel(x,y);
+          //    Color c=thumbnailImage.GetPixel(x,y);
           //    Color c2=Color.FromArgb(c.B, c.G, c.R);
           //    m_thumbnailImage.SetPixel(x, y, c);
           //  }

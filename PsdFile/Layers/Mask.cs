@@ -14,6 +14,7 @@
 //
 /////////////////////////////////////////////////////////////////////////////////
 
+using System;
 using System.Collections.Specialized;
 using System.Diagnostics;
 using System.Drawing;
@@ -23,56 +24,36 @@ namespace PhotoshopFile
 {
   public class Mask
   {
-    private Layer m_layer;
     /// <summary>
     /// The layer to which this mask belongs
     /// </summary>
-    public Layer Layer
-    {
-      get { return m_layer; }
-    }
+    public Layer Layer { get; private set; }
 
-    private Rectangle m_rect = Rectangle.Empty;
     /// <summary>
     /// The rectangle enclosing the mask.
     /// </summary>
-    public Rectangle Rect
-    {
-      get { return m_rect; }
-      set { m_rect = value; }
-    }
+    public Rectangle Rect { get; private set; }
 
-    private byte m_defaultColor;
-    public byte DefaultColor
-    {
-      get { return m_defaultColor; }
-      set { m_defaultColor = value; }
-    }
+    public byte DefaultColor { get; set; }
 
     private static int positionIsRelativeBit = BitVector32.CreateMask();
     private static int disabledBit = BitVector32.CreateMask(positionIsRelativeBit);
     private static int invertOnBlendBit = BitVector32.CreateMask(disabledBit);
 
-    private BitVector32 m_flags = new BitVector32();
+    private BitVector32 flags = new BitVector32();
     /// <summary>
     /// If true, the position of the mask is relative to the layer.
     /// </summary>
     public bool PositionIsRelative
     {
-      get
-      {
-        return m_flags[positionIsRelativeBit];
-      }
-      set
-      {
-        m_flags[positionIsRelativeBit] = value;
-      }
+      get { return flags[positionIsRelativeBit]; }
+      set { flags[positionIsRelativeBit] = value; }
     }
 
     public bool Disabled
     {
-      get { return m_flags[disabledBit]; }
-      set { m_flags[disabledBit] = value; }
+      get { return flags[disabledBit]; }
+      set { flags[disabledBit] = value; }
     }
 
     /// <summary>
@@ -80,16 +61,20 @@ namespace PhotoshopFile
     /// </summary>
     public bool InvertOnBlendBit
     {
-      get { return m_flags[invertOnBlendBit]; }
-      set { m_flags[invertOnBlendBit] = value; }
+      get { return flags[invertOnBlendBit]; }
+      set { flags[invertOnBlendBit] = value; }
     }
+
+    /// <summary>
+    /// Mask image data.
+    /// </summary>
+    public byte[] ImageData { get; set; }
 
     ///////////////////////////////////////////////////////////////////////////
 
     internal Mask(Layer layer)
     {
-      m_layer = layer;
-      m_layer.MaskData = this;
+      Layer = layer;
     }
 
     ///////////////////////////////////////////////////////////////////////////
@@ -98,46 +83,45 @@ namespace PhotoshopFile
     {
       Debug.WriteLine("Mask started at " + reader.BaseStream.Position.ToString(CultureInfo.InvariantCulture));
 
-      m_layer = layer;
+      Layer = layer;
 
-      uint maskLength = reader.ReadUInt32();
-
+      var maskLength = reader.ReadUInt32();
       if (maskLength <= 0)
         return;
 
-      long startPosition = reader.BaseStream.Position;
+      var startPosition = reader.BaseStream.Position;
 
       //-----------------------------------------------------------------------
 
-      m_rect = new Rectangle();
-      m_rect.Y = reader.ReadInt32();
-      m_rect.X = reader.ReadInt32();
-      m_rect.Height = reader.ReadInt32() - m_rect.Y;
-      m_rect.Width = reader.ReadInt32() - m_rect.X;
+      var rect = new Rectangle();
+      rect.Y = reader.ReadInt32();
+      rect.X = reader.ReadInt32();
+      rect.Height = reader.ReadInt32() - rect.Y;
+      rect.Width = reader.ReadInt32() - rect.X;
+      Rect = rect;
 
-      m_defaultColor = reader.ReadByte();
+      DefaultColor = reader.ReadByte();
 
       //-----------------------------------------------------------------------
 
-      byte flags = reader.ReadByte();
-      m_flags = new BitVector32(flags);
+      var flagsByte = reader.ReadByte();
+      flags = new BitVector32(flagsByte);
 
       //-----------------------------------------------------------------------
 
       if (maskLength == 36)
       {
         var realFlags = new BitVector32(reader.ReadByte());
-
         byte realUserMaskBackground = reader.ReadByte();
 
-        Rectangle rect = new Rectangle();
-        rect.Y = reader.ReadInt32();
-        rect.X = reader.ReadInt32();
-        rect.Height = reader.ReadInt32() - m_rect.Y;
-        rect.Width = reader.ReadInt32() - m_rect.X;
+        var realRect = new Rectangle();
+        realRect.Y = reader.ReadInt32();
+        realRect.X = reader.ReadInt32();
+        realRect.Height = reader.ReadInt32() - rect.Y;
+        realRect.Width = reader.ReadInt32() - rect.X;
       }
 
-      // there is other stuff following, but we will ignore this.
+      // 20-byte mask data will end with padding.
       reader.BaseStream.Position = startPosition + maskLength;
     }
 
@@ -147,39 +131,28 @@ namespace PhotoshopFile
     {
       Debug.WriteLine("Mask Save started at " + writer.BaseStream.Position.ToString(CultureInfo.InvariantCulture));
 
-      if (m_rect.IsEmpty)
+      if (Rect.IsEmpty)
       {
-        writer.Write((uint)0);
+        writer.Write((UInt32)0);
         return;
       }
 
       using (new PsdBlockLengthWriter(writer))
       {
-        writer.Write(m_rect.Top);
-        writer.Write(m_rect.Left);
-        writer.Write(m_rect.Bottom);
-        writer.Write(m_rect.Right);
+        writer.Write(Rect.Top);
+        writer.Write(Rect.Left);
+        writer.Write(Rect.Bottom);
+        writer.Write(Rect.Right);
 
-        writer.Write(m_defaultColor);
+        writer.Write(DefaultColor);
 
-        writer.Write((byte)m_flags.Data);
+        writer.Write((byte)flags.Data);
 
-        // padding 2 bytes so that size is 20
-        writer.Write((int)0);
+        // Padding by 2 bytes to make the block length 20
+        writer.Write((byte)0);
+        writer.Write((byte)0);
       }
     }
 
-    //////////////////////////////////////////////////////////////////
-
-    /// <summary>
-    /// The raw image data from the channel.
-    /// </summary>
-    public byte[] m_imageData;
-
-    public byte[] ImageData
-    {
-      get { return m_imageData; }
-      set { m_imageData = value; }
-    }
   }
 }

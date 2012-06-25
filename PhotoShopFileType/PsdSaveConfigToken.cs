@@ -5,7 +5,7 @@
 //
 // This software is provided under the MIT License:
 //   Copyright (c) 2006-2007 Frank Blumenberg
-//   Copyright (c) 2010-2011 Tao Yue
+//   Copyright (c) 2010-2012 Tao Yue
 //
 // See LICENSE.txt for complete licensing and attribution information.
 //
@@ -26,19 +26,7 @@ namespace PaintDotNet.Data.PhotoshopFileType
       return new PsdSaveConfigToken(this);
     }
 
-    private bool m_rleCompress;
-    public bool RleCompress
-    {
-      get
-      {
-        return this.m_rleCompress;
-      }
-
-      set
-      {
-        this.m_rleCompress = value;
-      }
-    }
+    public bool RleCompress { get; set; }
 
     public PsdSaveConfigToken(bool rleCompress)
     {
@@ -47,7 +35,7 @@ namespace PaintDotNet.Data.PhotoshopFileType
 
     protected PsdSaveConfigToken(PsdSaveConfigToken copyMe)
     {
-      this.m_rleCompress = copyMe.m_rleCompress;
+      this.RleCompress = copyMe.RleCompress;
     }
 
     public override void Validate()
