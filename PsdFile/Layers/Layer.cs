@@ -246,13 +246,11 @@ namespace PhotoshopFile
 
     ///////////////////////////////////////////////////////////////////////////
 
-    public void PrepareSave(PaintDotNet.Threading.PrivateThreadPool threadPool)
+    public void PrepareSave()
     {
       foreach (var ch in Channels)
       {
-        CompressChannelContext ccc = new CompressChannelContext(ch);
-        WaitCallback waitCallback = new WaitCallback(ccc.CompressChannel);
-        threadPool.QueueUserWorkItem(waitCallback);
+        ch.CompressImageData();
       }
 
       // Create or update the Unicode layer name to be consistent with the
@@ -321,21 +319,6 @@ namespace PhotoshopFile
         {
           info.Save(writer);
         }
-      }
-    }
-
-    private class CompressChannelContext
-    {
-      private Channel ch;
-
-      public CompressChannelContext(Channel ch)
-      {
-        this.ch = ch;
-      }
-
-      public void CompressChannel(object context)
-      {
-        ch.CompressImageData();
       }
     }
   }

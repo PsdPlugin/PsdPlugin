@@ -20,28 +20,83 @@ using PhotoshopFile;
 
 namespace PaintDotNet.Data.PhotoshopFileType
 {
-  internal static class PsdSave
+  public static class PsdSave
   {
     public static void Save(Document input, Stream output, PsdSaveConfigToken psdToken,
       Surface scratchSurface, ProgressEventHandler callback)
     {
+      double renderProgress = 30.0;
+      double storeProgress = 90.0;
+      
       var psdFile = new PsdFile();
-
-      //-----------------------------------------------------------------------
-
       psdFile.RowCount = input.Height;
       psdFile.ColumnCount = input.Width;
 
-      // We only save in 8 bits per channel RGBA format, which corresponds to
-      // Paint.NET's internal representation.
+      // We only save in RGBA format, 8 bits per channel, which corresponds to
+      // Paint.NET's internal representation.  No color mode data is necessary,
+      // since PSD files default to RGB.
+
       psdFile.ChannelCount = 4; 
       psdFile.ColorMode = PsdColorMode.RGB;
       psdFile.BitDepth = 8;
+      psdFile.Resolution = GetResolutionInfo(input);
+      psdFile.ImageCompression = psdToken.RleCompress ? ImageCompression.Rle : ImageCompression.Raw;
 
       //-----------------------------------------------------------------------
-      // No color mode data is necessary for RGB
+      // Render and store the full composite image
       //-----------------------------------------------------------------------
 
+      // Allocate space for the image data
+      int imageSize = psdFile.RowCount * psdFile.ColumnCount;
+      psdFile.Layers.Clear();
+      for (short i = 0; i < psdFile.ChannelCount; i++)
+      {
+        var channel = new Channel(i, psdFile.BaseLayer);
+        channel.ImageData = new byte[imageSize];
+        channel.ImageCompression = psdFile.ImageCompression;
+        psdFile.BaseLayer.Channels.Add(channel);
+      }
+
+      using (var ra = new RenderArgs(scratchSurface))
+      {
+        input.Flatten(scratchSurface);
+      }
+
+      // Prepare to store image data.
+      callback(null, new ProgressEventArgs(renderProgress));
+      var storeProgressNotifier = new DiscreteProgressNotifier(callback,
+        input.Layers.Count + 1, renderProgress, storeProgress);
+
+      // Store composite image data.
+      var channelsArray = psdFile.BaseLayer.Channels.ToIdArray();
+      StoreLayerImage(channelsArray, channelsArray[3],
+        scratchSurface, psdFile.BaseLayer.Rect);
+      storeProgressNotifier.NotifyIncrement();
+
+      //-----------------------------------------------------------------------
+      // Store layer image data.
+      //-----------------------------------------------------------------------
+
+      var threadPool = new PaintDotNet.Threading.PrivateThreadPool();
+      foreach (BitmapLayer layer in input.Layers)
+      {
+        var psdLayer = new PhotoshopFile.Layer(psdFile);
+        psdLayer.BlendModeKey = layer.BlendOp.ToPsdBlendMode();
+        psdLayer.Visible = layer.Visible;
+        psdFile.Layers.Add(psdLayer);
+
+        var slc = new StoreLayerContext(layer, psdFile, input, psdLayer,
+          psdToken, storeProgressNotifier);
+        var waitCallback = new WaitCallback(slc.StoreLayer);
+        threadPool.QueueUserWorkItem(waitCallback);
+      }
+      threadPool.Drain();
+
+      psdFile.Save(output);
+    }
+
+    private static ResolutionInfo GetResolutionInfo(Document input)
+    {
       var resInfo = new ResolutionInfo();
 
       resInfo.HeightDisplayUnit = ResolutionInfo.Unit.Inches;
@@ -66,85 +121,19 @@ namespace PaintDotNet.Data.PhotoshopFileType
         resInfo.VDpi = new UFixed16_16(input.DpuY * 2.54);
       }
 
-      psdFile.Resolution = resInfo;
-      psdFile.ImageCompression = psdToken.RleCompress ? ImageCompression.Rle : ImageCompression.Raw;
-
-      //-----------------------------------------------------------------------
-      // Set document image data from the fully-rendered image
-      //-----------------------------------------------------------------------
-      
-      int imageSize = psdFile.RowCount * psdFile.ColumnCount;
-
-      psdFile.Layers.Clear();
-      for (short i = 0; i < psdFile.ChannelCount; i++)
-      {
-        var channel = new Channel(i, psdFile.BaseLayer);
-        channel.ImageData = new byte[imageSize];
-        channel.ImageCompression = psdFile.ImageCompression;
-        psdFile.BaseLayer.Channels.Add(channel);
-      }
-      
-      using (var ra = new RenderArgs(scratchSurface))
-      {
-        input.Flatten(scratchSurface);
-      }
-
-      var channelsArray = psdFile.BaseLayer.Channels.ToIdArray();
-      unsafe
-      {
-        for (int y = 0; y < psdFile.RowCount; y++)
-        {
-          int rowIndex = y * psdFile.ColumnCount;
-          ColorBgra* srcRow = scratchSurface.GetRowAddress(y);
-          ColorBgra* srcPixel = srcRow;
-
-          for (int x = 0; x < psdFile.ColumnCount; x++)
-          {
-            int pos = rowIndex + x;
-
-            channelsArray[0].ImageData[pos] = srcPixel->R;
-            channelsArray[1].ImageData[pos] = srcPixel->G;
-            channelsArray[2].ImageData[pos] = srcPixel->B;
-            channelsArray[3].ImageData[pos] = srcPixel->A;
-            srcPixel++;
-          }
-        }
-      }
-
-      //-----------------------------------------------------------------------
-      // Set the image data for all the layers
-      //-----------------------------------------------------------------------
-
-      var threadPool = new PaintDotNet.Threading.PrivateThreadPool();
-      foreach (BitmapLayer layer in input.Layers)
-      {
-        var psdLayer = new PhotoshopFile.Layer(psdFile);
-        psdLayer.BlendModeKey = layer.BlendOp.ToPsdBlendMode();
-        psdLayer.Visible = layer.Visible;
-        psdFile.Layers.Add(psdLayer);
-
-        var slc = new StoreLayerContext(layer, psdFile, input, psdLayer, psdToken);
-        var waitCallback = new WaitCallback(slc.StoreLayer);
-        threadPool.QueueUserWorkItem(waitCallback);
-      }
-      threadPool.Drain();
-
-      psdFile.Save(output);
+      return resInfo;
     }
 
     /// <summary>
     /// Determine the real size of the layer, i.e., the smallest rectangle
     /// that includes all non-transparent pixels.
     /// </summary>
-    private static Rectangle FindImageRectangle(BitmapLayer layer,
-      PsdFile psdFile, Document input, PhotoshopFile.Layer psdLayer)
+    private static Rectangle FindImageRectangle(Surface surface)
     {
-      var surface = layer.Surface;
-
       var rectPos = new Util.RectanglePosition
       {
-        Left = input.Width,
-        Top = input.Height,
+        Left = surface.Width,
+        Top = surface.Height,
         Right = 0,
         Bottom = 0
       };
@@ -152,32 +141,33 @@ namespace PaintDotNet.Data.PhotoshopFileType
       unsafe
       {
         // Search for top non-transparent pixel
-        bool fFound = false;
-        for (int y = 0; y < input.Height; y++)
+        bool fPixelFound = false;
+        for (int y = 0; y < surface.Height; y++)
         {
-          if (CheckImageRow(surface, y, 0, input.Width, ref rectPos))
+          if (ExpandImageRectangle(surface, y, 0, surface.Width, ref rectPos))
           {
-            fFound = true;
+            fPixelFound = true;
             break;
           }
         }
 
-        // If layer is non-empty, then search the remaining space to expand
-        // the rectangle as necessary.
-        if (fFound)
+        // Narrow down the other dimensions of the image rectangle
+        if (fPixelFound)
         {
           // Search for bottom non-transparent pixel
-          for (int y = psdFile.RowCount - 1; y > rectPos.Bottom; y--)
+          for (int y = surface.Height - 1; y > rectPos.Bottom; y--)
           {
-            if (CheckImageRow(surface, y, 0, input.Width, ref rectPos))
+            if (ExpandImageRectangle(surface, y, 0, surface.Width, ref rectPos))
               break;
           }
 
-          // Search for left and right non-transparent pixels
+          // Search for left and right non-transparent pixels.  Because we
+          // scan horizontally, we can't just break, but we can examine fewer
+          // candidate pixels on the remaining rows.
           for (int y = rectPos.Top + 1; y < rectPos.Bottom; y++)
           {
-            CheckImageRow(surface, y, 0, rectPos.Left, ref rectPos);
-            CheckImageRow(surface, y, rectPos.Right + 1, input.Width, ref rectPos);
+            ExpandImageRectangle(surface, y, 0, rectPos.Left, ref rectPos);
+            ExpandImageRectangle(surface, y, rectPos.Right + 1, surface.Width, ref rectPos);
           }
         }
         else
@@ -185,6 +175,7 @@ namespace PaintDotNet.Data.PhotoshopFileType
           rectPos.Left = 0;
           rectPos.Top = 0;
         }
+
       }
 
       Debug.Assert(rectPos.Left <= rectPos.Right);
@@ -195,10 +186,15 @@ namespace PaintDotNet.Data.PhotoshopFileType
       return result;
     }
 
-    unsafe private static bool CheckImageRow(Surface surface, int y,
+    /// <summary>
+    /// Check for non-transparent pixels in a row, or portion of a row.
+    /// Expands the size of the image rectangle if any were found.
+    /// </summary>
+    /// <returns>True if non-transparent pixels were found, false otherwise.</returns>
+    unsafe private static bool ExpandImageRectangle(Surface surface, int y,
       int xStart, int xEnd, ref Util.RectanglePosition rectPos)
     {
-      bool fFound = false;
+      bool fPixelFound = false;
 
       ColorBgra* rowStart = surface.GetRowAddress(y);
       ColorBgra* pixel = rowStart + xStart;
@@ -215,22 +211,23 @@ namespace PaintDotNet.Data.PhotoshopFileType
             rectPos.Top = y;
           if (y > rectPos.Bottom)
             rectPos.Bottom = y;
-          fFound = true;
+          fPixelFound = true;
         }
         pixel++;
       }
 
-      return fFound;
+      return fPixelFound;
     }
 
+    /// <summary>
+    /// Store layer metadata and image data.
+    /// </summary>
     public static void StoreLayer(BitmapLayer layer, PsdFile psdFile,
         Document input, PhotoshopFile.Layer psdLayer, PsdSaveConfigToken psdToken)
-    {      
-      Surface surface = layer.Surface;
-
+    {
       // Set layer metadata
-      psdLayer.Rect = FindImageRectangle(layer, psdFile, input, psdLayer);
       psdLayer.Name = layer.Name;
+      psdLayer.Rect = FindImageRectangle(layer.Surface);
       psdLayer.Opacity = layer.Opacity;
       psdLayer.Visible = layer.Visible;
       psdLayer.MaskData = new Mask(psdLayer);
@@ -246,30 +243,46 @@ namespace PaintDotNet.Data.PhotoshopFileType
         psdLayer.Channels.Add(ch);
       }
 
-      // Store image data into channels
-      var channels = psdLayer.Channels.ToIdArray();
-      var alphaChannel = psdLayer.AlphaChannel;
+      // Store and compress channel image data
+      var channelsArray = psdLayer.Channels.ToIdArray();
+      StoreLayerImage(channelsArray, psdLayer.AlphaChannel, layer.Surface, psdLayer.Rect);
+    }
+
+    /// <summary>
+    /// Store and compress layer image data.
+    /// </summary>
+    /// <param name="channels">Destination channels.</param>
+    /// <param name="alphaChannel">Destination alpha channel.</param>
+    /// <param name="surface">Source image from Paint.NET.</param>
+    /// <param name="rect">Image rectangle to store.</param>
+    unsafe private static void StoreLayerImage(Channel[] channels, Channel alphaChannel,
+      Surface surface, Rectangle rect)
+    {
       unsafe
       {
-        int rowIndex = 0;
-        for (int y = 0; y < psdLayer.Rect.Height; y++)
+        for (int y = 0; y < rect.Height; y++)
         {
-          ColorBgra* srcRow = surface.GetRowAddress(y + psdLayer.Rect.Top);
-          ColorBgra* srcPixel = srcRow + psdLayer.Rect.Left;
+          int destRowIndex = y * rect.Width;
+          ColorBgra* srcRow = surface.GetRowAddress(y + rect.Top);
+          ColorBgra* srcPixel = srcRow + rect.Left;
 
-          for (int x = 0; x < psdLayer.Rect.Width; x++)
+          for (int x = 0; x < rect.Width; x++)
           {
-            int pos = rowIndex + x;
+            int destIndex = destRowIndex + x;
 
-            channels[0].ImageData[pos] = srcPixel->R;
-            channels[1].ImageData[pos] = srcPixel->G;
-            channels[2].ImageData[pos] = srcPixel->B;
-            alphaChannel.ImageData[pos] = srcPixel->A;
+            channels[0].ImageData[destIndex] = srcPixel->R;
+            channels[1].ImageData[destIndex] = srcPixel->G;
+            channels[2].ImageData[destIndex] = srcPixel->B;
+            alphaChannel.ImageData[destIndex] = srcPixel->A;
             srcPixel++;
           }
-          rowIndex += psdLayer.Rect.Width;
         }
       }
+
+      channels[0].CompressImageData();
+      channels[1].CompressImageData();
+      channels[2].CompressImageData();
+      alphaChannel.CompressImageData();
     }
 
     private class StoreLayerContext
@@ -279,20 +292,62 @@ namespace PaintDotNet.Data.PhotoshopFileType
       private Document input;
       private PsdSaveConfigToken psdToken;
       PhotoshopFile.Layer psdLayer;
+      DiscreteProgressNotifier progress;
 
       public StoreLayerContext(BitmapLayer layer, PsdFile psdFile,
-        Document input, PhotoshopFile.Layer psdLayer, PsdSaveConfigToken psdToken)
+        Document input, PhotoshopFile.Layer psdLayer,
+        PsdSaveConfigToken psdToken, DiscreteProgressNotifier progress)
       {
         this.layer = layer;
         this.psdFile = psdFile;
         this.input = input;
         this.psdToken = psdToken;
         this.psdLayer = psdLayer;
+        this.progress = progress;
       }
 
       public void StoreLayer(object context)
       {
         PsdSave.StoreLayer(layer, psdFile, input, psdLayer, psdToken);
+        progress.NotifyIncrement();
+      }
+    }
+
+    private class DiscreteProgressNotifier
+    {
+      private ProgressEventHandler callback;
+      private double totalIncrements;
+      private int completedIncrements;
+      private double progressStart;
+      private double progressEnd;
+
+      public DiscreteProgressNotifier(ProgressEventHandler callback,
+        int numIncrements, double progressStart, double progressEnd)
+      {
+        this.callback = callback;
+        this.totalIncrements = (double)numIncrements;
+        this.progressStart = progressStart;
+        this.progressEnd = progressEnd;
+
+        this.completedIncrements = 0;
+        callback(null, new ProgressEventArgs(progressStart));
+      }
+
+      /// <summary>
+      /// Complete an increment.
+      /// </summary>
+      public void NotifyIncrement()
+      {
+        lock (this)
+        {
+          completedIncrements++;
+          var progressDelta = completedIncrements / totalIncrements
+            * (progressEnd - progressStart);
+          var progress = progressStart + progressDelta;
+
+          callback(null, new ProgressEventArgs(progress));
+          Debug.WriteLine("Reporting progress " + progress);
+        }
       }
     }
 

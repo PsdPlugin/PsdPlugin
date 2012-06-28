@@ -13,6 +13,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Drawing;
 using System.Linq;
 using System.Text;
@@ -22,7 +23,8 @@ namespace PhotoshopFile
   public static class Util
   {
     public static char[] SIGNATURE_8BIM = "8BIM".ToCharArray();
-    
+
+    [DebuggerDisplay("Top = {Top}, Bottom = {Bottom}, Left = {Left}, Right = {Right}")]
     public struct RectanglePosition
     {
       public int Top { get; set; }

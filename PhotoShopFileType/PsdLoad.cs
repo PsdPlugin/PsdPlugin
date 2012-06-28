@@ -18,7 +18,7 @@ using PhotoshopFile;
 
 namespace PaintDotNet.Data.PhotoshopFileType
 {
-  internal static class PsdLoad
+  public static class PsdLoad
   {
     public static Document Load(System.IO.Stream input)
     {

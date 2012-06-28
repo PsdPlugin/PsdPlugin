@@ -108,6 +108,9 @@
     <Compile Include="..\PsdFile\PsdFile.cs">
       <Link>PsdFile\PsdFile.cs</Link>
     </Compile>
+    <Compile Include="..\PsdFile\RleHelper.cs">
+      <Link>PsdFile\RleHelper.cs</Link>
+    </Compile>
     <Compile Include="..\PsdFile\Util.cs">
       <Link>PsdFile\Util.cs</Link>
     </Compile>

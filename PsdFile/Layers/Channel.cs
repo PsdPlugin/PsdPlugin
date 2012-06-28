@@ -89,18 +89,38 @@ namespace PhotoshopFile
     /// </summary>
     public int Length { get; set; }
 
+    private byte[] data;
+    private bool dataDecompressed;
     /// <summary>
     /// Compressed raw channel data, excluding compression headers.
     /// </summary>
-    public byte[] Data { get; set; }
+    public byte[] Data
+    {
+      get { return data; }
+      set
+      {
+        data = value;
+        dataDecompressed = false;
+      }
+    }
 
+    private byte[] imageData;
+    private bool imageDataCompressed;
     /// <summary>
     /// Decompressed image data from the channel.
     /// </summary>
-    public byte[] ImageData { get; set; }
+    public byte[] ImageData
+    {
+      get { return imageData; } 
+      set
+      {
+        imageData = value;
+        imageDataCompressed = false;
+      }
+    }
 
     /// <summary>
-    /// Image compression method used..
+    /// Image compression method used.
     /// </summary>
     public ImageCompression ImageCompression { get; set; }
 
@@ -167,12 +187,15 @@ namespace PhotoshopFile
 
     public void DecompressImageData(Rectangle rect)
     {
+      if (dataDecompressed)
+        return;
+
       var bytesPerRow = Util.BytesPerRow(rect, Layer.PsdFile.BitDepth);
       var bytesTotal = rect.Height * bytesPerRow;
 
       if (this.ImageCompression != PhotoshopFile.ImageCompression.Raw)
       {
-        ImageData = new byte[bytesTotal];
+        imageData = new byte[bytesTotal];
 
         MemoryStream stream = new MemoryStream(Data);
         switch (this.ImageCompression)
@@ -181,7 +204,7 @@ namespace PhotoshopFile
             for (int i = 0; i < rect.Height; i++)
             {
               int rowIndex = i * bytesPerRow;
-              RleHelper.DecodeRow(stream, ImageData, rowIndex, bytesPerRow);
+              RleHelper.DecodeRow(stream, imageData, rowIndex, bytesPerRow);
             }
             break;
 
@@ -193,7 +216,7 @@ namespace PhotoshopFile
             stream.ReadByte();
 
             var deflateStream = new DeflateStream(stream, CompressionMode.Decompress);
-            var bytesDecompressed = deflateStream.Read(ImageData, 0, bytesTotal);
+            var bytesDecompressed = deflateStream.Read(imageData, 0, bytesTotal);
             Debug.Assert(bytesDecompressed == bytesTotal, "ZIP deflation output is different length than expected.");
             break;
         }
@@ -205,15 +228,17 @@ namespace PhotoshopFile
       bool fReverseEndianness = (Layer.PsdFile.BitDepth == 16)
         || (Layer.PsdFile.BitDepth == 32) && (ImageCompression != PhotoshopFile.ImageCompression.ZipPrediction);
       if (fReverseEndianness)
-        ReverseEndianness(rect);
+        ReverseEndianness(imageData, rect);
 
       if (this.ImageCompression == PhotoshopFile.ImageCompression.ZipPrediction)
       {
         UnpredictImageData(rect);
       }
+
+      dataDecompressed = true;
     }
 
-    private void ReverseEndianness(Rectangle rect)
+    private void ReverseEndianness(byte[] buffer, Rectangle rect)
     {
       var byteDepth = Util.BytesFromBitDepth(Layer.PsdFile.BitDepth);
       var pixelsTotal = rect.Width * rect.Height;
@@ -222,11 +247,11 @@ namespace PhotoshopFile
 
       if (byteDepth == 2)
       {
-        Util.SwapByteArray2(ImageData, 0, pixelsTotal);
+        Util.SwapByteArray2(buffer, 0, pixelsTotal);
       }
       else if (byteDepth == 4)
       {
-        Util.SwapByteArray4(ImageData, 0, pixelsTotal);
+        Util.SwapByteArray4(buffer, 0, pixelsTotal);
       }
       else if (byteDepth > 1)
       {
@@ -241,7 +266,8 @@ namespace PhotoshopFile
     {
       if (Layer.PsdFile.BitDepth == 16)
       {
-        fixed (byte* ptrData = &ImageData[0])
+        var reorderedData = new byte[imageData.Length];
+        fixed (byte* ptrData = &imageData[0])
         {
           for (int iRow = 0; iRow < rect.Height; iRow++)
           {
@@ -260,8 +286,8 @@ namespace PhotoshopFile
       }
       else if (Layer.PsdFile.BitDepth == 32)
       {
-        var reorderedData = new byte[ImageData.Length];
-        fixed (byte* ptrData = &ImageData[0]) 
+        var reorderedData = new byte[imageData.Length];
+        fixed (byte* ptrData = &imageData[0]) 
         {
           // Undo the prediction on the byte stream
           for (int iRow = 0; iRow < rect.Height; iRow++)
@@ -307,8 +333,6 @@ namespace PhotoshopFile
             }
           }
         }
-
-        ImageData = reorderedData;
       }
       else
       {
@@ -318,6 +342,12 @@ namespace PhotoshopFile
 
     public void CompressImageData()
     {
+      // Can be called implicitly by Layer.PrepareSave or explicitly by the
+      // consumer of this library.  Since image data compression can take
+      // some time, explicit calling makes more accurate progress available.
+      if (imageDataCompressed)
+        return;
+
       if (ImageCompression == ImageCompression.Rle)
       {
         var dataStream = new MemoryStream();
@@ -345,16 +375,18 @@ namespace PhotoshopFile
 
         // Save compressed data
         dataStream.Flush();
-        Data = dataStream.ToArray();
+        data = dataStream.ToArray();
         dataStream.Close();
 
         Length = 2 + RleHeader.Length + Data.Length;
       }
       else
       {
-        Data = ImageData;
+        data = ImageData;
         this.Length = 2 + Data.Length;
       }
+
+      imageDataCompressed = true;
     }
 
     internal void SavePixelData(PsdBinaryWriter writer)
