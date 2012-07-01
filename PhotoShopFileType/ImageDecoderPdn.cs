@@ -160,7 +160,7 @@ namespace PaintDotNet.Data.PhotoshopFileType
           }
           break;
         default:
-          throw new Exception("32-bit HDR images must be either RGB or grayscale.");
+          throw new PsdInvalidException("32-bit HDR images must be either RGB or grayscale.");
       }
     }
 

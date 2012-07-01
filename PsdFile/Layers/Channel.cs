@@ -255,7 +255,7 @@ namespace PhotoshopFile
       }
       else if (byteDepth > 1)
       {
-        throw new Exception("Byte-swapping implemented only for 16-bit and 32-bit depths.");
+        throw new NotImplementedException("Byte-swapping implemented only for 16-bit and 32-bit depths.");
       }
     }
 
@@ -336,7 +336,7 @@ namespace PhotoshopFile
       }
       else
       {
-        throw new Exception("ZIP with prediction is only available for 16 and 32 bit depths.");
+        throw new PsdInvalidException("ZIP with prediction is only available for 16 and 32 bit depths.");
       }
     }
 

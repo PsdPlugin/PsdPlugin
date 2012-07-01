@@ -81,7 +81,7 @@ namespace PhotoshopFile
       }
       else
       {
-        throw new IOException("Unknown thumbnail format.");
+        throw new PsdInvalidException("Unknown thumbnail format.");
       }
     }
 

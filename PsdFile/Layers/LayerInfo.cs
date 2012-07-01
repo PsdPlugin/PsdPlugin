@@ -24,7 +24,7 @@ namespace PhotoshopFile
       
       var signature = new string(reader.ReadChars(4));
       if (signature != "8BIM")
-        throw new IOException("Could not read LayerInfo due to signature mismatch.");
+        throw new PsdInvalidException("Could not read LayerInfo due to signature mismatch.");
 
       var key = new string(reader.ReadChars(4));
       var length = reader.ReadInt32();

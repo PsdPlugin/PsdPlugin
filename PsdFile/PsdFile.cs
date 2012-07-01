@@ -196,11 +196,11 @@ namespace PhotoshopFile
 
       var signature = new string(reader.ReadChars(4));
       if (signature != "8BPS")
-        throw new IOException("The given stream is not a valid PSD file");
+        throw new PsdInvalidException("The given stream is not a valid PSD file");
 
       Version = reader.ReadInt16();
       if (Version != 1)
-        throw new IOException("The PSD file has an unknown version");
+        throw new PsdInvalidException("The PSD file has an unknown version");
 
       //6 bytes reserved
       reader.BaseStream.Position += 6;
@@ -504,7 +504,7 @@ namespace PhotoshopFile
     {
       var versionInfos = ImageResources.Where(x => x.ID == ResourceID.VersionInfo);
       if (versionInfos.Count() > 1)
-        throw new Exception("Image has more than one VersionInfo resource.");
+        throw new PsdInvalidException("Image has more than one VersionInfo resource.");
 
       var versionInfo = (VersionInfo)versionInfos.SingleOrDefault();
       if (versionInfo == null)

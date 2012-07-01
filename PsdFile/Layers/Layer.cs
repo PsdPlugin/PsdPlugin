@@ -148,7 +148,7 @@ namespace PhotoshopFile
 
       string signature = new string(reader.ReadChars(4));
       if (signature != "8BIM")
-        throw (new IOException("Layer ChannelHeader error!"));
+        throw (new PsdInvalidException("Layer ChannelHeader has invalid signature."));
 
       BlendModeKey = new string(reader.ReadChars(4));
       Opacity = reader.ReadByte();
@@ -257,7 +257,7 @@ namespace PhotoshopFile
       // ANSI layer name.
       var layerUnicodeNames = AdditionalInfo.Where(x => x is LayerUnicodeName);
       if (layerUnicodeNames.Count() > 1)
-        throw new Exception("Layer has more than one LayerUnicodeName.");
+        throw new PsdInvalidException("Layer has more than one LayerUnicodeName.");
 
       var layerUnicodeName = (LayerUnicodeName) layerUnicodeNames.FirstOrDefault();
       if (layerUnicodeName == null)

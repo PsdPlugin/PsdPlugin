@@ -90,6 +90,9 @@
     <Compile Include="..\PsdFile\Layers\Mask.cs">
       <Link>PsdFile\Layers\Mask.cs</Link>
     </Compile>
+    <Compile Include="..\PsdFile\Exceptions.cs">
+      <Link>PsdFile\Exceptions.cs</Link>
+    </Compile>
     <Compile Include="..\PsdFile\ImageResource.cs">
       <Link>PsdFile\ImageResource.cs</Link>
     </Compile>
