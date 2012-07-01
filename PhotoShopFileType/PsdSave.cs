@@ -40,7 +40,9 @@ namespace PaintDotNet.Data.PhotoshopFileType
       psdFile.ColorMode = PsdColorMode.RGB;
       psdFile.BitDepth = 8;
       psdFile.Resolution = GetResolutionInfo(input);
-      psdFile.ImageCompression = psdToken.RleCompress ? ImageCompression.Rle : ImageCompression.Raw;
+      psdFile.ImageCompression = psdToken.RleCompress
+        ? ImageCompression.Rle
+        : ImageCompression.Raw;
 
       //-----------------------------------------------------------------------
       // Render and store the full composite image
@@ -81,8 +83,6 @@ namespace PaintDotNet.Data.PhotoshopFileType
       foreach (BitmapLayer layer in input.Layers)
       {
         var psdLayer = new PhotoshopFile.Layer(psdFile);
-        psdLayer.BlendModeKey = layer.BlendOp.ToPsdBlendMode();
-        psdLayer.Visible = layer.Visible;
         psdFile.Layers.Add(psdLayer);
 
         var slc = new StoreLayerContext(layer, psdFile, input, psdLayer,
@@ -228,6 +228,7 @@ namespace PaintDotNet.Data.PhotoshopFileType
       // Set layer metadata
       psdLayer.Name = layer.Name;
       psdLayer.Rect = FindImageRectangle(layer.Surface);
+      psdLayer.BlendModeKey = layer.BlendOp.ToPsdBlendMode();
       psdLayer.Opacity = layer.Opacity;
       psdLayer.Visible = layer.Visible;
       psdLayer.MaskData = new Mask(psdLayer);
@@ -346,7 +347,7 @@ namespace PaintDotNet.Data.PhotoshopFileType
           var progress = progressStart + progressDelta;
 
           callback(null, new ProgressEventArgs(progress));
-          Debug.WriteLine("Reporting progress " + progress);
+          Debug.WriteLine("Reporting save progress " + progress);
         }
       }
     }

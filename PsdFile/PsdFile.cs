@@ -495,6 +495,44 @@ namespace PhotoshopFile
       }
 
       SetVersionInfo();
+      VerifyLayerSections();
+    }
+
+    /// <summary>
+    /// Verify validity of layer sections.  Each start marker should have a
+    /// matching end marker.
+    /// </summary>
+    internal void VerifyLayerSections()
+    {
+      int depth = 0;
+      foreach (var layer in Enumerable.Reverse(Layers))
+      {
+        var sectionInfos = layer.AdditionalInfo.Where(info => info.Key == "lsct");
+        var sectionInfoCount = sectionInfos.Count();
+
+        if (sectionInfoCount > 1)
+          throw new PsdInvalidException("Layer has more than one section info block.");
+        if (sectionInfoCount == 0)
+          continue;
+
+        var sectionInfo = (LayerSectionInfo)sectionInfos.Single();
+        switch (sectionInfo.SectionType)
+        {
+          case LayerSectionType.OpenFolder:
+          case LayerSectionType.ClosedFolder:
+            depth++;
+            break;
+
+          case LayerSectionType.SectionDivider:
+            depth--;
+            if (depth < 0)
+              throw new PsdInvalidException("Layer section ended without matching start marker.");
+            break;
+        }
+      }
+
+      if (depth != 0)
+        throw new PsdInvalidException("Layer section not closed by end marker.");
     }
 
     /// <summary>

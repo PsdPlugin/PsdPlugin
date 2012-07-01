@@ -12,6 +12,8 @@
 /////////////////////////////////////////////////////////////////////////////////
 
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 
 using PhotoshopFile;
@@ -62,9 +64,11 @@ namespace PaintDotNet.Data.PhotoshopFileType
       }
       else
       {
-        var threadPool = new PaintDotNet.Threading.PrivateThreadPool();
+        psdFile.VerifyLayerSections();
+        ApplySectionVisibility(psdFile.Layers);
         var pdnLayers = new Layer[psdFile.Layers.Count];
 
+        var threadPool = new PaintDotNet.Threading.PrivateThreadPool();
         for (int i = 0; i < psdFile.Layers.Count; i++)
         {
           var psdLayer = psdFile.Layers[i];
@@ -79,6 +83,47 @@ namespace PaintDotNet.Data.PhotoshopFileType
         document.Layers.AddRange(pdnLayers);
       }
       return document;
+    }
+
+    /// <summary>
+    /// Hide all layers within hidden layer sections.
+    /// </summary>
+    private static void ApplySectionVisibility(List<PhotoshopFile.Layer> layers)
+    {
+      // Since we hide all nested layers within a hidden section, we need only
+      // keep track of the top hidden section.
+      var topHiddenDepth = Int32.MaxValue;
+      var depth = 0;
+
+      // Scan top-to-bottom.
+      foreach (var layer in Enumerable.Reverse(layers))
+      {
+        if (depth > topHiddenDepth)
+          layer.Visible = false;
+
+        var sectionInfos = layer.AdditionalInfo.Where(x => x.Key == "lsct");
+        if (sectionInfos.Count() > 1)
+          throw new PsdInvalidException();
+        if (sectionInfos.Count() == 0)
+          continue;
+        var sectionInfo = (LayerSectionInfo)sectionInfos.Single();
+
+        switch (sectionInfo.SectionType)
+        {
+          case LayerSectionType.OpenFolder:
+          case LayerSectionType.ClosedFolder:
+            if ((!layer.Visible) && (topHiddenDepth == Int32.MaxValue))
+              topHiddenDepth = depth;
+            depth++;
+            break;
+
+          case LayerSectionType.SectionDivider:
+            depth--;
+            if (depth == topHiddenDepth)
+              topHiddenDepth = Int32.MaxValue;
+            break;
+        }
+      }
     }
 
     /// <summary>
