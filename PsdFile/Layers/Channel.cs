@@ -333,6 +333,8 @@ namespace PhotoshopFile
             }
           }
         }
+
+        imageData = reorderedData;
       }
       else
       {
