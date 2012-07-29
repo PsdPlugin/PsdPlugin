@@ -167,7 +167,7 @@ namespace PaintDotNet.Data.PhotoshopFileType
     /////////////////////////////////////////////////////////////////////////// 
 
 
-    private static unsafe void SetPDNAlphaRow(
+    unsafe private static void SetPDNAlphaRow(
       ColorBgra* pDestStart, ColorBgra* pDestEnd, int idxSrc, int byteDepth,
       Channel alphaChannel)
     {

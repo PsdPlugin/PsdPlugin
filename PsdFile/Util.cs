@@ -199,6 +199,22 @@ namespace PhotoshopFile
       throw new ArgumentException("Unknown color mode.");
     }
 
+    /// <summary>
+    /// Verify that the offset and count will remain within the bounds of the
+    /// buffer.
+    /// </summary>
+    /// <returns>True if in bounds, false if out of bounds.</returns>
+    public static bool CheckBufferBounds(byte[] data, int offset, int count)
+    {
+      if (offset < 0)
+        return false;
+      if (count < 0)
+        return false;
+      if (offset + count > data.Length)
+        return false;
+
+      return true;
+    }
   }
 
   /// <summary>

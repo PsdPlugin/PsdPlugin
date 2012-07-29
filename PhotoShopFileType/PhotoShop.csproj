@@ -114,8 +114,11 @@
     <Compile Include="..\PsdFile\PsdFile.cs">
       <Link>PsdFile\PsdFile.cs</Link>
     </Compile>
-    <Compile Include="..\PsdFile\RleHelper.cs">
-      <Link>PsdFile\RleHelper.cs</Link>
+    <Compile Include="..\PsdFile\RleReader.cs">
+      <Link>PsdFile\RleReader.cs</Link>
+    </Compile>
+    <Compile Include="..\PsdFile\RleWriter.cs">
+      <Link>PsdFile\RleWriter.cs</Link>
     </Compile>
     <Compile Include="..\PsdFile\Util.cs">
       <Link>PsdFile\Util.cs</Link>

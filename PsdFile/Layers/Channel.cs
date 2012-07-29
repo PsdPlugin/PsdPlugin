@@ -201,10 +201,11 @@ namespace PhotoshopFile
         switch (this.ImageCompression)
         {
           case ImageCompression.Rle:
+            var rleReader = new RleReader(stream);
             for (int i = 0; i < rect.Height; i++)
             {
               int rowIndex = i * bytesPerRow;
-              RleHelper.DecodeRow(stream, imageData, rowIndex, bytesPerRow);
+              rleReader.Read(imageData, rowIndex, bytesPerRow);
             }
             break;
 
@@ -354,22 +355,25 @@ namespace PhotoshopFile
       {
         var dataStream = new MemoryStream();
         var headerStream = new MemoryStream();
+
+        var rleWriter = new RleWriter(dataStream);
         var headerWriter = new PsdBinaryWriter(headerStream);
 
         //---------------------------------------------------------------
 
-        short[] rleRowLengths = new short[Layer.Rect.Height];
-        int bytesPerRow = Util.BytesPerRow(Layer.Rect, Layer.PsdFile.BitDepth);
+        var rleRowLengths = new UInt16[Layer.Rect.Height];
+        var bytesPerRow = Util.BytesPerRow(Layer.Rect, Layer.PsdFile.BitDepth);
+
         for (int row = 0; row < Layer.Rect.Height; row++)
         {
           int rowIndex = row * Layer.Rect.Width;
-          rleRowLengths[row] = (short)RleHelper.EncodeRow(dataStream, ImageData, rowIndex, bytesPerRow);
+          rleRowLengths[row] = (UInt16)rleWriter.Write(ImageData, rowIndex, bytesPerRow);
         }
 
         // Write RLE row lengths and save
         for (int i = 0; i < rleRowLengths.Length; i++)
         {
-          headerWriter.Write((short)rleRowLengths[i]);
+          headerWriter.Write(rleRowLengths[i]);
         }
         headerStream.Flush();
         this.RleHeader = headerStream.ToArray();

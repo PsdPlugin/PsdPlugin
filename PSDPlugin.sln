@@ -2,12 +2,18 @@
 # Visual Studio 2010
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PhotoShop", "PhotoShopFileType\PhotoShop.csproj", "{A04EEDD9-E164-4941-9846-722ACF2FCCA1}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Tests", "Tests\Tests.csproj", "{37844BEF-D221-438D-8380-D44CF50A5A87}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
 		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{37844BEF-D221-438D-8380-D44CF50A5A87}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{37844BEF-D221-438D-8380-D44CF50A5A87}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{37844BEF-D221-438D-8380-D44CF50A5A87}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{37844BEF-D221-438D-8380-D44CF50A5A87}.Release|Any CPU.Build.0 = Release|Any CPU
 		{A04EEDD9-E164-4941-9846-722ACF2FCCA1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{A04EEDD9-E164-4941-9846-722ACF2FCCA1}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{A04EEDD9-E164-4941-9846-722ACF2FCCA1}.Release|Any CPU.ActiveCfg = Release|Any CPU
