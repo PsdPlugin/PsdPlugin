@@ -46,9 +46,7 @@ namespace PaintDotNet.Data.PhotoshopFileType
       bool hasMaskChannel = psdLayer.Channels.ContainsId(-2);
       var channels = psdLayer.Channels.ToIdArray();
 
-      Surface surface = pdnLayer.Surface;
-      var clearColor = isBackground ? (ColorBgra)0xffffffff : (ColorBgra)0;
-      surface.Clear(clearColor);
+      var surface = pdnLayer.Surface;
 
       unsafe
       {
