@@ -15,6 +15,7 @@ using System;
 using System.Collections;
 using System.ComponentModel;
 using System.Drawing;
+using System.Globalization;
 using System.Reflection;
 using System.Resources;
 using System.Windows.Forms;
@@ -102,7 +103,7 @@ namespace PaintDotNet.Data.PhotoshopFileType
       this.rleCompressCheckBox.Name = "rleCompressCheckBox";
       this.rleCompressCheckBox.Size = new System.Drawing.Size(184, 24);
       this.rleCompressCheckBox.TabIndex = 0;
-      this.rleCompressCheckBox.Text = "Compression (RLE)";
+      this.rleCompressCheckBox.Text = PsdPluginResources.GetString("SaveDialog_RleCompression");
       this.rleCompressCheckBox.CheckedChanged += new System.EventHandler(this.OnCheckedChanged);
       // 
       // PsdSaveConfigWidget

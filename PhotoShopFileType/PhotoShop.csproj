@@ -46,6 +46,9 @@
     <Reference Include="PaintDotNet.Data">
       <HintPath>C:\Program Files\Paint.NET\PaintDotNet.Data.dll</HintPath>
     </Reference>
+    <Reference Include="PaintDotNet.Resources">
+      <HintPath>C:\Program Files\Paint.NET\PaintDotNet.Resources.dll</HintPath>
+    </Reference>
     <Reference Include="System" />
     <Reference Include="System.Data" />
     <Reference Include="System.Drawing" />
@@ -128,6 +131,7 @@
     <Compile Include="ImageDecoderPdn.cs" />
     <Compile Include="PhotoshopFileType.cs" />
     <Compile Include="PsdLoad.cs" />
+    <Compile Include="PsdPluginResources.cs" />
     <Compile Include="PsdSave.cs" />
     <Compile Include="PsdSaveConfigToken.cs" />
     <Compile Include="PsdSaveConfigWidget.cs">
@@ -138,6 +142,11 @@
     <EmbeddedResource Include="PsdSaveConfigWidget.resx">
       <SubType>Designer</SubType>
       <DependentUpon>PsdSaveConfigWidget.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Resources.resx">
+      <LastGenOutput>Resources.Designer.cs</LastGenOutput>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CustomToolNamespace>PaintDotNet.Data.PhotoshopFileType</CustomToolNamespace>
     </EmbeddedResource>
   </ItemGroup>
   <ItemGroup />

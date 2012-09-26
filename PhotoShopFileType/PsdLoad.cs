@@ -65,7 +65,7 @@ namespace PaintDotNet.Data.PhotoshopFileType
       else
       {
         psdFile.VerifyLayerSections();
-        ApplySectionVisibility(psdFile.Layers);
+        ApplyLayerSections(psdFile.Layers);
         var pdnLayers = new Layer[psdFile.Layers.Count];
 
         var threadPool = new PaintDotNet.Threading.PrivateThreadPool();
@@ -86,19 +86,33 @@ namespace PaintDotNet.Data.PhotoshopFileType
     }
 
     /// <summary>
-    /// Hide all layers within hidden layer sections.
+    /// Transform Photoshop's layer tree to Paint.NET's flat layer list.
+    /// Indicate where layer sections begin and end, and hide all layers within
+    /// hidden layer sections.
     /// </summary>
-    private static void ApplySectionVisibility(List<PhotoshopFile.Layer> layers)
+    private static void ApplyLayerSections(List<PhotoshopFile.Layer> layers)
     {
-      // Since we hide all nested layers within a hidden section, we need only
-      // keep track of the top hidden section.
-      var topHiddenDepth = Int32.MaxValue;
-      var depth = 0;
+      // BUG: PsdPluginResources.GetString will always return English resource,
+      // because Paint.NET does not set the CurrentUICulture when OnLoad is
+      // called.  This situation should be resolved with Paint.NET 4.0, which
+      // will provide an alternative mechanism to retrieve the UI language.
 
-      // Scan top-to-bottom.
+      // Cache layer section strings
+      var beginSectionWrapper = PsdPluginResources.GetString("LayersPalette_LayerGroupBegin");
+      var endSectionWrapper = PsdPluginResources.GetString("LayersPalette_LayerGroupEnd");
+      
+      // Track the depth of the topmost hidden section.  Any nested sections
+      // will be hidden, whether or not they themselves have the flag set.
+      int topHiddenSectionDepth = Int32.MaxValue;
+      var layerSectionNames = new Stack<string>();
+
+      // Layers are stored bottom-to-top, but layer sections are specified
+      // top-to-bottom.
       foreach (var layer in Enumerable.Reverse(layers))
       {
-        if (depth > topHiddenDepth)
+        // Apply to all layers within the layer section, as well as the
+        // closing layer.
+        if (layerSectionNames.Count > topHiddenSectionDepth)
           layer.Visible = false;
 
         var sectionInfos = layer.AdditionalInfo.Where(x => x.Key == "lsct");
@@ -112,15 +126,19 @@ namespace PaintDotNet.Data.PhotoshopFileType
         {
           case LayerSectionType.OpenFolder:
           case LayerSectionType.ClosedFolder:
-            if ((!layer.Visible) && (topHiddenDepth == Int32.MaxValue))
-              topHiddenDepth = depth;
-            depth++;
+            // Start a new layer section
+            if ((!layer.Visible) && (topHiddenSectionDepth == Int32.MaxValue))
+              topHiddenSectionDepth = layerSectionNames.Count;
+            layerSectionNames.Push(layer.Name);
+            layer.Name = String.Format(beginSectionWrapper, layer.Name);
             break;
 
           case LayerSectionType.SectionDivider:
-            depth--;
-            if (depth == topHiddenDepth)
-              topHiddenDepth = Int32.MaxValue;
+            // End the current layer section
+            var layerSectionName = layerSectionNames.Pop();
+            if (layerSectionNames.Count == topHiddenSectionDepth)
+              topHiddenSectionDepth = Int32.MaxValue;
+            layer.Name = String.Format(endSectionWrapper, layerSectionName);
             break;
         }
       }
