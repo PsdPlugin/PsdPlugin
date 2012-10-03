@@ -32,30 +32,6 @@ namespace PaintDotNet.Data.PhotoshopFileType
       // Convert into Paint.NET internal representation
       var document = new Document(psdFile.ColumnCount, psdFile.RowCount);
 
-      if (psdFile.Resolution != null)
-      {
-        // PSD files always specify the resolution in DPI.  When loading and
-        // saving cm, we will have to round-trip the conversion, but doubles
-        // have plenty of precision to spare vs. PSD's 16/16 fixed-point.
-
-        if ((psdFile.Resolution.HResDisplayUnit == ResolutionInfo.ResUnit.PxPerCm)
-          && (psdFile.Resolution.VResDisplayUnit == ResolutionInfo.ResUnit.PxPerCm))
-        {
-          document.DpuUnit = MeasurementUnit.Centimeter;
-
-          // HACK: Paint.NET truncates DpuX and DpuY to three decimal places,
-          // so add 0.0005 to get a rounded value instead.
-          document.DpuX = psdFile.Resolution.HDpi / 2.54 + 0.0005;
-          document.DpuY = psdFile.Resolution.VDpi / 2.54 + 0.0005;
-        }
-        else
-        {
-          document.DpuUnit = MeasurementUnit.Inch;
-          document.DpuX = psdFile.Resolution.HDpi;
-          document.DpuY = psdFile.Resolution.VDpi;
-        }
-      }
-
       if (psdFile.Layers.Count == 0)
       {
         psdFile.BaseLayer.CreateMissingChannels();
@@ -82,6 +58,9 @@ namespace PaintDotNet.Data.PhotoshopFileType
 
         document.Layers.AddRange(pdnLayers);
       }
+
+      SetPdnResolutionInfo(psdFile, document);
+
       return document;
     }
 
@@ -140,6 +119,36 @@ namespace PaintDotNet.Data.PhotoshopFileType
               topHiddenSectionDepth = Int32.MaxValue;
             layer.Name = String.Format(endSectionWrapper, layerSectionName);
             break;
+        }
+      }
+    }
+
+    /// <summary>
+    /// Set the resolution on the Paint.NET Document to match the PSD file.
+    /// </summary>
+    private static void SetPdnResolutionInfo(PsdFile psdFile, Document document)
+    {
+      if (psdFile.Resolution != null)
+      {
+        // PSD files always specify the resolution in DPI.  When loading and
+        // saving cm, we will have to round-trip the conversion, but doubles
+        // have plenty of precision to spare vs. PSD's 16/16 fixed-point.
+
+        if ((psdFile.Resolution.HResDisplayUnit == ResolutionInfo.ResUnit.PxPerCm)
+          && (psdFile.Resolution.VResDisplayUnit == ResolutionInfo.ResUnit.PxPerCm))
+        {
+          document.DpuUnit = MeasurementUnit.Centimeter;
+
+          // HACK: Paint.NET truncates DpuX and DpuY to three decimal places,
+          // so add 0.0005 to get a rounded value instead.
+          document.DpuX = psdFile.Resolution.HDpi / 2.54 + 0.0005;
+          document.DpuY = psdFile.Resolution.VDpi / 2.54 + 0.0005;
+        }
+        else
+        {
+          document.DpuUnit = MeasurementUnit.Inch;
+          document.DpuX = psdFile.Resolution.HDpi;
+          document.DpuY = psdFile.Resolution.VDpi;
         }
       }
     }
