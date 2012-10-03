@@ -31,9 +31,10 @@ namespace PhotoshopFile
     /// Returns channels with nonnegative IDs as an array, so that accessing
     /// a channel by Id can be optimized into pointer arithmetic rather than
     /// being implemented as a List scan.
-    /// 
-    /// <remarks>Note: This is crucial for blitting lots of pixels back and forth.</remarks>
     /// </summary>
+    /// <remarks>
+    /// This optimization is crucial for blitting lots of pixels back and forth.
+    /// </remarks>
     public Channel[] ToIdArray()
     {
       var maxId = this.Max(x => x.ID);

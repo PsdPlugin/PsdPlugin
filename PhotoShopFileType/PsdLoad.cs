@@ -147,13 +147,13 @@ namespace PaintDotNet.Data.PhotoshopFileType
     /// <summary>
     /// Verify that the PSD file will fit into physical memory once loaded
     /// and converted to Paint.NET format.
-    /// 
+    /// </summary>
     /// <remarks>
     /// This check is necessary because layers in Paint.NET have the same
     /// dimensions as the canvas.  Thus, PSD files that contain lots of
     /// tiny adjustment layers may blow up in size by several
-    /// orders of magnitude.</remarks>
-    /// </summary>
+    /// orders of magnitude.
+    /// </remarks>
     private static void CheckSufficientMemory(PsdFile psdFile)
     {
       // Memory for PSD layers (or composite image), plus Paint.NET scratch
