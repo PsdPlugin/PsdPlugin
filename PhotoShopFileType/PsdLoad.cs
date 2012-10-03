@@ -156,17 +156,22 @@ namespace PaintDotNet.Data.PhotoshopFileType
     /// </summary>
     private static void CheckSufficientMemory(PsdFile psdFile)
     {
-      // Memory for layers, plus scratch, composite, and background
+      // Memory for PSD layers (or composite image), plus Paint.NET scratch
+      // and composite layers.
       var numLayers = psdFile.Layers.Count + 2;
       if (psdFile.Layers.Count == 0)
         numLayers++;
       long numPixels = psdFile.ColumnCount * psdFile.RowCount;
       ulong bytesRequired = (ulong)(4 * numPixels * numLayers);
 
-      // Check that the file will fit entirely into physical memory.
-      // Otherwise, we will thrash and make the Paint.NET UI nonresponsive.
+      // Check that the file will fit entirely into physical memory, so that we
+      // do not thrash and make the Paint.NET UI nonresponsive.  We also have
+      // to check against virtual memory address space because 32-bit processes
+      // cannot access all 4 GB.
       var computerInfo = new Microsoft.VisualBasic.Devices.ComputerInfo();
-      if (bytesRequired > computerInfo.TotalPhysicalMemory)
+      var accessibleMemory = Math.Min(computerInfo.TotalPhysicalMemory,
+        computerInfo.TotalVirtualMemory);
+      if (bytesRequired > accessibleMemory)
         throw new OutOfMemoryException();
     }
 
