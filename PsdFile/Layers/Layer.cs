@@ -148,7 +148,7 @@ namespace PhotoshopFile
 
       string signature = new string(reader.ReadChars(4));
       if (signature != "8BIM")
-        throw (new PsdInvalidException("Layer ChannelHeader has invalid signature."));
+        throw (new PsdInvalidException("Invalid signature in channel header."));
 
       BlendModeKey = new string(reader.ReadChars(4));
       Opacity = reader.ReadByte();

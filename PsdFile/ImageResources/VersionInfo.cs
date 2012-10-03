@@ -40,7 +40,7 @@ namespace PhotoshopFile
     {
     }
 
-    public VersionInfo(PsdBinaryReader reader, string name, int numBytes)
+    public VersionInfo(PsdBinaryReader reader, string name)
       : base(name)
     {
       Version = reader.ReadUInt32();

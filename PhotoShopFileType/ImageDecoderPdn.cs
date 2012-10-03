@@ -88,7 +88,7 @@ namespace PaintDotNet.Data.PhotoshopFileType
           }
           else
           {
-            SetPDNColorRow32(pDestStart, pDestEnd, idxSrcStart, psdLayer.PsdFile.ColorMode, psdLayer, channels);
+            SetPDNColorRow32(pDestStart, pDestEnd, idxSrcStart, psdLayer.PsdFile.ColorMode, channels);
             SetPDNAlphaRow(pDestStart, pDestEnd, idxSrcStart, byteDepth, psdLayer.AlphaChannel);
             if (hasMaskChannel)
               SetPDNMaskRow(pDestStart, pDestEnd, ySrc, xSrcStart, byteDepth, psdLayer.MaskData);
@@ -120,7 +120,7 @@ namespace PaintDotNet.Data.PhotoshopFileType
     /////////////////////////////////////////////////////////////////////////// 
 
     unsafe private static void SetPDNColorRow32(ColorBgra* pDestStart, ColorBgra* pDestEnd,
-      int idxSrc, PsdColorMode colorMode, PhotoshopFile.Layer psdLayer, Channel[] channels)
+      int idxSrc, PsdColorMode colorMode, Channel[] channels)
     {
       var pDest = pDestStart;
       switch (colorMode)

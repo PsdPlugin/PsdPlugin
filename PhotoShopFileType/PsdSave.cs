@@ -85,8 +85,7 @@ namespace PaintDotNet.Data.PhotoshopFileType
         var psdLayer = new PhotoshopFile.Layer(psdFile);
         psdFile.Layers.Add(psdLayer);
 
-        var slc = new StoreLayerContext(layer, psdFile, input, psdLayer,
-          psdToken, storeProgressNotifier);
+        var slc = new StoreLayerContext(layer, psdLayer, psdToken, storeProgressNotifier);
         var waitCallback = new WaitCallback(slc.StoreLayer);
         threadPool.QueueUserWorkItem(waitCallback);
       }
@@ -222,8 +221,8 @@ namespace PaintDotNet.Data.PhotoshopFileType
     /// <summary>
     /// Store layer metadata and image data.
     /// </summary>
-    public static void StoreLayer(BitmapLayer layer, PsdFile psdFile,
-        Document input, PhotoshopFile.Layer psdLayer, PsdSaveConfigToken psdToken)
+    public static void StoreLayer(BitmapLayer layer,
+      PhotoshopFile.Layer psdLayer, PsdSaveConfigToken psdToken)
     {
       // Set layer metadata
       psdLayer.Name = layer.Name;
@@ -289,19 +288,14 @@ namespace PaintDotNet.Data.PhotoshopFileType
     private class StoreLayerContext
     {
       private BitmapLayer layer;
-      private PsdFile psdFile;
-      private Document input;
       private PsdSaveConfigToken psdToken;
       PhotoshopFile.Layer psdLayer;
       DiscreteProgressNotifier progress;
 
-      public StoreLayerContext(BitmapLayer layer, PsdFile psdFile,
-        Document input, PhotoshopFile.Layer psdLayer,
+      public StoreLayerContext(BitmapLayer layer, PhotoshopFile.Layer psdLayer,
         PsdSaveConfigToken psdToken, DiscreteProgressNotifier progress)
       {
         this.layer = layer;
-        this.psdFile = psdFile;
-        this.input = input;
         this.psdToken = psdToken;
         this.psdLayer = psdLayer;
         this.progress = progress;
@@ -309,7 +303,7 @@ namespace PaintDotNet.Data.PhotoshopFileType
 
       public void StoreLayer(object context)
       {
-        PsdSave.StoreLayer(layer, psdFile, input, psdLayer, psdToken);
+        PsdSave.StoreLayer(layer, psdLayer, psdToken);
         progress.NotifyIncrement();
       }
     }

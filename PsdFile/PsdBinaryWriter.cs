@@ -23,7 +23,7 @@ namespace PhotoshopFile
   /// <summary>
   /// Writes PSD data types in big-endian byte order.
   /// </summary>
-  public class PsdBinaryWriter
+  public class PsdBinaryWriter : IDisposable
   {
     private BinaryWriter writer;
 
@@ -177,5 +177,40 @@ namespace PhotoshopFile
       if (AutoFlush)
         Flush();
     }
+
+
+    //////////////////////////////////////////////////////////////////
+
+    # region IDisposable
+
+    private bool disposed = false;
+
+    public void Dispose()
+    {
+      Dispose(true);
+      GC.SuppressFinalize(this);
+    }
+
+    protected virtual void Dispose(bool disposing)
+    {
+      // Check to see if Dispose has already been called. 
+      if (disposed)
+        return;
+
+      if (disposing)
+      {
+        if (writer != null)
+        {
+          // BinaryWriter.Dispose() is protected.
+          writer.Close();
+          writer = null;
+        }
+      }
+
+      disposed = true;
+    }
+
+    #endregion
+
   }
 }

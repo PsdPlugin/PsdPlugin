@@ -83,9 +83,9 @@ namespace PhotoshopFile
 
   public struct ImageResourceInfo
   {
-    public short ID;
-    public string Name;
-    public short OSType;
+    public short ID { get; set; }
+    public string Name { get; set; }
+    public short OSType { get; set; }
   }
 
   /// <summary>
@@ -97,7 +97,7 @@ namespace PhotoshopFile
 
     public abstract ResourceID ID { get; }
 
-    public ImageResource(string name)
+    protected ImageResource(string name)
     {
       Name = name;
     }
@@ -167,7 +167,7 @@ namespace PhotoshopFile
           resource = new AlphaChannelNames(reader, name, resourceDataLength);
           break;
         case ResourceID.VersionInfo:
-          resource = new VersionInfo(reader, name, resourceDataLength);
+          resource = new VersionInfo(reader, name);
           break;
         default:
           resource = new RawImageResource(reader, name, resourceId, resourceDataLength);

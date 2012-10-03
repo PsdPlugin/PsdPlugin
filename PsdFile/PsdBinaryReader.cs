@@ -23,7 +23,7 @@ namespace PhotoshopFile
   /// <summary>
   /// Reads PSD data types in big-endian byte order.
   /// </summary>
-  public class PsdBinaryReader
+  public class PsdBinaryReader : IDisposable
   {
     private BinaryReader reader;
 
@@ -142,6 +142,40 @@ namespace PhotoshopFile
 
       return str;
     }
+
+    //////////////////////////////////////////////////////////////////
+
+    # region IDisposable
+
+    private bool disposed = false;
+
+    public void Dispose()
+    {
+      Dispose(true);
+      GC.SuppressFinalize(this);
+    }
+
+    protected virtual void Dispose(bool disposing)
+    {
+      // Check to see if Dispose has already been called. 
+      if (disposed)
+        return;
+
+      if (disposing)
+      {
+        if (reader != null)
+        {
+          // BinaryReader.Dispose() is protected.
+          reader.Close();
+          reader = null;
+        }
+      }
+
+      disposed = true;
+    }
+
+    #endregion
+
   }
 
 }
