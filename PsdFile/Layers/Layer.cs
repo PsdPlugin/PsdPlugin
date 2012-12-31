@@ -26,6 +26,8 @@ using System.Threading;
 
 namespace PhotoshopFile
 {
+
+  [DebuggerDisplay("Name = {Name}")]
   public class Layer
   {
     internal PsdFile PsdFile { get; private set; }
@@ -135,32 +137,29 @@ namespace PhotoshopFile
       Rect = rect;
 
       //-----------------------------------------------------------------------
+      // Read channel headers.  Image data comes later, after the layer header.
 
       int numberOfChannels = reader.ReadUInt16();
       Channels = new ChannelList();
       for (int channel = 0; channel < numberOfChannels; channel++)
       {
-        Channel ch = new Channel(reader, this);
+        var ch = new Channel(reader, this);
         Channels.Add(ch);
       }
 
       //-----------------------------------------------------------------------
+      // 
 
-      string signature = new string(reader.ReadChars(4));
+      var signature = new string(reader.ReadChars(4));
       if (signature != "8BIM")
-        throw (new PsdInvalidException("Invalid signature in channel header."));
+        throw (new PsdInvalidException("Invalid signature in layer header."));
 
       BlendModeKey = new string(reader.ReadChars(4));
       Opacity = reader.ReadByte();
       Clipping = reader.ReadBoolean();
 
-      //-----------------------------------------------------------------------
-
       var flagsByte = reader.ReadByte();
       flags = new BitVector32(flagsByte);
-
-      //-----------------------------------------------------------------------
-
       reader.ReadByte(); //padding
 
       //-----------------------------------------------------------------------

@@ -419,7 +419,8 @@ namespace PhotoshopFile
 
       for (int i = 0; i < numLayers; i++)
       {
-        Layers.Add(new Layer(reader, this));
+        var layer = new Layer(reader, this);
+        Layers.Add(layer);
       }
 
       //-----------------------------------------------------------------------

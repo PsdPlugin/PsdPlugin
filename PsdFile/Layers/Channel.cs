@@ -33,7 +33,9 @@ namespace PhotoshopFile
     /// being implemented as a List scan.
     /// </summary>
     /// <remarks>
-    /// This optimization is crucial for blitting lots of pixels back and forth.
+    /// This optimization is crucial for blitting lots of pixels back and
+    /// forth between Photoshop's per-channel representation, and Paint.NET's
+    /// per-pixel BGRA representation.
     /// </remarks>
     public Channel[] ToIdArray()
     {
@@ -65,6 +67,7 @@ namespace PhotoshopFile
 
   ///////////////////////////////////////////////////////////////////////////
 
+  [DebuggerDisplay("ID = {ID}")]
   public class Channel
   {
     /// <summary>
@@ -198,7 +201,7 @@ namespace PhotoshopFile
       {
         imageData = new byte[bytesTotal];
 
-        MemoryStream stream = new MemoryStream(Data);
+        var stream = new MemoryStream(Data);
         switch (this.ImageCompression)
         {
           case ImageCompression.Rle:
