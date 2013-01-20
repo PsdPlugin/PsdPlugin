@@ -5,7 +5,7 @@
 //
 // This software is provided under the MIT License:
 //   Copyright (c) 2006-2007 Frank Blumenberg
-//   Copyright (c) 2010-2012 Tao Yue
+//   Copyright (c) 2010-2013 Tao Yue
 //
 // Portions of this file are provided under the BSD 3-clause License:
 //   Copyright (c) 2006, Jonas Beckeman
@@ -36,7 +36,7 @@ namespace PhotoshopFile
 
     public PsdBinaryWriter(Stream stream)
     {
-      writer = new BinaryWriter(stream);
+      writer = new BinaryWriter(stream, Encoding.Default);
     }
 
     public void Flush()
@@ -45,9 +45,9 @@ namespace PhotoshopFile
     }
 
     /// <summary>
-    /// Writes a Pascal string to the stream using the current ANSI code page.
+    /// Writes a Pascal string using the system's current Windows code page.
     /// </summary>
-    /// <param name="s">Unicode string to write</param>
+    /// <param name="s">Unicode string to convert to a Windows code page encoding.</param>
     public void WritePascalString(string s)
     {
       string str = (s.Length > 255) ? s.Substring(0, 255) : s;

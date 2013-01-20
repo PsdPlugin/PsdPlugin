@@ -5,7 +5,7 @@
 //
 // This software is provided under the MIT License:
 //   Copyright (c) 2006-2007 Frank Blumenberg
-//   Copyright (c) 2010-2012 Tao Yue
+//   Copyright (c) 2010-2013 Tao Yue
 //
 // Portions of this file are provided under the BSD 3-clause License:
 //   Copyright (c) 2006, Jonas Beckeman
@@ -47,6 +47,9 @@ namespace PhotoshopFile
       return reader.ReadBytes(count);
     }
 
+    /// <summary>
+    /// Read characters using the current ANSI codepage.
+    /// </summary>
     public char[] ReadChars(int count)
     {
       return reader.ReadChars(count);
@@ -119,16 +122,21 @@ namespace PhotoshopFile
 
     //////////////////////////////////////////////////////////////////
 
+    /// <summary>
+    /// Read a Pascal string using the system's current Windows codepage.
+    /// </summary>
     public string ReadPascalString()
     {
       byte stringLength = ReadByte();
-      char[] c = ReadChars(stringLength);
+      var bytes = ReadBytes(stringLength);
 
       // Padded to even length
       if ((stringLength % 2) == 0)
         ReadByte();
 
-      return new string(c);
+      // Default decoder uses best-fit fallback, so it will not throw.
+      var str = Encoding.Default.GetString(bytes);
+      return str;
     }
 
     //////////////////////////////////////////////////////////////////
