@@ -5,7 +5,7 @@
 //
 // This software is provided under the MIT License:
 //   Copyright (c) 2006-2007 Frank Blumenberg
-//   Copyright (c) 2010-2012 Tao Yue
+//   Copyright (c) 2010-2013 Tao Yue
 //
 // Portions of this file are provided under the BSD 3-clause License:
 //   Copyright (c) 2006, Jonas Beckeman
@@ -425,17 +425,12 @@ namespace PhotoshopFile
 
       //-----------------------------------------------------------------------
 
-      // We will load pixel data as we progress.
-      // TODO: Load in parallel, queuing decompress/decoding tasks as we go.
-
+      // Load image data for all channels.
       foreach (var layer in Layers)
       {
         foreach (var channel in layer.Channels)
         {
-          Rectangle rect = (channel.ID == -2)
-            ? layer.MaskData.Rect
-            : layer.Rect;
-          channel.LoadPixelData(reader, rect);
+          channel.LoadPixelData(reader);
         }
       }
 
@@ -464,12 +459,7 @@ namespace PhotoshopFile
       {
         foreach (var channel in layer.Channels)
         {
-          Rectangle rect = (channel.ID == -2)
-            ? layer.MaskData.Rect
-            : layer.Rect;
-
-          var dcc = new DecompressChannelContext(channel, rect);
-
+          var dcc = new DecompressChannelContext(channel);
           var waitCallback = new WaitCallback(dcc.DecompressChannel);
           threadPool.QueueUserWorkItem(waitCallback);
         }
@@ -478,8 +468,13 @@ namespace PhotoshopFile
 
       foreach (var layer in Layers)
       {
-        if (layer.Channels.ContainsId(-2))
-          layer.MaskData.ImageData = layer.Channels.GetId(-2).ImageData;
+        foreach (var channel in layer.Channels)
+        {
+          if (channel.ID == -2)
+            layer.Masks.LayerMask.ImageData = channel.ImageData;
+          else if (channel.ID == -3)
+            layer.Masks.UserMask.ImageData = channel.ImageData;
+        }
       }
     }
 
@@ -702,17 +697,15 @@ namespace PhotoshopFile
     private class DecompressChannelContext
     {
       private Channel ch;
-      private Rectangle rect;
 
-      public DecompressChannelContext(Channel ch, Rectangle rect)
+      public DecompressChannelContext(Channel ch)
       {
         this.ch = ch;
-        this.rect = rect;
       }
 
       public void DecompressChannel(object context)
       {
-        ch.DecompressImageData(rect);
+        ch.DecompressImageData();
       }
     }
 

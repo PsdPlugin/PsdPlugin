@@ -5,7 +5,7 @@
 //
 // This software is provided under the MIT License:
 //   Copyright (c) 2006-2007 Frank Blumenberg
-//   Copyright (c) 2010-2012 Tao Yue
+//   Copyright (c) 2010-2013 Tao Yue
 //
 // Portions of this file are provided under the BSD 3-clause License:
 //   Copyright (c) 2006, Jonas Beckeman
@@ -32,22 +32,34 @@ namespace PhotoshopFile
     /// <summary>
     /// The rectangle enclosing the mask.
     /// </summary>
-    public Rectangle Rect { get; private set; }
+    public Rectangle Rect { get; set; }
 
-    public byte DefaultColor { get; set; }
+    private byte backgroundColor;
+    public byte BackgroundColor
+    {
+      get { return backgroundColor; }
+      set
+      {
+        if ((value != 0) && (value != 255))
+          throw new PsdInvalidException("Mask background must be fully-opaque or fully-transparent.");
+        backgroundColor = value;
+      }
+    }
 
-    private static int positionIsRelativeBit = BitVector32.CreateMask();
-    private static int disabledBit = BitVector32.CreateMask(positionIsRelativeBit);
+    private static int positionVsLayerBit = BitVector32.CreateMask();
+    private static int disabledBit = BitVector32.CreateMask(positionVsLayerBit);
     private static int invertOnBlendBit = BitVector32.CreateMask(disabledBit);
 
-    private BitVector32 flags = new BitVector32();
+    private BitVector32 flags;
+    public BitVector32 Flags { get { return flags; } }
+
     /// <summary>
     /// If true, the position of the mask is relative to the layer.
     /// </summary>
-    public bool PositionIsRelative
+    public bool PositionVsLayer
     {
-      get { return flags[positionIsRelativeBit]; }
-      set { flags[positionIsRelativeBit] = value; }
+      get { return flags[positionVsLayerBit]; }
+      set { flags[positionVsLayerBit] = value; }
     }
 
     public bool Disabled
@@ -59,7 +71,7 @@ namespace PhotoshopFile
     /// <summary>
     /// if true, invert the mask when blending.
     /// </summary>
-    public bool InvertOnBlendBit
+    public bool InvertOnBlend
     {
       get { return flags[invertOnBlendBit]; }
       set { flags[invertOnBlendBit] = value; }
@@ -70,68 +82,75 @@ namespace PhotoshopFile
     /// </summary>
     public byte[] ImageData { get; set; }
 
-    ///////////////////////////////////////////////////////////////////////////
-
-    internal Mask(Layer layer)
+    public Mask(Layer layer)
     {
       Layer = layer;
+      this.flags = new BitVector32();
     }
 
-    ///////////////////////////////////////////////////////////////////////////
-
-    internal Mask(PsdBinaryReader reader, Layer layer)
+    public Mask(Layer layer, Rectangle rect, byte color, BitVector32 flags)
     {
-      Debug.WriteLine("Mask started at " + reader.BaseStream.Position.ToString(CultureInfo.InvariantCulture));
-
       Layer = layer;
+      Rect = rect;
+      BackgroundColor = color;
+      this.flags = flags;
+    }
+  }
+
+  /// <summary>
+  /// Mask info for a layer.  Contains both the layer and user masks.
+  /// </summary>
+  public class MaskInfo
+  {
+    public Mask LayerMask { get; set; }
+
+    public Mask UserMask { get; set; }
+
+    public MaskInfo(Layer layer, bool userMask)
+    {
+      LayerMask = new Mask(layer);
+      if (userMask)
+        UserMask = new Mask(layer);
+    }
+
+    public MaskInfo(PsdBinaryReader reader, Layer layer)
+    {
+      Debug.WriteLine("MaskInfo started at " + reader.BaseStream.Position.ToString(CultureInfo.InvariantCulture));
 
       var maskLength = reader.ReadUInt32();
       if (maskLength <= 0)
         return;
 
       var startPosition = reader.BaseStream.Position;
+      var endPosition = startPosition + maskLength;
 
-      //-----------------------------------------------------------------------
-
-      var rect = new Rectangle();
-      rect.Y = reader.ReadInt32();
-      rect.X = reader.ReadInt32();
-      rect.Height = reader.ReadInt32() - rect.Y;
-      rect.Width = reader.ReadInt32() - rect.X;
-      Rect = rect;
-
-      DefaultColor = reader.ReadByte();
-
-      //-----------------------------------------------------------------------
-
+      // Read layer mask
+      var rectangle = reader.ReadRectangle();
+      var backgroundColor = reader.ReadByte();
       var flagsByte = reader.ReadByte();
-      flags = new BitVector32(flagsByte);
+      LayerMask = new Mask(layer, rectangle, backgroundColor, new BitVector32(flagsByte));
 
-      //-----------------------------------------------------------------------
-
+      // User mask is supplied separately when there is also a vector mask.
       if (maskLength == 36)
       {
-        var realFlags = new BitVector32(reader.ReadByte());
-        byte realUserMaskBackground = reader.ReadByte();
-
-        var realRect = new Rectangle();
-        realRect.Y = reader.ReadInt32();
-        realRect.X = reader.ReadInt32();
-        realRect.Height = reader.ReadInt32() - rect.Y;
-        realRect.Width = reader.ReadInt32() - rect.X;
+        var userFlagsByte = reader.ReadByte();
+        var userBackgroundColor = reader.ReadByte();
+        var userRectangle = reader.ReadRectangle();
+        UserMask = new Mask(layer, userRectangle, userBackgroundColor,
+          new BitVector32(userFlagsByte));
       }
 
       // 20-byte mask data will end with padding.
-      reader.BaseStream.Position = startPosition + maskLength;
+      reader.BaseStream.Position = endPosition;
     }
 
     ///////////////////////////////////////////////////////////////////////////
 
     public void Save(PsdBinaryWriter writer)
     {
-      Debug.WriteLine("Mask Save started at " + writer.BaseStream.Position.ToString(CultureInfo.InvariantCulture));
+      Debug.WriteLine("MaskInfo Save started at " + writer.BaseStream.Position.ToString(CultureInfo.InvariantCulture));
 
-      if (Rect.IsEmpty)
+      if (LayerMask.Rect.IsEmpty)
       {
         writer.Write((UInt32)0);
         return;
@@ -139,18 +158,21 @@ namespace PhotoshopFile
 
       using (new PsdBlockLengthWriter(writer))
       {
-        writer.Write(Rect.Top);
-        writer.Write(Rect.Left);
-        writer.Write(Rect.Bottom);
-        writer.Write(Rect.Right);
+        writer.Write(LayerMask.Rect);
+        writer.Write(LayerMask.BackgroundColor);
+        writer.Write((byte)LayerMask.Flags.Data);
 
-        writer.Write(DefaultColor);
-
-        writer.Write((byte)flags.Data);
-
-        // Padding by 2 bytes to make the block length 20
-        writer.Write((byte)0);
-        writer.Write((byte)0);
+        if (UserMask == null)
+        {
+          // Pad by 2 bytes to make the block length 20
+          writer.Write((UInt16)0);
+        }
+        else
+        {
+          writer.Write((byte)UserMask.Flags.Data);
+          writer.Write(UserMask.BackgroundColor);
+          writer.Write(UserMask.Rect);
+        }
       }
     }
 

@@ -15,6 +15,7 @@
 /////////////////////////////////////////////////////////////////////////////////
 
 using System;
+using System.Drawing;
 using System.IO;
 using System.Text;
 
@@ -122,6 +123,16 @@ namespace PhotoshopFile
 
     //////////////////////////////////////////////////////////////////
 
+    public Rectangle ReadRectangle()
+    {
+      var rect = new Rectangle();
+      rect.Y = ReadInt32();
+      rect.X = ReadInt32();
+      rect.Height = ReadInt32() - rect.Y;
+      rect.Width = ReadInt32() - rect.X;
+      return rect;
+    }
+
     /// <summary>
     /// Read a Pascal string using the system's current Windows codepage.
     /// </summary>
@@ -138,8 +149,6 @@ namespace PhotoshopFile
       var str = Encoding.Default.GetString(bytes);
       return str;
     }
-
-    //////////////////////////////////////////////////////////////////
 
     public string ReadUnicodeString()
     {

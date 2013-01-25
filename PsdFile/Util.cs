@@ -5,7 +5,7 @@
 //
 // This software is provided under the MIT License:
 //   Copyright (c) 2006-2007 Frank Blumenberg
-//   Copyright (c) 2010-2012 Tao Yue
+//   Copyright (c) 2010-2013 Tao Yue
 //
 // See LICENSE.txt for complete licensing and attribution information.
 //
@@ -38,12 +38,11 @@ namespace PhotoshopFile
     /// <summary>
     /// Fills a buffer with a byte value.
     /// </summary>
-    unsafe static public void Fill(byte* ptr, byte value, int size)
+    unsafe static public void Fill(byte* ptr, byte* ptrEnd, byte value)
     {
-      var pEnd = ptr + size;
-      while (ptr < pEnd)
+      while (ptr < ptrEnd)
       {
-        *ptr = 255;
+        *ptr = value;
         ptr++;
       }
     }

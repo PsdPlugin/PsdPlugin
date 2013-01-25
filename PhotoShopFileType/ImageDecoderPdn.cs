@@ -5,7 +5,7 @@
 //
 // This software is provided under the MIT License:
 //   Copyright (c) 2006-2007 Frank Blumenberg
-//   Copyright (c) 2010-2012 Tao Yue
+//   Copyright (c) 2010-2013 Tao Yue
 //
 // See LICENSE.txt for complete licensing and attribution information.
 //
@@ -27,25 +27,25 @@ namespace PaintDotNet.Data.PhotoshopFileType
   static class ImageDecoderPdn
   {
 
-    public static byte GetBitmapValue(byte[] bitmap, int pos)
-    {
-      byte mask = (byte)(0x80 >> (pos % 8));
-      byte bwValue = (byte)(bitmap[pos / 8] & mask);
-      bwValue = (bwValue == 0) ? (byte)255 : (byte)0;
-      return bwValue;
-    }
-
-    /////////////////////////////////////////////////////////////////////////// 
-
+    /// <summary>
+    /// Decode image from Photoshop's channel-separated and non-RGB formats to
+    /// Paint.NET's ARGB (little-endian BGRA).
+    /// </summary>
     public static BitmapLayer DecodeImage(PhotoshopFile.Layer psdLayer, bool isBackground)
     {
       BitmapLayer pdnLayer = isBackground
         ? PaintDotNet.Layer.CreateBackgroundLayer(psdLayer.PsdFile.ColumnCount, psdLayer.PsdFile.RowCount)
         : new BitmapLayer(psdLayer.PsdFile.ColumnCount, psdLayer.PsdFile.RowCount);
       int byteDepth = Util.BytesFromBitDepth(psdLayer.PsdFile.BitDepth);
-      bool hasMaskChannel = psdLayer.Channels.ContainsId(-2);
-      var channels = psdLayer.Channels.ToIdArray();
 
+      var hasLayerMask = (psdLayer.Masks != null)
+        && (psdLayer.Masks.LayerMask != null)
+        && (psdLayer.Masks.LayerMask.Disabled == false);
+      var hasUserMask = (psdLayer.Masks != null)
+        && (psdLayer.Masks.UserMask != null)
+        && (psdLayer.Masks.UserMask.Disabled == false);
+
+      var channels = psdLayer.Channels.ToIdArray();
       var surface = pdnLayer.Surface;
 
       unsafe
@@ -53,10 +53,11 @@ namespace PaintDotNet.Data.PhotoshopFileType
         // Map source row to destination row.
         int ySrcStart = Math.Max(0, -psdLayer.Rect.Y);
         int yDestStart = psdLayer.Rect.Y + ySrcStart;
-        int yDestEnd = Math.Min(surface.Height,  psdLayer.Rect.Y + psdLayer.Rect.Height);
+        int yDestEnd = Math.Min(surface.Height, psdLayer.Rect.Y + psdLayer.Rect.Height);
 
         // Map source column to destination column.
         int xSrcStart = Math.Max(0, -psdLayer.Rect.X);
+        int xDestStart = psdLayer.Rect.X + xSrcStart;
         int xDestEnd = Math.Min(surface.Width, psdLayer.Rect.X + psdLayer.Rect.Width);
 
         // Convert rows from the Photoshop representation, writing the
@@ -71,7 +72,7 @@ namespace PaintDotNet.Data.PhotoshopFileType
 
           // Calculate pointers to destination Surface.
           var pDestRow = surface.GetRowAddress(yDest);
-          var pDestStart = pDestRow + (psdLayer.Rect.X + xSrcStart);
+          var pDestStart = pDestRow + xDestStart;
           var pDestEnd = pDestRow + xDestEnd;
 
           if (psdLayer.PsdFile.BitDepth != 32)
@@ -83,16 +84,22 @@ namespace PaintDotNet.Data.PhotoshopFileType
 
             SetPDNColorRow(pDestStart, pDestEnd, idxSrcStart, byteDepth, psdLayer, channels);
             SetPDNAlphaRow(pDestStart, pDestEnd, idxSrcStart, byteDepth, psdLayer.AlphaChannel);
-            if (hasMaskChannel)
-              SetPDNMaskRow(pDestStart, pDestEnd, ySrc, xSrcStart, byteDepth, psdLayer.MaskData);
           }
           else
           {
             SetPDNColorRow32(pDestStart, pDestEnd, idxSrcStart, psdLayer.PsdFile.ColorMode, channels);
             SetPDNAlphaRow(pDestStart, pDestEnd, idxSrcStart, byteDepth, psdLayer.AlphaChannel);
-            if (hasMaskChannel)
-              SetPDNMaskRow(pDestStart, pDestEnd, ySrc, xSrcStart, byteDepth, psdLayer.MaskData);
           }
+
+          // Apply layer masks(s) to the alpha channel
+          var numPixels = xDestEnd - xDestStart;
+          var layerMaskAlphaRow = hasLayerMask
+            ? GetMaskAlphaRow(yDest, xDestStart, numPixels, byteDepth, psdLayer.Masks.LayerMask)
+            : null;
+          var userMaskAlphaRow = hasUserMask
+            ? GetMaskAlphaRow(yDest, xDestStart, numPixels, byteDepth, psdLayer.Masks.UserMask)
+            : null;
+          ApplyPDNMask(pDestStart, pDestEnd, layerMaskAlphaRow, userMaskAlphaRow);
 
           // Advance to the next row
           ySrc++;
@@ -164,7 +171,6 @@ namespace PaintDotNet.Data.PhotoshopFileType
 
     /////////////////////////////////////////////////////////////////////////// 
 
-
     unsafe private static void SetPDNAlphaRow(
       ColorBgra* pDestStart, ColorBgra* pDestEnd, int idxSrc, int byteDepth,
       Channel alphaChannel)
@@ -201,54 +207,155 @@ namespace PaintDotNet.Data.PhotoshopFileType
 
     /////////////////////////////////////////////////////////////////////////// 
 
-    unsafe private static void SetPDNMaskRow(ColorBgra* pDestStart, ColorBgra* pDestEnd,
-      int ySrc, int xSrcStart, int byteDepth, Mask mask)
+    /// <summary>
+    /// Get alpha values from the layer mask, corresponding to the Surface
+    /// position.
+    /// </summary>
+    /// <param name="ySurface">Row index on the Surface.</param>
+    /// <param name="xSurface">Starting column index in the Surface.</param>
+    /// <param name="numPixels">Number of columns to apply to the Surface.</param>
+    /// <param name="mask">Mask to convert into alpha values.</param>
+    /// <returns>Array of alpha values for the row.  Index 0 corresponds to xSurface.</returns>
+    unsafe private static byte[] GetMaskAlphaRow(
+      int ySurface, int xSurface, int numPixels, int byteDepth, Mask mask)
     {
-      if (mask.ImageData.Length == 0)
-        return;
+      // Background color for areas not covered by the mask
+      bool isInvertedMask = mask.InvertOnBlend;
+      byte backgroundColor = isInvertedMask
+        ? (byte)(255 - mask.BackgroundColor)
+        : mask.BackgroundColor;
 
-      // Calculate mask coordinates
-      int yMask = ySrc - mask.Rect.Y;
-      int xMaskStart = xSrcStart - mask.Rect.X;
-
-      // If mask position is not relative to the layer, then add back the
-      // layer coordinates to get the position relative to the canvas.
-      if (!mask.PositionIsRelative)
+      // If there is no mask image and the background is not masked out, then
+      // return null to suppress the alpha-merging.
+      bool isEmptyMask = ((mask.ImageData == null) || (mask.ImageData.Length == 0));
+      if (isEmptyMask && (backgroundColor == 255))
+        return null;
+      
+      // Fill alpha array with background color
+      var alphaRow = new byte[numPixels];
+      fixed (byte* pAlphaRow = &alphaRow[0])
       {
-        yMask += mask.Layer.Rect.Y;
-        xMaskStart += mask.Layer.Rect.X;
+        byte* pAlpha = pAlphaRow;
+        Util.Fill(pAlpha, pAlphaRow + numPixels, backgroundColor);
+      }
+      if (isEmptyMask)
+        return alphaRow;
+
+      // Calculate the Mask position that corresponds to the Surface position
+      int yMask = ySurface - mask.Rect.Y;
+      int xMaskStart = xSurface - mask.Rect.X;
+      if (mask.PositionVsLayer)
+      {
+        // Mask is specified relative to the layer.
+        yMask -= mask.Layer.Rect.Y;
+        xMaskStart -= mask.Layer.Rect.X;
+      }
+      int xMaskEnd = xMaskStart + numPixels;
+
+      // Row position is outside the mask rectangle.
+      if ((yMask < 0) || (yMask >= mask.Rect.Height))
+        return alphaRow;
+
+      // Clip the copy parameters to the mask boundaries.
+      int xAlphaStart = 0;
+      int xAlphaEnd = numPixels;
+      if (xMaskStart < 0)
+      {
+        xAlphaStart -= xMaskStart;
+        xMaskStart = 0;
+      }
+      if (xMaskEnd > mask.Rect.Width)
+      {
+        xAlphaEnd += (mask.Rect.Width - xMaskEnd);
+        xMaskEnd = mask.Rect.Width;
       }
 
-      // Restrict the mask to valid coordinates
-      if ((yMask < 0) || (yMask >= mask.Rect.Height))
-        return;
-      xMaskStart = Math.Max(xMaskStart, 0);
-      xMaskStart = Math.Min(xMaskStart, mask.Rect.Width);
+      // Mask lies outside the layer region.
+      if (xAlphaStart > xAlphaEnd)
+        return alphaRow;
 
-      // Set the alpha from the mask
-      fixed (byte* pMaskData = &mask.ImageData[0])
+      //////////////////////////////////////
+      // Transfer mask into the alpha array
+      fixed (byte* pAlphaRow = &alphaRow[0],
+        pMaskData = &mask.ImageData[0])
       {
-        byte* pMask = pMaskData + (yMask * mask.Rect.Width + xMaskStart) * byteDepth;
-        byte* pMaskEnd = pMaskData + (yMask + 1) * mask.Rect.Width * byteDepth;
+        // Get pointers to positions
+        byte* pAlpha = pAlphaRow + xAlphaStart;
+        byte* pAlphaEnd = pAlphaRow + xAlphaEnd;
+        byte* pMaskRow = pMaskData + yMask * mask.Rect.Width * byteDepth;
+        byte* pMask = pMaskRow + xMaskStart * byteDepth;
 
         // Take the high-order byte if values are 16-bit (little-endian)
         if (byteDepth == 2)
           pMask++;
 
-        ColorBgra* pDest = pDestStart;
-        while ((pDest < pDestEnd) && (pMask < pMaskEnd))
+        // Decode mask into the alpha array.
+        while (pAlpha < pAlphaEnd)
         {
-          var maskAlpha = (byteDepth < 4)
+          byte maskAlpha = (byteDepth < 4)
             ? *pMask
             : RGBByteFromHDRFloat(pMask);
+          if (isInvertedMask)
+            maskAlpha = (byte)(255 - maskAlpha);
 
-          if (maskAlpha < 255)
-            pDest->A = (byte)(pDest->A * maskAlpha / 255);
+          *pAlpha = maskAlpha;
 
+          pAlpha++;
           pMask += byteDepth;
-          pDest++;
         }
       }
+
+      return alphaRow;
+    }
+
+    /////////////////////////////////////////////////////////////////////////// 
+
+    private static unsafe void ApplyPDNMask(ColorBgra* pDestStart, ColorBgra* pDestEnd,
+      byte[] layerMaskAlpha, byte[] userMaskAlpha)
+    {
+      // Do nothing if there are no masks
+      if ((layerMaskAlpha == null) && (userMaskAlpha == null))
+        return;
+
+      // Apply one mask
+      else if ((layerMaskAlpha == null) || (userMaskAlpha == null))
+      {
+        var maskAlpha = layerMaskAlpha ?? userMaskAlpha;
+        fixed (byte* pMaskAlpha = &maskAlpha[0])
+        {
+          var pDest = pDestStart;
+          var pMask = pMaskAlpha;
+          while (pDest < pDestEnd)
+          {
+            pDest->A = (byte)(pDest->A * *pMask / 255);
+            pDest++;
+            pMask++;
+          }
+        }
+      }
+
+      // Apply both masks in one pass, to minimize rounding error
+      else
+      {
+        fixed (byte* pLayerMaskAlpha = &layerMaskAlpha[0],
+          pUserMaskAlpha = &userMaskAlpha[0])
+        {
+          var pDest = pDestStart;
+          var pMask1 = pLayerMaskAlpha;
+          var pMask2 = pUserMaskAlpha;
+          while (pDest < pDestEnd)
+          {
+            var alphaFactor = (*pMask1) * (*pMask2);
+            pDest->A = (byte)(pDest->A * alphaFactor / 65025);
+
+            pDest++;
+            pMask1++;
+            pMask2++;
+          }
+        }
+      }
+
+
     }
 
     /////////////////////////////////////////////////////////////////////////// 
@@ -446,6 +553,16 @@ namespace PaintDotNet.Data.PhotoshopFileType
       dstPixel->R = (byte)nRed;
       dstPixel->G = (byte)nGreen;
       dstPixel->B = (byte)nBlue;
+    }
+
+    /////////////////////////////////////////////////////////////////////////// 
+
+    public static byte GetBitmapValue(byte[] bitmap, int pos)
+    {
+      byte mask = (byte)(0x80 >> (pos % 8));
+      byte bwValue = (byte)(bitmap[pos / 8] & mask);
+      bwValue = (bwValue == 0) ? (byte)255 : (byte)0;
+      return bwValue;
     }
   }
 }

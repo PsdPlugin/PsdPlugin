@@ -5,7 +5,7 @@
 //
 // This software is provided under the MIT License:
 //   Copyright (c) 2006-2007 Frank Blumenberg
-//   Copyright (c) 2010-2012 Tao Yue
+//   Copyright (c) 2010-2013 Tao Yue
 //
 // See LICENSE.txt for complete licensing and attribution information.
 //
@@ -230,7 +230,7 @@ namespace PaintDotNet.Data.PhotoshopFileType
       psdLayer.BlendModeKey = layer.BlendOp.ToPsdBlendMode();
       psdLayer.Opacity = layer.Opacity;
       psdLayer.Visible = layer.Visible;
-      psdLayer.MaskData = new Mask(psdLayer);
+      psdLayer.Masks = new MaskInfo(psdLayer, false);
       psdLayer.BlendingRangesData = new BlendingRanges(psdLayer);
 
       // Store channel metadata

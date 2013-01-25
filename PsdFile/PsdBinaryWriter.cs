@@ -15,6 +15,7 @@
 /////////////////////////////////////////////////////////////////////////////////
 
 using System;
+using System.Drawing;
 using System.IO;
 using System.Text;
 
@@ -42,6 +43,14 @@ namespace PhotoshopFile
     public void Flush()
     {
       writer.Flush();
+    }
+
+    public void Write(Rectangle rect)
+    {
+      Write(rect.Top);
+      Write(rect.Left);
+      Write(rect.Bottom);
+      Write(rect.Right);
     }
 
     /// <summary>

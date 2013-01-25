@@ -5,7 +5,7 @@
 //
 // This software is provided under the MIT License:
 //   Copyright (c) 2006-2007 Frank Blumenberg
-//   Copyright (c) 2010-2012 Tao Yue
+//   Copyright (c) 2010-2013 Tao Yue
 //
 // Portions of this file are provided under the BSD 3-clause License:
 //   Copyright (c) 2006, Jonas Beckeman
@@ -109,7 +109,7 @@ namespace PhotoshopFile
 
     public BlendingRanges BlendingRangesData { get; set; }
 
-    public Mask MaskData { get; set; }
+    public MaskInfo Masks { get; set; }
 
     public List<LayerInfo> AdditionalInfo { get; set; }
 
@@ -129,12 +129,7 @@ namespace PhotoshopFile
       Debug.WriteLine("Layer started at " + reader.BaseStream.Position.ToString(CultureInfo.InvariantCulture));
 
       PsdFile = psdFile;
-      var rect = new Rectangle();
-      rect.Y = reader.ReadInt32();
-      rect.X = reader.ReadInt32();
-      rect.Height = reader.ReadInt32() - rect.Y;
-      rect.Width = reader.ReadInt32() - rect.X;
-      Rect = rect;
+      Rect = reader.ReadRectangle();
 
       //-----------------------------------------------------------------------
       // Read channel headers.  Image data comes later, after the layer header.
@@ -171,7 +166,7 @@ namespace PhotoshopFile
       var extraDataSize = reader.ReadUInt32();
       var extraDataStartPosition = reader.BaseStream.Position;
 
-      MaskData = new Mask(reader, this);
+      Masks = new MaskInfo(reader, this);
       BlendingRangesData = new BlendingRanges(reader, this);
 
       //-----------------------------------------------------------------------
@@ -234,7 +229,7 @@ namespace PhotoshopFile
           {
             fixed (byte* ptr = &ch.ImageData[0])
             {
-              Util.Fill(ptr, 255, size);
+              Util.Fill(ptr, ptr + size, (byte)255);
             }
           }
 
@@ -274,10 +269,7 @@ namespace PhotoshopFile
     {
       Debug.WriteLine("Layer Save started at " + writer.BaseStream.Position.ToString(CultureInfo.InvariantCulture));
 
-      writer.Write(Rect.Top);
-      writer.Write(Rect.Left);
-      writer.Write(Rect.Bottom);
-      writer.Write(Rect.Right);
+      writer.Write(Rect);
 
       //-----------------------------------------------------------------------
 
@@ -302,7 +294,7 @@ namespace PhotoshopFile
 
       using (new PsdBlockLengthWriter(writer))
       {
-        MaskData.Save(writer);
+        Masks.Save(writer);
         BlendingRangesData.Save(writer);
 
         var namePosition = writer.BaseStream.Position;
