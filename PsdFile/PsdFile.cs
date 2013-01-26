@@ -346,31 +346,38 @@ namespace PhotoshopFile
       Debug.WriteLine("LoadLayerAndMaskInfo started at " + reader.BaseStream.Position.ToString(CultureInfo.InvariantCulture));
 
       var layersAndMaskLength = reader.ReadUInt32();
-
       if (layersAndMaskLength <= 0)
         return;
 
       var startPosition = reader.BaseStream.Position;
+      var endPosition = startPosition + layersAndMaskLength;
 
       LoadLayers(reader);
       LoadGlobalLayerMask(reader);
 
       //-----------------------------------------------------------------------
+      // Load Additional Layer Information
 
-      // Higher bit depth images store an empty layers section for backcompat,
-      // followed by the real layers section (which is undocumented but
-      // appears largely identical).
-      if ((this.BitDepth > 8) &&
-        (reader.BaseStream.Position < startPosition + layersAndMaskLength))
+      while (reader.BaseStream.Position < endPosition)
       {
         var signature = new string(reader.ReadChars(8));
-        if ((signature == "8BIMLr16") || (signature == "8BIMLr32"))
+        switch (signature)
         {
-          LoadLayers(reader);
-          LoadGlobalLayerMask(reader);
+          // The real layers section, if an empty layers section was stored
+          // earlier for backcompat.
+          case "8BIMLayr":
+          case "8BIMLr16":
+          case "8BIMLr32":
+            LoadLayers(reader);
+            LoadGlobalLayerMask(reader);
+            break;
+          
+          default:
+            var length = reader.ReadUInt32();
+            reader.BaseStream.Position += length;
+            break;
         }
       }
-      
 
       //-----------------------------------------------------------------------
       // make sure we are not on a wrong offset, so set the stream position 
