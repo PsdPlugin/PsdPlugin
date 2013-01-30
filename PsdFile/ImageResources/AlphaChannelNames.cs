@@ -5,7 +5,7 @@
 //
 // This software is provided under the MIT License:
 //   Copyright (c) 2006-2007 Frank Blumenberg
-//   Copyright (c) 2010-2012 Tao Yue
+//   Copyright (c) 2010-2013 Tao Yue
 //
 // See LICENSE.txt for complete licensing and attribution information.
 //
@@ -41,22 +41,19 @@ namespace PhotoshopFile
     {
       var endPosition = reader.BaseStream.Position + resourceDataLength;
 
-      // Alpha channel names are Pascal strings, with no padding.
+      // Alpha channel names are Pascal strings, with no padding in-between.
       while (reader.BaseStream.Position < endPosition)
       {
-        var stringLength = reader.ReadByte();
-        var channelName = new string(reader.ReadChars(stringLength));
-        if (channelName.Length > 0)
-          channelNames.Add(channelName);
+        var channelName = reader.ReadPascalString();
+        ChannelNames.Add(channelName);
       }
     }
 
     protected override void WriteData(PsdBinaryWriter writer)
     {
-      foreach (var channelName in channelNames)
+      foreach (var channelName in ChannelNames)
       {
-        writer.Write((byte)channelName.Length);
-        writer.Write(channelName.ToCharArray());
+        writer.WritePascalString(channelName);
       }
     }
   }

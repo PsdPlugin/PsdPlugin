@@ -5,7 +5,7 @@
 //
 // This software is provided under the MIT License:
 //   Copyright (c) 2006-2007 Frank Blumenberg
-//   Copyright (c) 2010-2012 Tao Yue
+//   Copyright (c) 2010-2013 Tao Yue
 //
 // See LICENSE.txt for complete licensing and attribution information.
 //
@@ -30,11 +30,13 @@ namespace PhotoshopFile
       get { return id; }
     }
 
-    public RawImageResource(string name) : base(name)
+    public RawImageResource(ResourceID resourceId, string name)
+      : base(name)
     {
+      this.id = resourceId;
     }
 
-    public RawImageResource(PsdBinaryReader reader, string name, ResourceID resourceId, int numBytes)
+    public RawImageResource(PsdBinaryReader reader, ResourceID resourceId, string name, int numBytes)
       : base(name)
     {
       this.id = resourceId;

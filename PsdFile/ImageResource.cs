@@ -5,7 +5,7 @@
 //
 // This software is provided under the MIT License:
 //   Copyright (c) 2006-2007 Frank Blumenberg
-//   Copyright (c) 2010-2012 Tao Yue
+//   Copyright (c) 2010-2013 Tao Yue
 //
 // Portions of this file are provided under the BSD 3-clause License:
 //   Copyright (c) 2006, Jonas Beckeman
@@ -110,20 +110,10 @@ namespace PhotoshopFile
       writer.Write(Util.SIGNATURE_8BIM);
       writer.Write((UInt16)ID);
       writer.WritePascalString(Name);
-
-      // Write length placeholder and data block
-      writer.Write((UInt32)0);
-      var startPosition = writer.BaseStream.Position;
-      WriteData(writer);
-      
-      // Back up and put in the actual size of the data block
-      var endPosition = writer.BaseStream.Position;
-      var dataLength = endPosition - startPosition;
-      writer.BaseStream.Position = startPosition - 4;
-      writer.Write((UInt32)dataLength);
-      writer.BaseStream.Position = endPosition;
-
-
+      using (new PsdBlockLengthWriter(writer))
+      {
+        WriteData(writer);
+      }
       if (writer.BaseStream.Position % 2 == 1)
         writer.Write((byte)0);
     }
@@ -170,7 +160,7 @@ namespace PhotoshopFile
           resource = new VersionInfo(reader, name);
           break;
         default:
-          resource = new RawImageResource(reader, name, resourceId, resourceDataLength);
+          resource = new RawImageResource(reader, resourceId, name, resourceDataLength);
           break;
       }
 
