@@ -136,16 +136,28 @@ namespace PhotoshopFile
     /// <summary>
     /// Read a Pascal string using the system's current Windows codepage.
     /// </summary>
-    public string ReadPascalString()
+    /// <param name="padMultiple">Byte multiple that the Pascal string is padded to.</param>
+    public string ReadPascalString(int padMultiple)
     {
       byte stringLength = ReadByte();
       var bytes = ReadBytes(stringLength);
 
-      // Padded to even length
-      if ((stringLength % 2) == 0)
-        ReadByte();
+      // Pad to even length
+      if (padMultiple > 1)
+      {
+        // Include the length byte in the total length
+        var totalLength = stringLength + 1;
 
-      // Default decoder uses best-fit fallback, so it will not throw.
+        var remainder = totalLength % padMultiple;
+        if (remainder > 0)
+        {
+          var padBytes = padMultiple - remainder;
+          ReadBytes(padBytes);
+        }
+      }
+
+      // Default decoder uses best-fit fallback, so it will not throw any
+      // exceptions if unknown characters are encountered.
       var str = Encoding.Default.GetString(bytes);
       return str;
     }

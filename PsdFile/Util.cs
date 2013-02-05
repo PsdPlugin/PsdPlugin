@@ -157,9 +157,20 @@ namespace PhotoshopFile
       }
     }
 
-    public static int RoundUp(int value, int stride)
+    /// <summary>
+    /// Round the integer to a multiple.
+    /// </summary>
+    public static int RoundUp(int value, int multiple)
     {
-      return ((value + stride - 1) / stride) * stride;
+      if (Math.Sign(value) != Math.Sign(multiple))
+        throw new ArgumentException("value and multiple cannot have opposite signs.");
+
+      var remainder = value % multiple;
+      if (remainder > 0)
+      {
+        value += (multiple - remainder);
+      }
+      return value;
     }
 
     public static int BytesFromBitDepth(int depth)

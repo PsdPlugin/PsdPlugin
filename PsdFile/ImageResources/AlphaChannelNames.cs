@@ -44,7 +44,7 @@ namespace PhotoshopFile
       // Alpha channel names are Pascal strings, with no padding in-between.
       while (reader.BaseStream.Position < endPosition)
       {
-        var channelName = reader.ReadPascalString();
+        var channelName = reader.ReadPascalString(1);
         ChannelNames.Add(channelName);
       }
     }

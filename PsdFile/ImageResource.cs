@@ -138,9 +138,10 @@ namespace PhotoshopFile
     {
       var signature = new string(reader.ReadChars(4));
       var resourceIdInt = reader.ReadUInt16();
-      var name = reader.ReadPascalString();
-      var resourceDataLength = (int)reader.ReadUInt32();
-      var endPosition = reader.BaseStream.Position + resourceDataLength;
+      var name = reader.ReadPascalString(2);
+      var dataLength = (int)reader.ReadUInt32();
+      var dataPaddedLength = Util.RoundUp(dataLength, 2);
+      var endPosition = reader.BaseStream.Position + dataPaddedLength;
 
       ImageResource resource = null;
       var resourceId = (ResourceID)resourceIdInt;
@@ -151,25 +152,23 @@ namespace PhotoshopFile
           break;
         case ResourceID.ThumbnailRgb:
         case ResourceID.ThumbnailBgr:
-          resource = new Thumbnail(reader, resourceId, name, resourceDataLength);
+          resource = new Thumbnail(reader, resourceId, name, dataLength);
           break;
         case ResourceID.AlphaChannelNames:
-          resource = new AlphaChannelNames(reader, name, resourceDataLength);
+          resource = new AlphaChannelNames(reader, name, dataLength);
           break;
         case ResourceID.VersionInfo:
           resource = new VersionInfo(reader, name);
           break;
         default:
-          resource = new RawImageResource(reader, resourceId, name, resourceDataLength);
+          resource = new RawImageResource(reader, resourceId, name, dataLength);
           break;
       }
 
-      if (reader.BaseStream.Position % 2 == 1)
-        reader.ReadByte();
-
       // Reposition the reader if we do not consume the full resource block.
-      // This preserves forward-compatibility in case a resource block is
-      // later extended with additional properties.
+      // This takes care of the even-padding, and also preserves forward-
+      // compatibility in case a resource block is later extended with
+      // additional properties.
       if (reader.BaseStream.Position < endPosition)
         reader.BaseStream.Position = endPosition;
 

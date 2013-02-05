@@ -168,17 +168,7 @@ namespace PhotoshopFile
 
       Masks = new MaskInfo(reader, this);
       BlendingRangesData = new BlendingRanges(reader, this);
-
-      //-----------------------------------------------------------------------
-
-      // Read layer name, padded to length multiple of 4
-      long namePosition = reader.BaseStream.Position;
-      Name = reader.ReadPascalString();
-
-      // Calculation works because ReadPascalString has already padded to even
-      int paddingBytes = (int)((reader.BaseStream.Position - namePosition) % 4);
-      Debug.Print("Layer {0} padding bytes after name", paddingBytes);
-      reader.ReadBytes(paddingBytes);
+      Name = reader.ReadPascalString(4);
 
       //-----------------------------------------------------------------------
       // Process Additional Layer Information
