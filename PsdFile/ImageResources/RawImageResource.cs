@@ -36,9 +36,11 @@ namespace PhotoshopFile
       this.id = resourceId;
     }
 
-    public RawImageResource(PsdBinaryReader reader, ResourceID resourceId, string name, int numBytes)
+    public RawImageResource(PsdBinaryReader reader, string signature, 
+      ResourceID resourceId, string name, int numBytes)
       : base(name)
     {
+      this.Signature = signature;
       this.id = resourceId;
       Data = reader.ReadBytes(numBytes);
     }

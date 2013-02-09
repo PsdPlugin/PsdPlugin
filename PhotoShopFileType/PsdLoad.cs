@@ -5,7 +5,7 @@
 //
 // This software is provided under the MIT License:
 //   Copyright (c) 2006-2007 Frank Blumenberg
-//   Copyright (c) 2010-2012 Tao Yue
+//   Copyright (c) 2010-2013 Tao Yue
 //
 // See LICENSE.txt for complete licensing and attribution information.
 //
@@ -14,6 +14,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 using System.Threading;
 
 using PhotoshopFile;
@@ -26,7 +27,7 @@ namespace PaintDotNet.Data.PhotoshopFileType
     {
       // Load and decompress Photoshop file structures
       var psdFile = new PsdFile();
-      psdFile.Load(input);
+      psdFile.Load(input, Encoding.Default);
       CheckSufficientMemory(psdFile);
 
       // Convert into Paint.NET internal representation

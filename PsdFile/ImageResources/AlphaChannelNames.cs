@@ -53,7 +53,7 @@ namespace PhotoshopFile
     {
       foreach (var channelName in ChannelNames)
       {
-        writer.WritePascalString(channelName);
+        writer.WritePascalString(channelName, 1);
       }
     }
   }

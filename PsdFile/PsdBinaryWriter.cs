@@ -27,6 +27,7 @@ namespace PhotoshopFile
   public class PsdBinaryWriter : IDisposable
   {
     private BinaryWriter writer;
+    private Encoding encoding;
 
     public Stream BaseStream
     {
@@ -35,9 +36,14 @@ namespace PhotoshopFile
 
     public bool AutoFlush { get; set; }
 
-    public PsdBinaryWriter(Stream stream)
+    public PsdBinaryWriter(Stream stream, Encoding encoding)
     {
-      writer = new BinaryWriter(stream, Encoding.Default);
+      this.encoding = encoding;
+
+      // BinaryWriter.Write(String) cannot be used, as it writes a UTF-7
+      // (variable-sized) length integer, while PSD strings have a fixed-size
+      // length field.  Encoding is set to ASCII to catch any accidental usage.
+      writer = new BinaryWriter(stream, Encoding.ASCII);
     }
 
     public void Flush()
@@ -54,23 +60,55 @@ namespace PhotoshopFile
     }
 
     /// <summary>
-    /// Writes a Pascal string using the system's current Windows code page.
+    /// Pad the length of a block to a multiple.
     /// </summary>
-    /// <param name="s">Unicode string to convert to a Windows code page encoding.</param>
-    public void WritePascalString(string s)
+    /// <param name="startPosition">Starting position of the padded block.</param>
+    /// <param name="padMultiple">Byte multiple to pad to.</param>
+    public void WritePadding(long startPosition, int padMultiple)
     {
-      string str = (s.Length > 255) ? s.Substring(0, 255) : s;
-      byte[] bytesArray = Encoding.Default.GetBytes(str);
-
-      Write((byte)bytesArray.Length);
-      Write(bytesArray);
-
-      // Original string length is even, so Pascal string length is odd
-      if ((bytesArray.Length % 2) == 0)
-        Write((byte)0);
+      var length = writer.BaseStream.Position - startPosition;
+      var padBytes = Util.GetPadding((int)length, padMultiple);
+      for (long i = 0; i < padBytes; i++)
+        writer.Write((byte)0);
 
       if (AutoFlush)
         Flush();
+    }
+
+    /// <summary>
+    /// Write string as ASCII characters, without a length prefix.
+    /// </summary>
+    public void WriteAsciiChars(string s)
+    {
+      var bytes = Encoding.ASCII.GetBytes(s);
+      writer.Write(bytes);
+
+      if (AutoFlush)
+        Flush();
+    }
+
+
+    /// <summary>
+    /// Writes a Pascal string using the specified encoding.
+    /// </summary>
+    /// <param name="s">Unicode string to convert to the encoding.</param>
+    /// <param name="padMultiple">Byte multiple that the Pascal string is padded to.</param>
+    /// <param name="maxBytes">Maximum number of bytes to write.</param>
+    public void WritePascalString(string s, int padMultiple, byte maxBytes = 255)
+    {
+      var startPosition = writer.BaseStream.Position;
+
+      byte[] bytesArray = encoding.GetBytes(s);
+      if (bytesArray.Length > maxBytes)
+      {
+        var tempArray = new byte[maxBytes];
+        Array.Copy(bytesArray, tempArray, maxBytes);
+        bytesArray = tempArray;
+      }
+
+      writer.Write((byte)bytesArray.Length);
+      writer.Write(bytesArray);
+      WritePadding(startPosition, padMultiple);
     }
 
     /// <summary>
@@ -84,14 +122,6 @@ namespace PhotoshopFile
     }
 
     public void Write(bool value)
-    {
-      writer.Write(value);
-
-      if (AutoFlush)
-        Flush();
-    }
-
-    public void Write(char[] value)
     {
       writer.Write(value);
 

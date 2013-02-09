@@ -22,6 +22,7 @@ using System.Globalization;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
+using System.Text;
 
 namespace PhotoshopFile
 {
@@ -122,6 +123,9 @@ namespace PhotoshopFile
       {
         data = value;
         dataDecompressed = false;
+
+        imageData = null;
+        imageDataCompressed = true;
       }
     }
 
@@ -137,6 +141,9 @@ namespace PhotoshopFile
       {
         imageData = value;
         imageDataCompressed = false;
+
+        data = null;
+        dataDecompressed = true;
       }
     }
 
@@ -180,6 +187,7 @@ namespace PhotoshopFile
 
       var endPosition = reader.BaseStream.Position + this.Length;
       ImageCompression = (ImageCompression)reader.ReadInt16();
+      imageDataCompressed = true;
       var dataLength = this.Length - 2;
 
       switch (ImageCompression)
@@ -188,8 +196,8 @@ namespace PhotoshopFile
           ImageData = reader.ReadBytes(dataLength);
           break;
         case ImageCompression.Rle:
-          // Discard the RLE row lengths
-          reader.ReadBytes(2 * Rect.Height);
+          // RLE row lengths
+          RleHeader = reader.ReadBytes(2 * Rect.Height);
           var rleDataLength = dataLength - 2 * Rect.Height;
 
           // The PSD specification states that rows are padded to even sizes.
@@ -379,7 +387,7 @@ namespace PhotoshopFile
         var headerStream = new MemoryStream();
 
         var rleWriter = new RleWriter(dataStream);
-        var headerWriter = new PsdBinaryWriter(headerStream);
+        var headerWriter = new PsdBinaryWriter(headerStream, Encoding.ASCII);
 
         //---------------------------------------------------------------
 
@@ -422,6 +430,9 @@ namespace PhotoshopFile
       Debug.WriteLine("Channel SavePixelData started at " + writer.BaseStream.Position.ToString(CultureInfo.InvariantCulture));
 
       writer.Write((short)ImageCompression);
+      if (Data == null)
+        return;
+      
       if (ImageCompression == PhotoshopFile.ImageCompression.Rle)
         writer.Write(this.RleHeader);
       writer.Write(Data);

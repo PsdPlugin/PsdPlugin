@@ -106,11 +106,11 @@ namespace PhotoshopFile
 
     public Mask UserMask { get; set; }
 
-    public MaskInfo(Layer layer, bool userMask)
+    /// <summary>
+    /// Construct MaskInfo with null masks.
+    /// </summary>
+    public MaskInfo()
     {
-      LayerMask = new Mask(layer);
-      if (userMask)
-        UserMask = new Mask(layer);
     }
 
     public MaskInfo(PsdBinaryReader reader, Layer layer)
@@ -150,7 +150,7 @@ namespace PhotoshopFile
     {
       Debug.WriteLine("MaskInfo Save started at " + writer.BaseStream.Position.ToString(CultureInfo.InvariantCulture));
 
-      if (LayerMask.Rect.IsEmpty)
+      if (LayerMask == null)
       {
         writer.Write((UInt32)0);
         return;

@@ -22,8 +22,6 @@ namespace PhotoshopFile
 {
   public static class Util
   {
-    public static char[] SIGNATURE_8BIM = "8BIM".ToCharArray();
-
     [DebuggerDisplay("Top = {Top}, Bottom = {Bottom}, Left = {Left}, Right = {Right}")]
     public struct RectanglePosition
     {
@@ -162,6 +160,9 @@ namespace PhotoshopFile
     /// </summary>
     public static int RoundUp(int value, int multiple)
     {
+      if (value == 0)
+        return 0;
+
       if (Math.Sign(value) != Math.Sign(multiple))
         throw new ArgumentException("value and multiple cannot have opposite signs.");
 
@@ -171,6 +172,22 @@ namespace PhotoshopFile
         value += (multiple - remainder);
       }
       return value;
+    }
+
+    /// <summary>
+    /// Get number of bytes required to pad to the specified multiple.
+    /// </summary>
+    public static int GetPadding(int length, int padMultiple)
+    {
+      if ((length < 0) || (padMultiple < 0))
+        throw new ArgumentException();
+
+      var remainder = length % padMultiple;
+      if (remainder == 0)
+        return 0;
+
+      var padding = padMultiple - remainder;
+      return padding;
     }
 
     public static int BytesFromBitDepth(int depth)

@@ -27,15 +27,26 @@ namespace PhotoshopFile
   public class PsdBinaryReader : IDisposable
   {
     private BinaryReader reader;
+    private Encoding encoding;
 
     public Stream BaseStream
     {
       get { return reader.BaseStream; }
     }
-    
-    public PsdBinaryReader(Stream stream)
+
+    public PsdBinaryReader(Stream stream, PsdBinaryReader reader)
+      : this (stream, reader.encoding)
     {
-      reader = new BinaryReader(stream, Encoding.Default);
+    }
+    
+    public PsdBinaryReader(Stream stream, Encoding encoding)
+    {
+      this.encoding = encoding;
+
+      // ReadPascalString and ReadUnicodeString handle encoding explicitly.
+      // BinaryReader.ReadString() is never called, so it is constructed with
+      // ASCII encoding to make accidental usage obvious.
+      reader = new BinaryReader(stream, Encoding.ASCII);
     }
 
     public byte ReadByte()
@@ -46,14 +57,6 @@ namespace PhotoshopFile
     public byte[] ReadBytes(int count)
     {
       return reader.ReadBytes(count);
-    }
-
-    /// <summary>
-    /// Read characters using the current ANSI codepage.
-    /// </summary>
-    public char[] ReadChars(int count)
-    {
-      return reader.ReadChars(count);
     }
 
     public bool ReadBoolean()
@@ -123,6 +126,19 @@ namespace PhotoshopFile
 
     //////////////////////////////////////////////////////////////////
 
+    /// <summary>
+    /// Read padding to get to the byte multiple for the block.
+    /// </summary>
+    /// <param name="startPosition">Starting position of the padded block.</param>
+    /// <param name="padMultiple">Byte multiple that the block is padded to.</param>
+    public void ReadPadding(long startPosition, int padMultiple)
+    {
+      // Pad to specified byte multiple
+      var totalLength = reader.BaseStream.Position - startPosition;
+      var padBytes = Util.GetPadding((int)totalLength, padMultiple);
+      ReadBytes(padBytes);
+    }
+
     public Rectangle ReadRectangle()
     {
       var rect = new Rectangle();
@@ -134,31 +150,30 @@ namespace PhotoshopFile
     }
 
     /// <summary>
-    /// Read a Pascal string using the system's current Windows codepage.
+    /// Read a fixed-length ASCII string.
+    /// </summary>
+    public string ReadAsciiChars(int count)
+    {
+      var bytes = reader.ReadBytes(count); ;
+      var s = Encoding.ASCII.GetString(bytes);
+      return s;
+    }
+
+    /// <summary>
+    /// Read a Pascal string using the specified encoding.
     /// </summary>
     /// <param name="padMultiple">Byte multiple that the Pascal string is padded to.</param>
     public string ReadPascalString(int padMultiple)
     {
+      var startPosition = reader.BaseStream.Position;
+
       byte stringLength = ReadByte();
       var bytes = ReadBytes(stringLength);
-
-      // Pad to even length
-      if (padMultiple > 1)
-      {
-        // Include the length byte in the total length
-        var totalLength = stringLength + 1;
-
-        var remainder = totalLength % padMultiple;
-        if (remainder > 0)
-        {
-          var padBytes = padMultiple - remainder;
-          ReadBytes(padBytes);
-        }
-      }
+      ReadPadding(startPosition, padMultiple);
 
       // Default decoder uses best-fit fallback, so it will not throw any
       // exceptions if unknown characters are encountered.
-      var str = Encoding.Default.GetString(bytes);
+      var str = encoding.GetString(bytes);
       return str;
     }
 

@@ -57,21 +57,22 @@ namespace PhotoshopFile
 
       ImageResources = new List<ImageResource>();
       Layers = new List<Layer>();
+      AdditionalInfo = new List<LayerInfo>();
     }
 
     ///////////////////////////////////////////////////////////////////////////
 
-    public void Load(string fileName)
+    public void Load(string fileName, Encoding encoding)
     {
       using (var stream = new FileStream(fileName, FileMode.Open))
       {
-        Load(stream);
+        Load(stream, encoding);
       }
     }
 
-    public void Load(Stream stream)
+    public void Load(Stream stream, Encoding encoding)
     {
-      var reader = new PsdBinaryReader(stream);
+      var reader = new PsdBinaryReader(stream, encoding);
 
       LoadHeader(reader);
       LoadColorModeData(reader);
@@ -82,20 +83,20 @@ namespace PhotoshopFile
       DecompressImages();
     }
 
-    public void Save(string fileName)
+    public void Save(string fileName, Encoding encoding)
     {
       using (var stream = new FileStream(fileName, FileMode.Create))
       {
-        Save(stream);
+        Save(stream, encoding);
       }
     }
 
-    public void Save(Stream stream)
+    public void Save(Stream stream, Encoding encoding)
     {
       if (BitDepth != 8)
         throw new NotImplementedException("Only 8-bit color has been implemented for saving.");
 
-      var writer = new PsdBinaryWriter(stream);
+      var writer = new PsdBinaryWriter(stream, encoding);
       writer.AutoFlush = true;
 
       PrepareSave();
@@ -194,7 +195,7 @@ namespace PhotoshopFile
     {
       Debug.WriteLine("LoadHeader started at " + reader.BaseStream.Position.ToString(CultureInfo.InvariantCulture));
 
-      var signature = new string(reader.ReadChars(4));
+      var signature = reader.ReadAsciiChars(4);
       if (signature != "8BPS")
         throw new PsdInvalidException("The given stream is not a valid PSD file");
 
@@ -219,7 +220,7 @@ namespace PhotoshopFile
       Debug.WriteLine("SaveHeader started at " + writer.BaseStream.Position.ToString(CultureInfo.InvariantCulture));
 
       string signature = "8BPS";
-      writer.Write(signature.ToCharArray());
+      writer.WriteAsciiChars(signature);
       writer.Write(Version);
       writer.Write(new byte[] { 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, });
       writer.Write(ChannelCount);
@@ -337,6 +338,8 @@ namespace PhotoshopFile
 
     public List<Layer> Layers { get; private set; }
 
+    public List<LayerInfo> AdditionalInfo { get; private set; }
+
     public bool AbsoluteAlpha { get; set; }
 
     ///////////////////////////////////////////////////////////////////////////
@@ -352,7 +355,7 @@ namespace PhotoshopFile
       var startPosition = reader.BaseStream.Position;
       var endPosition = startPosition + layersAndMaskLength;
 
-      LoadLayers(reader);
+      LoadLayers(reader, true);
       LoadGlobalLayerMask(reader);
 
       //-----------------------------------------------------------------------
@@ -360,22 +363,28 @@ namespace PhotoshopFile
 
       while (reader.BaseStream.Position < endPosition)
       {
-        var signature = new string(reader.ReadChars(8));
-        switch (signature)
+        var info = LayerInfoFactory.Load(reader);
+        AdditionalInfo.Add(info);
+
+        if (info is RawLayerInfo)
         {
-          // The real layers section, if an empty layers section was stored
-          // earlier for backcompat.
-          case "8BIMLayr":
-          case "8BIMLr16":
-          case "8BIMLr32":
-            LoadLayers(reader);
-            LoadGlobalLayerMask(reader);
-            break;
-          
-          default:
-            var length = reader.ReadUInt32();
-            reader.BaseStream.Position += length;
-            break;
+          var layerInfo = (RawLayerInfo)info;
+          switch (info.Key)
+          {
+            case "Layr":
+            case "Lr16":
+            case "Lr32":
+              using (var memoryStream = new MemoryStream(layerInfo.Data))
+              using (var memoryReader = new PsdBinaryReader(memoryStream, reader))
+              {
+                LoadLayers(memoryReader, false);
+              }
+              break;
+
+            case "LMsk":
+              GlobalLayerMaskData = layerInfo.Data;
+              break;
+          }
         }
       }
 
@@ -393,20 +402,36 @@ namespace PhotoshopFile
 
       using (new PsdBlockLengthWriter(writer))
       {
+        var startPosition = writer.BaseStream.Position;
+
         SaveLayers(writer);
         SaveGlobalLayerMask(writer);
+        
+        foreach (var info in AdditionalInfo)
+          info.Save(writer);
+
+        writer.WritePadding(startPosition, 2);
       }
     }
 
     ///////////////////////////////////////////////////////////////////////////
 
-    private void LoadLayers(PsdBinaryReader reader)
+    /// <summary>
+    /// Load Layers Info section, including image data.
+    /// </summary>
+    /// <param name="reader">PSD reader.</param>
+    /// <param name="hasHeader">Whether the Layers Info section has a length header.</param>
+    private void LoadLayers(PsdBinaryReader reader, bool hasHeader)
     {
       Debug.WriteLine("LoadLayers started at " + reader.BaseStream.Position.ToString(CultureInfo.InvariantCulture));
 
-      var layersInfoSectionLength = reader.ReadUInt32();
-      if (layersInfoSectionLength <= 0)
-        return;
+      UInt32 sectionLength = 0;
+      if (hasHeader)
+      {
+        sectionLength = reader.ReadUInt32();
+        if (sectionLength <= 0)
+          return;
+      }
 
       var startPosition = reader.BaseStream.Position;
       var numLayers = reader.ReadInt16();
@@ -441,15 +466,22 @@ namespace PhotoshopFile
         }
       }
 
-      //-----------------------------------------------------------------------
+      // Length is set to 0 when called on higher bitdepth layers.
+      if (sectionLength > 0)
+      {
+        // Layers Info section is documented to be even-padded, but Photoshop
+        // actually pads to 4 bytes.
+        var endPosition = startPosition + sectionLength;
+        var positionOffset = reader.BaseStream.Position - endPosition;
+        Debug.Assert(positionOffset > -4,
+          "LoadLayers did not read the full length of the Layers Info section.");
+        Debug.Assert(positionOffset <= 0,
+          "LoadLayers read past the end of the Layers Info section.");
 
-      if (reader.BaseStream.Position % 2 == 1)
-        reader.ReadByte();
 
-      //-----------------------------------------------------------------------
-      // make sure we are not on a wrong offset, so set the stream position 
-      // manually
-      reader.BaseStream.Position = startPosition + layersInfoSectionLength;
+        if (reader.BaseStream.Position < endPosition)
+          reader.BaseStream.Position = endPosition;
+      }
     }
 
     ///////////////////////////////////////////////////////////////////////////
@@ -552,19 +584,19 @@ namespace PhotoshopFile
       {
         versionInfo = new VersionInfo();
         ImageResources.Add(versionInfo);
+
+        // Get the version string.  We don't use the fourth part (revision).
+        var assembly = System.Reflection.Assembly.GetExecutingAssembly();
+        var version = assembly.GetName().Version;
+        var versionString = version.Major + "." + version.Minor + "." + version.Build;
+
+        // Strings are not localized since they are not shown to the user.
+        versionInfo.Version = 1;
+        versionInfo.HasRealMergedData = true;
+        versionInfo.ReaderName = "Paint.NET PSD Plugin";
+        versionInfo.WriterName = "Paint.NET PSD Plugin " + versionString;
+        versionInfo.FileVersion = 1;
       }
-
-      // Get the version string.  We don't use the fourth part (revision).
-      var assembly = System.Reflection.Assembly.GetExecutingAssembly();
-      var version = assembly.GetName().Version;
-      var versionString = version.Major + "." + version.Minor + "." + version.Build;
-
-      // Strings are not localized since they are not shown to the user.
-      versionInfo.Version = 1;
-      versionInfo.HasRealMergedData = true;
-      versionInfo.ReaderName = "Paint.NET PSD Plugin";
-      versionInfo.WriterName = "Paint.NET PSD Plugin " + versionString;
-      versionInfo.FileVersion = 1;
     }
 
     private void SaveLayers(PsdBinaryWriter writer)
@@ -573,11 +605,18 @@ namespace PhotoshopFile
 
       using (new PsdBlockLengthWriter(writer))
       {
-        var numberOfLayers = (Int16)Layers.Count;
+        var numLayers = (Int16)Layers.Count;
         if (AbsoluteAlpha)
-          numberOfLayers = (Int16)(-numberOfLayers);
+          numLayers = (Int16)(-numLayers);
 
-        writer.Write(numberOfLayers);
+        // Layers section must be empty if the color mode doesn't allow layers.
+        // Photoshop will refuse to load indexed and multichannel images if
+        // there is a nonempty layers section with a layer count of 0.
+        if (numLayers == 0)
+          return;
+        
+        var startPosition = writer.BaseStream.Position;
+        writer.Write(numLayers);
 
         foreach (var layer in Layers)
         {
@@ -592,8 +631,9 @@ namespace PhotoshopFile
           }
         }
 
-        if (writer.BaseStream.Position % 2 == 1)
-          writer.Write((byte)0);
+        // Documentation states that the Layers Info section is even-padded,
+        // but it is actually padded to a multiple of 4.
+        writer.WritePadding(startPosition, 4);
       }
     }
 
@@ -656,11 +696,17 @@ namespace PhotoshopFile
           // Store RLE data length
           for (Int16 i = 0; i < ChannelCount; i++)
           {
-            int totalRleLength = 0;
-            for (int j = 0; j < RowCount; j++)
-              totalRleLength += reader.ReadUInt16();
-
             var channel = new Channel(i, this.BaseLayer);
+            channel.RleHeader = reader.ReadBytes(2 * RowCount);
+
+            int totalRleLength = 0;
+            using (var memoryStream = new MemoryStream(channel.RleHeader))
+            using (var memoryReader = new PsdBinaryReader(memoryStream, Encoding.ASCII))
+            {
+              for (int j = 0; j < RowCount; j++)
+                totalRleLength += memoryReader.ReadUInt16();
+            }
+
             channel.ImageCompression = this.ImageCompression;
             channel.Length = (int)totalRleLength;
             this.BaseLayer.Channels.Add(channel);

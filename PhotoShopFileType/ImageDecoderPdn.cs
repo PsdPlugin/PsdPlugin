@@ -225,10 +225,9 @@ namespace PaintDotNet.Data.PhotoshopFileType
         ? (byte)(255 - mask.BackgroundColor)
         : mask.BackgroundColor;
 
-      // If there is no mask image and the background is not masked out, then
-      // return null to suppress the alpha-merging.
+      // If there is no mask image, then return null to suppress alpha-merging.
       bool isEmptyMask = ((mask.ImageData == null) || (mask.ImageData.Length == 0));
-      if (isEmptyMask && (backgroundColor == 255))
+      if (isEmptyMask)
         return null;
       
       // Fill alpha array with background color

@@ -125,17 +125,16 @@ namespace PhotoshopFile
     }
 
     public Layer(PsdBinaryReader reader, PsdFile psdFile)
+      : this(psdFile)
     {
       Debug.WriteLine("Layer started at " + reader.BaseStream.Position.ToString(CultureInfo.InvariantCulture));
 
-      PsdFile = psdFile;
       Rect = reader.ReadRectangle();
 
       //-----------------------------------------------------------------------
       // Read channel headers.  Image data comes later, after the layer header.
 
       int numberOfChannels = reader.ReadUInt16();
-      Channels = new ChannelList();
       for (int channel = 0; channel < numberOfChannels; channel++)
       {
         var ch = new Channel(reader, this);
@@ -145,11 +144,11 @@ namespace PhotoshopFile
       //-----------------------------------------------------------------------
       // 
 
-      var signature = new string(reader.ReadChars(4));
+      var signature = reader.ReadAsciiChars(4);
       if (signature != "8BIM")
         throw (new PsdInvalidException("Invalid signature in layer header."));
 
-      BlendModeKey = new string(reader.ReadChars(4));
+      BlendModeKey = reader.ReadAsciiChars(4);
       Opacity = reader.ReadByte();
       Clipping = reader.ReadBoolean();
 
@@ -174,17 +173,10 @@ namespace PhotoshopFile
       // Process Additional Layer Information
 
       long adjustmentLayerEndPos = extraDataStartPosition + extraDataSize;
-      AdditionalInfo = new List<LayerInfo>();
-      try
+      while (reader.BaseStream.Position < adjustmentLayerEndPos)
       {
-        while (reader.BaseStream.Position < adjustmentLayerEndPos)
-          AdditionalInfo.Add(LayerInfoFactory.CreateLayerInfo(reader));
-      }
-      catch
-      {
-        // An exception would leave us in the wrong stream position.  We must
-        // therefore reset the position to continue parsing the file.
-        reader.BaseStream.Position = adjustmentLayerEndPos;
+        var layerInfo = LayerInfoFactory.Load(reader);
+        AdditionalInfo.Add(layerInfo);
       }
 
       foreach (var adjustmentInfo in AdditionalInfo)
@@ -269,8 +261,8 @@ namespace PhotoshopFile
 
       //-----------------------------------------------------------------------
 
-      writer.Write(Util.SIGNATURE_8BIM);
-      writer.Write(BlendModeKey.ToCharArray());
+      writer.WriteAsciiChars("8BIM");
+      writer.WriteAsciiChars(BlendModeKey);
       writer.Write(Opacity);
       writer.Write(Clipping);
 
@@ -288,13 +280,10 @@ namespace PhotoshopFile
         BlendingRangesData.Save(writer);
 
         var namePosition = writer.BaseStream.Position;
-        writer.WritePascalString(Name);
 
-        // Calculation works because WritePascalString has already padded to even
-        int paddingBytes = (int)((writer.BaseStream.Position - namePosition) % 4);
-        Debug.Print("Layer {0} write padding bytes after name", paddingBytes);
-        for (int i = 0; i < paddingBytes; i++)
-          writer.Write((byte)0);
+        // Legacy layer name is limited to 31 bytes.  Unicode layer name
+        // can be much longer.
+        writer.WritePascalString(Name, 4, 31);
 
         foreach (LayerInfo info in AdditionalInfo)
         {

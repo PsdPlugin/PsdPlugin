@@ -30,34 +30,34 @@ namespace PhotoshopFile
     DisplayInfo = 1007,
     Caption = 1008,
     BorderInfo = 1009,
-    BgColor = 1010,
+    BackgroundColor = 1010,
     PrintFlags = 1011,
-    MultiChannelHalftoneInfo = 1012,
+    MultichannelHalftoneInfo = 1012,
     ColorHalftoneInfo = 1013,
     DuotoneHalftoneInfo = 1014,
-    MultiChannelTransferFunctions = 1015,
+    MultichannelTransferFunctions = 1015,
     ColorTransferFunctions = 1016,
     DuotoneTransferFunctions = 1017,
     DuotoneImageInfo = 1018,
     BlackWhiteRange = 1019,
-    EPSOptions = 1021,
+    EpsOptions = 1021,
     QuickMaskInfo = 1022,
     LayerStateInfo = 1024,
     WorkingPathUnsaved = 1025,
     LayersGroupInfo = 1026,
-    IPTC_NAA = 1028,
+    IptcNaa = 1028,
     RawFormatImageMode = 1029,
-    JPEGQuality = 1030,
+    JpegQuality = 1030,
     GridGuidesInfo = 1032,
     ThumbnailBgr = 1033,
     CopyrightInfo = 1034,
-    URL = 1035,
+    Url = 1035,
     ThumbnailRgb = 1036,
     GlobalAngle = 1037,
-    ColorSamplers = 1038,
-    ICCProfile = 1039,
+    ColorSamplersObsolete = 1038,
+    IccProfile = 1039,
     Watermark = 1040,
-    ICCUntagged = 1041,
+    IccUntagged = 1041,
     EffectsVisible = 1042,
     SpotHalftone = 1043,
     DocumentSpecific = 1044,
@@ -66,26 +66,41 @@ namespace PhotoshopFile
     TransparentIndex = 1047,
     GlobalAltitude = 1049,
     Slices = 1050,
-    WorkflowURL = 1051,
-    JumpToXPEP = 1052,
+    WorkflowUrl = 1051,
+    JumpToXpep = 1052,
     AlphaIdentifiers = 1053,
-    URLList = 1054,
+    UrlList = 1054,
     VersionInfo = 1057,
-    Unknown4 = 1058,
-    XMLInfo = 1060,
+    ExifData1 = 1058,
+    ExifData3 = 1059,
+    XmpMetadata = 1060,
     CaptionDigest = 1061,
     PrintScale = 1062,
     PixelAspectRatio = 1064,
+    LayerComps = 1065,
+    AlternateDuotoneColors = 1066,
+    AlternateSpotColors = 1067,
+    LayerSelectionIDs = 1069,
+    HdrToningInfo = 1070,
+    PrintInfo = 1071,
+    LayerGroupsEnabled = 1072,
+    ColorSamplers = 1073,
+    MeasurementScale = 1074,
+    TimelineInfo = 1075,
+    SheetDisclosure = 1076,
+    FloatDisplayInfo = 1077,
+    OnionSkins = 1078,
+    CountInfo = 1080,
+    PrintSettingsInfo = 1082,
+    PrintStyle = 1083,
+    MacNSPrintInfo = 1084,
+    WinDevMode = 1085,
+    AutoSaveFilePath = 1086,
+    AutoSaveFormat = 1087,
     PathInfo = 2000,  // 2000-2999: Path Information
     ClippingPathName = 2999,
+    LightroomWorkflow = 8000,
     PrintFlagsInfo = 10000
-  }
-
-  public struct ImageResourceInfo
-  {
-    public short ID { get; set; }
-    public string Name { get; set; }
-    public short OSType { get; set; }
   }
 
   /// <summary>
@@ -93,12 +108,25 @@ namespace PhotoshopFile
   /// </summary>
   public abstract class ImageResource
   {
+    private string signature;
+    public string Signature
+    {
+      get { return signature; }
+      set
+      {
+        if (value.Length != 4)
+          throw new ArgumentException("Signature must have length of 4");
+        signature = value;
+      }
+    }
+
     public string Name { get; set; }
 
     public abstract ResourceID ID { get; }
 
     protected ImageResource(string name)
     {
+      Signature = "8BIM";
       Name = name;
     }
 
@@ -107,15 +135,17 @@ namespace PhotoshopFile
     /// </summary>
     public void Save(PsdBinaryWriter writer)
     {
-      writer.Write(Util.SIGNATURE_8BIM);
+      writer.WriteAsciiChars(Signature);
       writer.Write((UInt16)ID);
-      writer.WritePascalString(Name);
+      writer.WritePascalString(Name, 2);
+
+      // Length is unpadded, but data is even-padded
+      var startPosition = writer.BaseStream.Position;
       using (new PsdBlockLengthWriter(writer))
       {
         WriteData(writer);
       }
-      if (writer.BaseStream.Position % 2 == 1)
-        writer.Write((byte)0);
+      writer.WritePadding(startPosition, 2);
     }
 
     /// <summary>
@@ -136,10 +166,13 @@ namespace PhotoshopFile
   {
     public static ImageResource CreateImageResource(PsdBinaryReader reader)
     {
-      var signature = new string(reader.ReadChars(4));
+      Debug.Print("ImageResource started at {0}", reader.BaseStream.Position);
+
+      var signature = reader.ReadAsciiChars(4);
       var resourceIdInt = reader.ReadUInt16();
       var name = reader.ReadPascalString(2);
       var dataLength = (int)reader.ReadUInt32();
+
       var dataPaddedLength = Util.RoundUp(dataLength, 2);
       var endPosition = reader.BaseStream.Position + dataPaddedLength;
 
@@ -161,7 +194,7 @@ namespace PhotoshopFile
           resource = new VersionInfo(reader, name);
           break;
         default:
-          resource = new RawImageResource(reader, resourceId, name, dataLength);
+          resource = new RawImageResource(reader, signature, resourceId, name, dataLength);
           break;
       }
 

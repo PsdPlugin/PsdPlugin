@@ -5,7 +5,7 @@
 //
 // This software is provided under the MIT License:
 //   Copyright (c) 2006-2007 Frank Blumenberg
-//   Copyright (c) 2010-2012 Tao Yue
+//   Copyright (c) 2010-2013 Tao Yue
 //
 // See LICENSE.txt for complete licensing and attribution information.
 //
@@ -35,17 +35,27 @@ namespace PhotoshopFile
 
     public LayerSectionType SectionType { get; set; }
 
-    public string BlendModeKey { get; set; }
+    private string blendModeKey;
+    public string BlendModeKey
+    {
+      get { return blendModeKey; }
+      set
+      {
+        if (value.Length != 4)
+          throw new ArgumentException("Blend mode key must have a length of 4.");
+        blendModeKey = value;
+      }
+    }
 
     public LayerSectionInfo(PsdBinaryReader reader, int dataLength)
     {
       SectionType = (LayerSectionType)reader.ReadInt32();
-      if (dataLength == 12)
+      if (dataLength >= 12)
       {
-        var signature = new string(reader.ReadChars(4));
+        var signature = reader.ReadAsciiChars(4);
         if (signature == "8BIM")
         {
-          BlendModeKey = new string(reader.ReadChars(4));
+          BlendModeKey = reader.ReadAsciiChars(4);
         }
       }
     }
@@ -55,9 +65,11 @@ namespace PhotoshopFile
       writer.Write((Int32)SectionType);
       if (BlendModeKey != null)
       {
-        writer.Write(Util.SIGNATURE_8BIM);
-        writer.Write(BlendModeKey.ToCharArray());
+        writer.WriteAsciiChars("8BIM");
+        writer.WriteAsciiChars(BlendModeKey);
       }
+
+      // 12-byte length, no additional padding necessary.
     }
   }
 }

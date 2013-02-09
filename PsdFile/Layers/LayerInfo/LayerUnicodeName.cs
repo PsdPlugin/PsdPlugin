@@ -5,7 +5,7 @@
 //
 // This software is provided under the MIT License:
 //   Copyright (c) 2006-2007 Frank Blumenberg
-//   Copyright (c) 2010-2012 Tao Yue
+//   Copyright (c) 2010-2013 Tao Yue
 //
 // See LICENSE.txt for complete licensing and attribution information.
 //
@@ -36,7 +36,10 @@ namespace PhotoshopFile
 
     protected override void WriteData(PsdBinaryWriter writer)
     {
+      var startPosition = writer.BaseStream.Position;
+
       writer.WriteUnicodeString(Name);
+      writer.WritePadding(startPosition, 4);
     }
   }
 }

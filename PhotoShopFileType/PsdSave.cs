@@ -14,6 +14,7 @@
 using System.Diagnostics;
 using System.Drawing;
 using System.IO;
+using System.Text;
 using System.Threading;
 
 using PhotoshopFile;
@@ -91,7 +92,7 @@ namespace PaintDotNet.Data.PhotoshopFileType
       }
       threadPool.Drain();
 
-      psdFile.Save(output);
+      psdFile.Save(output, Encoding.Default);
     }
 
     private static ResolutionInfo GetResolutionInfo(Document input)
@@ -230,7 +231,7 @@ namespace PaintDotNet.Data.PhotoshopFileType
       psdLayer.BlendModeKey = layer.BlendOp.ToPsdBlendMode();
       psdLayer.Opacity = layer.Opacity;
       psdLayer.Visible = layer.Visible;
-      psdLayer.Masks = new MaskInfo(psdLayer, false);
+      psdLayer.Masks = new MaskInfo();
       psdLayer.BlendingRangesData = new BlendingRanges(psdLayer);
 
       // Store channel metadata
