@@ -55,7 +55,7 @@ namespace PhotoshopFile
       BaseLayer = new Layer(this);
       BaseLayer.Rect = new Rectangle(0, 0, 0, 0);
 
-      ImageResources = new List<ImageResource>();
+      ImageResources = new ImageResources();
       Layers = new List<Layer>();
       AdditionalInfo = new List<LayerInfo>();
     }
@@ -273,20 +273,18 @@ namespace PhotoshopFile
     /// <summary>
     /// The Image resource blocks for the file
     /// </summary>
-    public List<ImageResource> ImageResources { get; set; }
+    public ImageResources ImageResources { get; set; }
 
     public ResolutionInfo Resolution
     {
       get
       {
-        return (ResolutionInfo)ImageResources.Find(
-          x => x.ID == ResourceID.ResolutionInfo);
+        return (ResolutionInfo)ImageResources.Get(ResourceID.ResolutionInfo);
       }
 
       set
       {
-        ImageResources.RemoveAll(x => x.ID == ResourceID.ResolutionInfo);
-        ImageResources.Add(value);
+        ImageResources.Set(value);
       }
     }
 
@@ -575,16 +573,12 @@ namespace PhotoshopFile
     /// </summary>
     public void SetVersionInfo()
     {
-      var versionInfos = ImageResources.Where(x => x.ID == ResourceID.VersionInfo);
-      if (versionInfos.Count() > 1)
-        throw new PsdInvalidException("Image has more than one VersionInfo resource.");
-
-      var versionInfo = (VersionInfo)versionInfos.SingleOrDefault();
+      var versionInfo = (VersionInfo)ImageResources.Get(ResourceID.VersionInfo);
       if (versionInfo == null)
       {
         versionInfo = new VersionInfo();
-        ImageResources.Add(versionInfo);
-
+        ImageResources.Set(versionInfo);
+        
         // Get the version string.  We don't use the fourth part (revision).
         var assembly = System.Reflection.Assembly.GetExecutingAssembly();
         var version = assembly.GetName().Version;

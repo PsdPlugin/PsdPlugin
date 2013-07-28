@@ -15,6 +15,7 @@
 /////////////////////////////////////////////////////////////////////////////////
 
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
@@ -206,6 +207,42 @@ namespace PhotoshopFile
         reader.BaseStream.Position = endPosition;
 
       return resource;
+    }
+  }
+
+  public class ImageResources : List<ImageResource>
+  {
+    public ImageResources() : base()
+    {
+    }
+
+    public ImageResource Get(ResourceID id)
+    {
+      return Find(x => x.ID == id);
+    }
+
+    public void Set(ImageResource resource)
+    {
+      Predicate<ImageResource> matchId = delegate(ImageResource res)
+      {
+        return res.ID == resource.ID;
+      };
+      var itemIdx = this.FindIndex(matchId);
+      var lastItemIdx = this.FindLastIndex(matchId);
+
+      if (itemIdx == -1)
+      {
+        Add(resource);
+      }
+      else if (itemIdx != lastItemIdx)
+      {
+        RemoveAll(matchId);
+        Insert(itemIdx, resource);
+      }
+      else
+      {
+        this[itemIdx] = resource;
+      }
     }
   }
 
