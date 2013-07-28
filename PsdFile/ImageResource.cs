@@ -19,6 +19,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
+using System.Linq;
 
 namespace PhotoshopFile
 {
@@ -191,6 +192,9 @@ namespace PhotoshopFile
         case ResourceID.AlphaChannelNames:
           resource = new AlphaChannelNames(reader, name, dataLength);
           break;
+        case ResourceID.UnicodeAlphaNames:
+          resource = new UnicodeAlphaNames(reader, name, dataLength);
+          break;
         case ResourceID.VersionInfo:
           resource = new VersionInfo(reader, name);
           break;
@@ -205,6 +209,10 @@ namespace PhotoshopFile
       // additional properties.
       if (reader.BaseStream.Position < endPosition)
         reader.BaseStream.Position = endPosition;
+
+      // However, overruns are definitely an error.
+      if (reader.BaseStream.Position > endPosition)
+        throw new PsdInvalidException("Corruption detected in resource.");
 
       return resource;
     }

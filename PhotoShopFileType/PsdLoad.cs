@@ -28,9 +28,17 @@ namespace PaintDotNet.Data.PhotoshopFileType
       // Load and decompress Photoshop file structures
       var psdFile = new PsdFile();
       psdFile.Load(input, Encoding.Default);
-      CheckSufficientMemory(psdFile);
 
+      // Multichannel images are loaded by processing each channel as a
+      // grayscale layer.
+      if (psdFile.ColorMode == PsdColorMode.Multichannel)
+      {
+        CreateLayersFromChannels(psdFile);
+        psdFile.ColorMode = PsdColorMode.Grayscale;
+      }
+     
       // Convert into Paint.NET internal representation
+      CheckSufficientMemory(psdFile);
       var document = new Document(psdFile.ColumnCount, psdFile.RowCount);
 
       if (psdFile.Layers.Count == 0)
@@ -63,6 +71,61 @@ namespace PaintDotNet.Data.PhotoshopFileType
       SetPdnResolutionInfo(psdFile, document);
 
       return document;
+    }
+
+    /// <summary>
+    /// Creates a layer for each channel in a multichannel image.
+    /// </summary>
+    private static void CreateLayersFromChannels(PsdFile psdFile)
+    {
+      if (psdFile.ColorMode != PsdColorMode.Multichannel)
+        throw new Exception("Not a multichannel image.");
+      if (psdFile.Layers.Count > 0)
+        throw new PsdInvalidException("Multichannel image should not have layers.");
+
+      // Get alpha channel names, preferably in Unicode.
+      var alphaChannelNames = (AlphaChannelNames)psdFile.ImageResources
+        .Get(ResourceID.AlphaChannelNames);
+      var unicodeAlphaNames = (UnicodeAlphaNames)psdFile.ImageResources
+        .Get(ResourceID.UnicodeAlphaNames);
+      if ((alphaChannelNames == null) && (unicodeAlphaNames == null))
+        throw new PsdInvalidException("No channel names found.");
+
+      var channelNames = (unicodeAlphaNames != null)
+        ? unicodeAlphaNames.ChannelNames
+        : alphaChannelNames.ChannelNames;
+      var channels = psdFile.BaseLayer.Channels;
+      if (channels.Count > channelNames.Count)
+        throw new PsdInvalidException("More channels than channel names.");
+
+      // Channels are stored from top to bottom, but layers are stored from
+      // bottom to top.
+      for (int i = channels.Count - 1; i >= 0; i--)
+      {
+        var channel = channels[i];
+        var channelName = channelNames[i];
+
+        // Copy metadata over from base layer
+        var layer = new PhotoshopFile.Layer(psdFile);
+        layer.Rect = psdFile.BaseLayer.Rect;
+        layer.Visible = true;
+        layer.Masks = new MaskInfo();
+        layer.BlendingRangesData = new BlendingRanges(layer);
+
+        // We do not attempt to reconstruct the appearance of the image, but
+        // only to provide access to the channels image data.
+        layer.Name = channelName;
+        layer.BlendModeKey = PsdBlendMode.Darken;
+        layer.Opacity = 255;
+
+        // Copy channel image data into the new grayscale layer
+        var layerChannel = new Channel(0, layer);
+        layerChannel.ImageCompression = channel.ImageCompression;
+        layerChannel.ImageData = channel.ImageData;
+        layer.Channels.Add(layerChannel);
+
+        psdFile.Layers.Add(layer);
+      }
     }
 
     /// <summary>
