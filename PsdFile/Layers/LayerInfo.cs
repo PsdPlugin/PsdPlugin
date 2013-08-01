@@ -35,7 +35,8 @@ namespace PhotoshopFile
       switch (key)
       {
         case "lsct":
-          result = new LayerSectionInfo(reader, length);
+        case "lsdk":
+          result = new LayerSectionInfo(reader, key, length);
           break;
         case "luni":
           result = new LayerUnicodeName(reader);

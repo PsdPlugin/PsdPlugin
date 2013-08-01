@@ -158,12 +158,10 @@ namespace PaintDotNet.Data.PhotoshopFileType
         if (layerSectionNames.Count > topHiddenSectionDepth)
           layer.Visible = false;
 
-        var sectionInfos = layer.AdditionalInfo.Where(x => x.Key == "lsct");
-        if (sectionInfos.Count() > 1)
-          throw new PsdInvalidException();
-        if (sectionInfos.Count() == 0)
+        var sectionInfo = (LayerSectionInfo)layer.AdditionalInfo
+          .SingleOrDefault(x => x is LayerSectionInfo);
+        if (sectionInfo == null)
           continue;
-        var sectionInfo = (LayerSectionInfo)sectionInfos.Single();
 
         switch (sectionInfo.SectionType)
         {

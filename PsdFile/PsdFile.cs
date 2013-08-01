@@ -540,15 +540,12 @@ namespace PhotoshopFile
       int depth = 0;
       foreach (var layer in Enumerable.Reverse(Layers))
       {
-        var sectionInfos = layer.AdditionalInfo.Where(info => info.Key == "lsct");
-        var sectionInfoCount = sectionInfos.Count();
-
-        if (sectionInfoCount > 1)
-          throw new PsdInvalidException("Layer has more than one section info block.");
-        if (sectionInfoCount == 0)
+        var layerSectionInfo = layer.AdditionalInfo.SingleOrDefault(
+          x => x is LayerSectionInfo);
+        if (layerSectionInfo == null)
           continue;
 
-        var sectionInfo = (LayerSectionInfo)sectionInfos.Single();
+        var sectionInfo = (LayerSectionInfo)layerSectionInfo;
         switch (sectionInfo.SectionType)
         {
           case LayerSectionType.OpenFolder:
@@ -561,6 +558,9 @@ namespace PhotoshopFile
             if (depth < 0)
               throw new PsdInvalidException("Layer section ended without matching start marker.");
             break;
+
+          default:
+            throw new PsdInvalidException("Unrecognized layer section type.");
         }
       }
 

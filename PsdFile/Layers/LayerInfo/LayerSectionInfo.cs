@@ -28,9 +28,10 @@ namespace PhotoshopFile
   /// </summary>
   public class LayerSectionInfo : LayerInfo
   {
+    private string key;
     public override string Key
     {
-      get { return "lsct"; }
+      get { return key; }
     }
 
     public LayerSectionType SectionType { get; set; }
@@ -47,8 +48,13 @@ namespace PhotoshopFile
       }
     }
 
-    public LayerSectionInfo(PsdBinaryReader reader, int dataLength)
+    public LayerSectionInfo(PsdBinaryReader reader, string key, int dataLength)
     {
+      // The key for layer section info is documented to be "lsct".  However,
+      // some Photoshop files use the undocumented key "lsdk", with apparently
+      // the same data format.
+      this.key = key;
+
       SectionType = (LayerSectionType)reader.ReadInt32();
       if (dataLength >= 12)
       {
