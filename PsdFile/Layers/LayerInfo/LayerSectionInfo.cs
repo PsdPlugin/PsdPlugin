@@ -23,6 +23,12 @@ namespace PhotoshopFile
     SectionDivider = 3
   }
 
+  public enum LayerSectionSubtype
+  {
+    Normal = 0,
+    SceneGroup = 1
+  }
+
   /// <summary>
   /// Layer sections are known as Groups in the Photoshop UI.
   /// </summary>
@@ -35,6 +41,13 @@ namespace PhotoshopFile
     }
 
     public LayerSectionType SectionType { get; set; }
+
+    private LayerSectionSubtype? subtype;
+    public LayerSectionSubtype Subtype
+    {
+      get { return subtype ?? LayerSectionSubtype.Normal; }
+      set { subtype = value; }
+    }
 
     private string blendModeKey;
     public string BlendModeKey
@@ -59,9 +72,13 @@ namespace PhotoshopFile
       if (dataLength >= 12)
       {
         var signature = reader.ReadAsciiChars(4);
-        if (signature == "8BIM")
+        if (signature != "8BIM")
+          throw new PsdInvalidException("Invalid section divider signature.");
+
+        BlendModeKey = reader.ReadAsciiChars(4);
+        if (dataLength >= 16)
         {
-          BlendModeKey = reader.ReadAsciiChars(4);
+          Subtype = (LayerSectionSubtype)reader.ReadInt32();
         }
       }
     }
@@ -73,9 +90,9 @@ namespace PhotoshopFile
       {
         writer.WriteAsciiChars("8BIM");
         writer.WriteAsciiChars(BlendModeKey);
+        if (subtype != null)
+          writer.Write((Int32)Subtype);
       }
-
-      // 12-byte length, no additional padding necessary.
     }
   }
 }
