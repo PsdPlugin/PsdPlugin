@@ -44,7 +44,8 @@ namespace PaintDotNet.Data.PhotoshopFileType
       if (psdFile.Layers.Count == 0)
       {
         psdFile.BaseLayer.CreateMissingChannels();
-        var layer = ImageDecoderPdn.DecodeImage(psdFile.BaseLayer, true);
+        var layer = Layer.CreateBackgroundLayer(psdFile.ColumnCount, psdFile.RowCount);
+        ImageDecoderPdn.DecodeImage(layer, psdFile.BaseLayer);
         document.Layers.Add(layer);
       }
       else
@@ -59,7 +60,14 @@ namespace PaintDotNet.Data.PhotoshopFileType
           var psdLayer = psdFile.Layers[i];
           psdLayer.CreateMissingChannels();
 
-          var context = new LoadLayerContext(psdLayer, pdnLayers, i);
+          var pdnLayer = new BitmapLayer(psdFile.ColumnCount, psdFile.RowCount);
+          pdnLayer.Name = psdLayer.Name;
+          pdnLayer.Opacity = psdLayer.Opacity;
+          pdnLayer.Visible = psdLayer.Visible;
+          pdnLayer.SetBlendOp(BlendOpMapping.FromPsdBlendMode(psdLayer.BlendModeKey));
+          pdnLayers[i] = pdnLayer;
+
+          var context = new LoadLayerContext(psdLayer, pdnLayer);
           var waitCallback = new WaitCallback(context.LoadLayer);
           threadPool.QueueUserWorkItem(waitCallback);
         }
@@ -249,27 +257,17 @@ namespace PaintDotNet.Data.PhotoshopFileType
     private class LoadLayerContext
     {
       PhotoshopFile.Layer psdLayer;
+      BitmapLayer pdnLayer;
 
-      Layer[] pdnLayers;
-      int idxPdnLayer;
-
-      public LoadLayerContext(PhotoshopFile.Layer psdLayer,
-        Layer[] pdnLayers, int idxPdnLayer)
+      public LoadLayerContext(PhotoshopFile.Layer psdLayer, BitmapLayer pdnLayer)
       {
         this.psdLayer = psdLayer;
-        this.pdnLayers = pdnLayers;
-        this.idxPdnLayer = idxPdnLayer;
+        this.pdnLayer = pdnLayer;
       }
 
       public void LoadLayer(object context)
       {
-        var pdnLayer = ImageDecoderPdn.DecodeImage(psdLayer, isBackground: false);
-        pdnLayer.Name = psdLayer.Name;
-        pdnLayer.Opacity = psdLayer.Opacity;
-        pdnLayer.Visible = psdLayer.Visible;
-        pdnLayer.SetBlendOp(BlendOpMapping.FromPsdBlendMode(psdLayer.BlendModeKey));
-
-        pdnLayers[idxPdnLayer] = pdnLayer;
+        ImageDecoderPdn.DecodeImage(pdnLayer, psdLayer);
       }
     }
   }

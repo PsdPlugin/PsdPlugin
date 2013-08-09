@@ -24,18 +24,16 @@ using PhotoshopFile;
 
 namespace PaintDotNet.Data.PhotoshopFileType
 {
-  static class ImageDecoderPdn
+  public static class ImageDecoderPdn
   {
 
     /// <summary>
     /// Decode image from Photoshop's channel-separated and non-RGB formats to
     /// Paint.NET's ARGB (little-endian BGRA).
     /// </summary>
-    public static BitmapLayer DecodeImage(PhotoshopFile.Layer psdLayer, bool isBackground)
+    public static unsafe void DecodeImage(BitmapLayer pdnLayer,
+      PhotoshopFile.Layer psdLayer)
     {
-      BitmapLayer pdnLayer = isBackground
-        ? PaintDotNet.Layer.CreateBackgroundLayer(psdLayer.PsdFile.ColumnCount, psdLayer.PsdFile.RowCount)
-        : new BitmapLayer(psdLayer.PsdFile.ColumnCount, psdLayer.PsdFile.RowCount);
       int byteDepth = Util.BytesFromBitDepth(psdLayer.PsdFile.BitDepth);
 
       var hasLayerMask = (psdLayer.Masks != null)
@@ -106,8 +104,6 @@ namespace PaintDotNet.Data.PhotoshopFileType
           yDest++;
         }
       }
-
-      return pdnLayer;
     }
 
     /////////////////////////////////////////////////////////////////////////// 
