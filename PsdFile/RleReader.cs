@@ -5,7 +5,7 @@
 //
 // This software is provided under the MIT License:
 //   Copyright (c) 2006-2007 Frank Blumenberg
-//   Copyright (c) 2010-2012 Tao Yue
+//   Copyright (c) 2010-2013 Tao Yue
 //
 // Portions of this file are provided under the BSD 3-clause License:
 //   Copyright (c) 2006, Jonas Beckeman
@@ -31,7 +31,7 @@ namespace PhotoshopFile
     }
 
     /// <summary>
-    /// Decode an RLE stream.
+    /// Decodes a PackBits RLE stream.
     /// </summary>
     /// <param name="buffer">Output buffer for decoded data.</param>
     /// <param name="offset">Offset at which to begin writing.</param>
@@ -49,13 +49,13 @@ namespace PhotoshopFile
         int bufferIdx = offset;
         while (bytesLeft > 0)
         {
-          // ReadByte interprets as an unsigned byte
-          var rawPacketLength = unchecked((sbyte)stream.ReadByte());
+          // ReadByte returns an unsigned byte, but we want a signed byte.
+          var flagCounter = unchecked((sbyte)stream.ReadByte());
 
           // Raw packet
-          if (rawPacketLength > 0)
+          if (flagCounter > 0)
           {
-            var readLength = rawPacketLength + 1;
+            var readLength = flagCounter + 1;
             if (bytesLeft < readLength)
               throw new RleException("Raw packet overruns the decode window.");
 
@@ -65,9 +65,9 @@ namespace PhotoshopFile
             bytesLeft -= readLength;
           }
           // RLE packet
-          else if (rawPacketLength > -128)
+          else if (flagCounter > -128)
           {
-            var runLength = 1 - rawPacketLength;
+            var runLength = 1 - flagCounter;
             var byteValue = (byte)stream.ReadByte();
             if (runLength > bytesLeft)
               throw new RleException("RLE packet overruns the decode window.");

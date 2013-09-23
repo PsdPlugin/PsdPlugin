@@ -5,7 +5,7 @@
 //
 // This software is provided under the MIT License:
 //   Copyright (c) 2006-2007 Frank Blumenberg
-//   Copyright (c) 2010-2012 Tao Yue
+//   Copyright (c) 2010-2013 Tao Yue
 //
 // See LICENSE.txt for complete licensing and attribution information.
 //
@@ -15,15 +15,14 @@
 using System;
 using System.IO;
 using System.Linq;
+using System.Text;
 
 using NUnit.Framework;
 
-using PhotoshopFile;
-
-namespace Tests
+namespace PhotoshopFile.Tests
 {
   [TestFixture]
-  public class RleTest
+  public class RleTests
   {
     private const int rowCount = 200;
     private const int bytesPerRow = 1000;
@@ -54,11 +53,11 @@ namespace Tests
       byte[] decodedData = null;
       try
       {
-        // We cannot verify the encoded data directly, as there are multiple
-        // RLE representations depending on the algorithm used.  So we will
-        // encode then decode, and compare the decoded data.  The RleReaderTest
-        // verifies that decoding is working properly, so all we're testing
-        // is the encoding.
+        // This method does not check ambiguous cases where there are multiple
+        // ways to encode the same data.  Instead, it checks that the RLE is a
+        // valid representation of the original data, by encoding and then
+        // decoding.  We know that decoding works correctly because the
+        // RleReaderTest checks it with specific tests packets.
         var rleStream = new MemoryStream();
         var rleWriter = new RleWriter(rleStream);
         var offset = 0;
@@ -80,6 +79,68 @@ namespace Tests
 
       Assert.AreEqual(testData.Data, decodedData,
         "Decoded RLE stream differs from original data, seed = " + testData.Seed);
+    }
+
+    /// <summary>
+    /// Verifies that two-byte runs are encoded as Photoshop would do it,
+    /// rather than according to the Apple or TIFF PackBits specifications.
+    /// </summary>
+    [TestCase]
+    public void RleWriterPairTest()
+    {
+      // Pairs encoded as repeats, within a string of repeats.
+      var bracketedByRepeats = new RlePackets(new IRlePacket[]
+      {
+        new RepeatPacket(3, 'A'),
+        new RepeatPacket(2, 'B'),
+        new RepeatPacket(2, 'C'),
+        new RepeatPacket(4, 'A')
+      });
+      CheckEncoding(bracketedByRepeats);
+
+      // Pairs encoded as repeats, because they are followed but not
+      // preceded by a literal.
+      var followedByLiteral = new RlePackets(new IRlePacket[]
+      {
+        new RepeatPacket(5, 'Z'),
+        new RepeatPacket(2, 'A'),
+        new RepeatPacket(2, 'B'),
+        new RepeatPacket(2, 'C'),
+        new LiteralPacket("ZYZY")
+      });
+      CheckEncoding(followedByLiteral);
+      var startsWithPairs = new RlePackets(new IRlePacket[]
+      {
+        new RepeatPacket(2, 'A'),
+        new RepeatPacket(2, 'B'),
+        new RepeatPacket(2, 'C'),
+        new LiteralPacket("ZYZY")
+      });
+      CheckEncoding(startsWithPairs);
+
+      // Pairs encoded as literal, because they are preceded by a literal.
+      var precededByLiteral = new RlePackets(new IRlePacket[]
+      {
+        new LiteralPacket("ZYXAABBCC")
+      });
+      CheckEncoding(precededByLiteral);
+
+      // Pairs encoded as literal, because they are bracketed by literals.
+      var bracketedByLiterals = new RlePackets(new IRlePacket[]
+      {
+        new LiteralPacket("ZYXAABBZYX"),
+        new RepeatPacket(5, 'Z')
+      });
+      CheckEncoding(bracketedByLiterals);
+    }
+
+    private void CheckEncoding(RlePackets packets)
+    {
+      var stream = new MemoryStream(500);
+      packets.WriteEncoding(stream);
+
+      stream.Position = 0;
+      packets.ReadAndCheckEncoding(stream);
     }
 
     private byte[] DecodeRleData(byte[] rleData, int[] dataLengths)
@@ -264,6 +325,116 @@ namespace Tests
 
         var lastByte = *(ptrData - 1);
         return lastByte;
+      }
+    }
+
+    private interface IRlePacket
+    {
+      void WritePacket(Stream stream);
+
+      void ReadAndCheckPacket(Stream stream);
+    }
+
+    private class RepeatPacket : IRlePacket
+    {
+      private int count;
+      private byte value;
+
+      public RepeatPacket(int count, char value)
+      {
+        this.count = count;
+        this.value = (byte)value;
+      }
+
+      public void WritePacket(Stream stream)
+      {
+        var flagCounter = unchecked((byte)(1 - count));
+        stream.WriteByte(flagCounter);
+        stream.WriteByte(value);
+      }
+
+      public void ReadAndCheckPacket(Stream stream)
+      {
+        var flagCounter = unchecked((sbyte)stream.ReadByte());
+        Assert.That((flagCounter > -128) && (flagCounter <= 0),
+          "Flag counter does not indicate a replicate.");
+
+        var runLength = 1 - flagCounter;
+        Assert.AreEqual(runLength, this.count,
+          "Flag counter does not match expected run length.");
+
+        var replicateByte = stream.ReadByte();
+        Assert.AreEqual(replicateByte, value,
+          "Replicate byte does not match.");
+      }
+    }
+
+    private class LiteralPacket : IRlePacket
+    {
+      private byte[] value;
+
+      public LiteralPacket(string value)
+        : this(Encoding.ASCII.GetBytes(value))
+      {
+      }
+
+      public LiteralPacket(byte[] value)
+      {
+        if (value.Length > 128)
+          throw new ArgumentException(
+            "Literal packets have a maximum length of 128.");
+
+        this.value = value;
+      }
+
+      public void WritePacket(Stream stream)
+      {
+        var flagCounter = unchecked((byte)(value.Length - 1));
+        stream.WriteByte(flagCounter);
+        stream.Write(value, 0, value.Length);
+      }
+
+      public void ReadAndCheckPacket(Stream stream)
+      {
+        var flagCounter = unchecked((sbyte)stream.ReadByte());
+        Assert.GreaterOrEqual(flagCounter, 0,
+          "Flag counter does not indicate a literal.");
+
+        var count = flagCounter + 1;
+        Assert.AreEqual(count, value.Length,
+          "Flag counter does not match literal data length.");
+
+        var streamLiteral = new byte[count];
+        stream.Read(streamLiteral, 0, count);
+        Assert.AreEqual(streamLiteral, value,
+          "Literal data packet does not match.");
+      }
+    }
+
+    private class RlePackets
+    {
+      IRlePacket[] packets;
+
+      public RlePackets(IRlePacket[] packets)
+      {
+        this.packets = packets;
+      }
+
+      public void WriteEncoding(Stream stream)
+      {
+        foreach (var packet in packets)
+        {
+          packet.WritePacket(stream);
+        }
+        stream.Flush();
+      }
+
+      public void ReadAndCheckEncoding(Stream stream)
+      {
+        foreach (var packet in packets)
+        {
+          packet.ReadAndCheckPacket(stream);
+        }
       }
     }
   }

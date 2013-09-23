@@ -18,12 +18,10 @@ using System.Text;
 
 using NUnit.Framework;
 
-using PhotoshopFile;
-
-namespace Tests
+namespace PhotoshopFile.Tests
 {
   [TestFixture]
-  public class ImageResourceTest
+  public class ImageResourceTests
   {
     [Test]
     public void ImageResourceGetSetTest()
