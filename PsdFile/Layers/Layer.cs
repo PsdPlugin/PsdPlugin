@@ -198,7 +198,7 @@ namespace PhotoshopFile
     /// </summary>
     public void CreateMissingChannels()
     {
-      var channelCount = this.PsdFile.ColorMode.ChannelCount();
+      var channelCount = this.PsdFile.ColorMode.MinChannelCount();
       for (short id = 0; id < channelCount; id++)
       {
         if (!this.Channels.ContainsId(id))

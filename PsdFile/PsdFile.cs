@@ -670,51 +670,42 @@ namespace PhotoshopFile
     {
       Debug.WriteLine("LoadImage started at " + reader.BaseStream.Position.ToString(CultureInfo.InvariantCulture));
 
-      BaseLayer.Rect = new Rectangle(0, 0, ColumnCount, RowCount);
       ImageCompression = (ImageCompression)reader.ReadInt16();
-      switch (ImageCompression)
+
+      // Create channels
+      for (Int16 i = 0; i < ChannelCount; i++)
       {
-        case ImageCompression.Raw:
-          var length = this.RowCount * Util.BytesPerRow(BaseLayer.Rect, BitDepth);
-          for (Int16 i = 0; i < ChannelCount; i++)
-          {
-            var channel = new Channel(i, this.BaseLayer);
-            channel.ImageCompression = ImageCompression;
-            channel.Length = length;
-            channel.ImageData = reader.ReadBytes(length);
-            BaseLayer.Channels.Add(channel);
-          }
-          break;
+        var channel = new Channel(i, this.BaseLayer);
+        channel.ImageCompression = ImageCompression;
+        channel.Length = this.RowCount * Util.BytesPerRow(BaseLayer.Rect, BitDepth);
 
-        case ImageCompression.Rle:
-          // Store RLE data length
-          for (Int16 i = 0; i < ChannelCount; i++)
+        // The composite image stores all RLE headers up-front, rather than
+        // with each channel.
+        if (ImageCompression == ImageCompression.Rle)
+        {
+          channel.RleHeader = reader.ReadBytes(2 * RowCount);
+          int totalRleLength = 0;
+          using (var memoryStream = new MemoryStream(channel.RleHeader))
+          using (var memoryReader = new PsdBinaryReader(memoryStream, Encoding.ASCII))
           {
-            var channel = new Channel(i, this.BaseLayer);
-            channel.RleHeader = reader.ReadBytes(2 * RowCount);
-
-            int totalRleLength = 0;
-            using (var memoryStream = new MemoryStream(channel.RleHeader))
-            using (var memoryReader = new PsdBinaryReader(memoryStream, Encoding.ASCII))
-            {
-              for (int j = 0; j < RowCount; j++)
-                totalRleLength += memoryReader.ReadUInt16();
-            }
-
-            channel.ImageCompression = this.ImageCompression;
-            channel.Length = (int)totalRleLength;
-            this.BaseLayer.Channels.Add(channel);
+            for (int j = 0; j < RowCount; j++)
+              totalRleLength += memoryReader.ReadUInt16();
           }
-          
-          foreach (var channel in this.BaseLayer.Channels)
-          {
-            channel.Data = reader.ReadBytes(channel.Length);
-          }
-          break;
+          channel.Length = (int)totalRleLength;
+        }
+
+        BaseLayer.Channels.Add(channel);
       }
 
-      // If there is one more channel than we need, then it is the alpha channel
-      if (ChannelCount == ColorMode.ChannelCount() + 1)
+      foreach (var channel in this.BaseLayer.Channels)
+      {
+        channel.Data = reader.ReadBytes(channel.Length);
+      }
+
+      // If there is exactly one more channel than we need, then it is the
+      // alpha channel.
+      if ((ColorMode != PsdColorMode.Multichannel)
+        && (ChannelCount == ColorMode.MinChannelCount() + 1))
       {
         var alphaChannel = BaseLayer.Channels.Last();
         alphaChannel.ID = -1;

@@ -206,7 +206,7 @@ namespace PhotoshopFile
       }
     }
 
-    public static short ChannelCount(this PsdColorMode colorMode)
+    public static short MinChannelCount(this PsdColorMode colorMode)
     {
       switch (colorMode)
       {
@@ -214,9 +214,9 @@ namespace PhotoshopFile
         case PsdColorMode.Duotone:
         case PsdColorMode.Grayscale:
         case PsdColorMode.Indexed:
+        case PsdColorMode.Multichannel:
           return 1;
         case PsdColorMode.Lab:
-        case PsdColorMode.Multichannel:
         case PsdColorMode.RGB:
           return 3;
         case PsdColorMode.CMYK:
