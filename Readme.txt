@@ -18,7 +18,8 @@ Installation
 -------------
 
 1. Exit all instances of Paint.NET.
-2. Copy Photoshop.dll into the FileTypes directory.
+2. Copy Photoshop.dll into the C:\Program Files\Paint.NET\FileTypes
+   directory.
 3. Restart Paint.NET, which will automatically detect the plugin.
 
 A copy of Paint.NET can be obtained from the official website:
