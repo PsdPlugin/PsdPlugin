@@ -123,6 +123,9 @@
     <Compile Include="..\PsdFile\RleReader.cs">
       <Link>PsdFile\RleReader.cs</Link>
     </Compile>
+    <Compile Include="..\PsdFile\RleRowLengths.cs">
+      <Link>PsdFile\RleRowLengths.cs</Link>
+    </Compile>
     <Compile Include="..\PsdFile\RleWriter.cs">
       <Link>PsdFile\RleWriter.cs</Link>
     </Compile>

@@ -683,15 +683,8 @@ namespace PhotoshopFile
         // with each channel.
         if (ImageCompression == ImageCompression.Rle)
         {
-          channel.RleHeader = reader.ReadBytes(2 * RowCount);
-          int totalRleLength = 0;
-          using (var memoryStream = new MemoryStream(channel.RleHeader))
-          using (var memoryReader = new PsdBinaryReader(memoryStream, Encoding.ASCII))
-          {
-            for (int j = 0; j < RowCount; j++)
-              totalRleLength += memoryReader.ReadUInt16();
-          }
-          channel.Length = (int)totalRleLength;
+          channel.RleRowLengths = new RleRowLengths(reader, RowCount);
+          channel.Length = channel.RleRowLengths.Total;
         }
 
         BaseLayer.Channels.Add(channel);
@@ -722,7 +715,7 @@ namespace PhotoshopFile
       if (this.ImageCompression == PhotoshopFile.ImageCompression.Rle)
       {
         foreach (var channel in this.BaseLayer.Channels)
-          writer.Write(channel.RleHeader);
+          channel.RleRowLengths.Write(writer);
       }
       foreach (var channel in this.BaseLayer.Channels)
       {
