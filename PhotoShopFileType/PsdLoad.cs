@@ -26,8 +26,7 @@ namespace PaintDotNet.Data.PhotoshopFileType
     public static Document Load(System.IO.Stream input)
     {
       // Load and decompress Photoshop file structures
-      var psdFile = new PsdFile();
-      psdFile.Load(input, Encoding.Default);
+      var psdFile = new PsdFile(input, Encoding.Default);
 
       // Multichannel images are loaded by processing each channel as a
       // grayscale layer.

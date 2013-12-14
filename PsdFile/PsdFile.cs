@@ -42,7 +42,9 @@ namespace PhotoshopFile
 
   public class PsdFile
   {
-
+    /// <summary>
+    /// Represents the composite image.
+    /// </summary>
     public Layer BaseLayer { get; set; }
 
     public ImageCompression ImageCompression { get; set; }
@@ -53,24 +55,30 @@ namespace PhotoshopFile
     {
       Version = 1;
       BaseLayer = new Layer(this);
-      BaseLayer.Rect = new Rectangle(0, 0, 0, 0);
 
       ImageResources = new ImageResources();
       Layers = new List<Layer>();
       AdditionalInfo = new List<LayerInfo>();
     }
 
-    ///////////////////////////////////////////////////////////////////////////
-
-    public void Load(string fileName, Encoding encoding)
+    public PsdFile(string filename, Encoding encoding)
+      : this()
     {
-      using (var stream = new FileStream(fileName, FileMode.Open))
+      using (var stream = new FileStream(filename, FileMode.Open))
       {
         Load(stream, encoding);
       }
     }
 
-    public void Load(Stream stream, Encoding encoding)
+    public PsdFile(Stream stream, Encoding encoding)
+      : this()
+    {
+      Load(stream, encoding);
+    }
+
+    ///////////////////////////////////////////////////////////////////////////
+
+    private void Load(Stream stream, Encoding encoding)
     {
       var reader = new PsdBinaryReader(stream, encoding);
 
@@ -295,8 +303,6 @@ namespace PhotoshopFile
     {
       Debug.WriteLine("LoadImageResources started at " + reader.BaseStream.Position.ToString(CultureInfo.InvariantCulture));
 
-      ImageResources.Clear();
-
       var imageResourcesLength = reader.ReadUInt32();
       if (imageResourcesLength <= 0)
         return;
@@ -442,8 +448,6 @@ namespace PhotoshopFile
         AbsoluteAlpha = true;
         numLayers = Math.Abs(numLayers);
       }
-
-      Layers.Clear();
       if (numLayers == 0)
         return;
 

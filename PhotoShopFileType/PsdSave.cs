@@ -51,7 +51,6 @@ namespace PaintDotNet.Data.PhotoshopFileType
 
       // Allocate space for the image data
       int imageSize = psdFile.RowCount * psdFile.ColumnCount;
-      psdFile.Layers.Clear();
       for (short i = 0; i < psdFile.ChannelCount; i++)
       {
         var channel = new Channel(i, psdFile.BaseLayer);
