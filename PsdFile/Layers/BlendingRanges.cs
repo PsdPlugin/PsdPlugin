@@ -5,7 +5,7 @@
 //
 // This software is provided under the MIT License:
 //   Copyright (c) 2006-2007 Frank Blumenberg
-//   Copyright (c) 2010-2012 Tao Yue
+//   Copyright (c) 2010-2013 Tao Yue
 //
 // Portions of this file are provided under the BSD 3-clause License:
 //   Copyright (c) 2006, Jonas Beckeman
@@ -56,6 +56,12 @@ namespace PhotoshopFile
     public void Save(PsdBinaryWriter writer)
     {
       Debug.WriteLine("BlendingRanges Save started at " + writer.BaseStream.Position.ToString(CultureInfo.InvariantCulture));
+
+      if (Data == null)
+      {
+        writer.Write((UInt32)0);
+        return;
+      }
 
       writer.Write((UInt32)Data.Length);
       writer.Write(Data);
