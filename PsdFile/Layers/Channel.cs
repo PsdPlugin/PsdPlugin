@@ -384,15 +384,15 @@ namespace PhotoshopFile
       }
       else if (ImageCompression == ImageCompression.Rle)
       {
-        RleRowLengths = new RleRowLengths(Layer.Rect.Height);
+        RleRowLengths = new RleRowLengths(Rect.Height);
 
         using (var dataStream = new MemoryStream())
         {
           var rleWriter = new RleWriter(dataStream);
-          var bytesPerRow = Util.BytesPerRow(Layer.Rect, Layer.PsdFile.BitDepth);
-          for (int row = 0; row < Layer.Rect.Height; row++)
+          var bytesPerRow = Util.BytesPerRow(Rect, Layer.PsdFile.BitDepth);
+          for (int row = 0; row < Rect.Height; row++)
           {
-            int rowIndex = row * Layer.Rect.Width;
+            int rowIndex = row * Rect.Width;
             RleRowLengths[row] = rleWriter.Write(
               ImageData, rowIndex, bytesPerRow);
           }
@@ -403,7 +403,7 @@ namespace PhotoshopFile
           Debug.Assert(RleRowLengths.Total == ImageDataRaw.Length,
             "RLE row lengths do not sum to the compressed data length.");
         }
-        Length = 2 + 2 * Layer.Rect.Height + ImageDataRaw.Length;
+        Length = 2 + 2 * Rect.Height + ImageDataRaw.Length;
       }
       else
       {
