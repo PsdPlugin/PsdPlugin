@@ -111,41 +111,22 @@ namespace PhotoshopFile
     /// </summary>
     public int Length { get; set; }
 
-    private byte[] data;
-    private bool dataDecompressed;
     /// <summary>
-    /// Compressed raw channel data, excluding compression headers.
+    /// Raw image data for this color channel, in compressed on-disk format.
     /// </summary>
-    public byte[] Data
-    {
-      get { return data; }
-      set
-      {
-        data = value;
-        dataDecompressed = false;
+    /// <remarks>
+    /// If null, the ImageData will be automatically compressed during save.
+    /// </remarks>
+    public byte[] ImageDataRaw { get; set; }
 
-        imageData = null;
-        imageDataCompressed = true;
-      }
-    }
-
-    private byte[] imageData;
-    private bool imageDataCompressed;
     /// <summary>
-    /// Decompressed image data from the channel.
+    /// Decompressed image data for this color channel.
     /// </summary>
-    public byte[] ImageData
-    {
-      get { return imageData; } 
-      set
-      {
-        imageData = value;
-        imageDataCompressed = false;
-
-        data = null;
-        dataDecompressed = true;
-      }
-    }
+    /// <remarks>
+    /// When making changes to the ImageData, set ImageDataRaw to null so that
+    /// the correct data will be compressed during save.
+    /// </remarks>
+    public byte[] ImageData { get; set; }
 
     /// <summary>
     /// Image compression method used.
@@ -187,13 +168,12 @@ namespace PhotoshopFile
 
       var endPosition = reader.BaseStream.Position + this.Length;
       ImageCompression = (ImageCompression)reader.ReadInt16();
-      imageDataCompressed = true;
       var dataLength = this.Length - 2;
 
       switch (ImageCompression)
       {
         case ImageCompression.Raw:
-          ImageData = reader.ReadBytes(dataLength);
+          ImageDataRaw = reader.ReadBytes(dataLength);
           break;
         case ImageCompression.Rle:
           // RLE row lengths
@@ -203,33 +183,42 @@ namespace PhotoshopFile
           // The PSD specification states that rows are padded to even sizes.
           // However, Photoshop doesn't actually do this.  RLE rows can have
           // odd lengths in the header, and there is no padding between rows.
-          Data = reader.ReadBytes(rleDataLength);
+          ImageDataRaw = reader.ReadBytes(rleDataLength);
           break;
         case ImageCompression.Zip:
         case ImageCompression.ZipPrediction:
-          Data = reader.ReadBytes(dataLength);
+          ImageDataRaw = reader.ReadBytes(dataLength);
           break;
       }
 
       Debug.Assert(reader.BaseStream.Position == endPosition, "Pixel data successfully read in.");
     }
 
-    public void DecompressImageData()
+    /// <summary>
+    /// Decodes the raw image data from the compressed on-disk format into
+    /// an uncompressed bitmap, in native byte order.
+    /// </summary>
+    public void DecodeImageData()
     {
-      if (dataDecompressed)
-        return;
-
-      if (ImageCompression == ImageCompression.Raw)
-      {
-        imageData = data;
-      }
+      if (this.ImageCompression == ImageCompression.Raw)
+        ImageData = ImageDataRaw;
       else
+        DecompressImageData();
+
+      // Rearrange the decompressed bytes into words, with native byte order.
+      if (ImageCompression == ImageCompression.ZipPrediction)
+        UnpredictImageData(Rect);
+      else
+        ReverseEndianness(ImageData, Rect);
+    }
+
+    private void DecompressImageData()
+    {
+      using (var stream = new MemoryStream(ImageDataRaw))
       {
         var bytesPerRow = Util.BytesPerRow(Rect, Layer.PsdFile.BitDepth);
         var bytesTotal = Rect.Height * bytesPerRow;
-
-        imageData = new byte[bytesTotal];
-        var stream = new MemoryStream(Data);
+        ImageData = new byte[bytesTotal];
 
         switch (this.ImageCompression)
         {
@@ -238,19 +227,20 @@ namespace PhotoshopFile
             for (int i = 0; i < Rect.Height; i++)
             {
               int rowIndex = i * bytesPerRow;
-              rleReader.Read(imageData, rowIndex, bytesPerRow);
+              rleReader.Read(ImageData, rowIndex, bytesPerRow);
             }
             break;
 
           case ImageCompression.Zip:
           case ImageCompression.ZipPrediction:
+
             // .NET implements Deflate (RFC 1951) but not zlib (RFC 1950),
             // so we have to skip the first two bytes.
             stream.ReadByte();
             stream.ReadByte();
 
             var deflateStream = new DeflateStream(stream, CompressionMode.Decompress);
-            var bytesDecompressed = deflateStream.Read(imageData, 0, bytesTotal);
+            var bytesDecompressed = deflateStream.Read(ImageData, 0, bytesTotal);
             Debug.Assert(bytesDecompressed == bytesTotal,
               "ZIP deflation output is different length than expected.");
             break;
@@ -259,16 +249,6 @@ namespace PhotoshopFile
             throw new PsdInvalidException("Unknown image compression method.");
         }
       }
-
-      // Convert the decompressed image data into a little-endian scanline
-      // bitmap.
-      if (ImageCompression == ImageCompression.ZipPrediction)
-        UnpredictImageData(Rect);
-      else
-        ReverseEndianness(imageData, Rect);
-
-
-      dataDecompressed = true;
     }
 
     private void ReverseEndianness(byte[] buffer, Rectangle rect)
@@ -302,9 +282,9 @@ namespace PhotoshopFile
       {
         // 16-bitdepth images are delta-encoded word-by-word.  The deltas
         // are thus big-endian and must be reversed for further processing.
-        ReverseEndianness(imageData, rect);
+        ReverseEndianness(ImageData, rect);
 
-        fixed (byte* ptrData = &imageData[0])
+        fixed (byte* ptrData = &ImageData[0])
         {
           // Delta-decode each row
           for (int iRow = 0; iRow < rect.Height; iRow++)
@@ -324,8 +304,8 @@ namespace PhotoshopFile
       }
       else if (Layer.PsdFile.BitDepth == 32)
       {
-        var reorderedData = new byte[imageData.Length];
-        fixed (byte* ptrData = &imageData[0]) 
+        var reorderedData = new byte[ImageData.Length];
+        fixed (byte* ptrData = &ImageData[0]) 
         {
           // Delta-decode each row
           for (int iRow = 0; iRow < rect.Height; iRow++)
@@ -371,7 +351,7 @@ namespace PhotoshopFile
           }
         }
 
-        imageData = reorderedData;
+        ImageData = reorderedData;
       }
       else
       {
@@ -379,15 +359,24 @@ namespace PhotoshopFile
       }
     }
 
+    /// <summary>
+    /// Compresses the image data.
+    /// </summary>
     public void CompressImageData()
     {
-      // Can be called implicitly by Layer.PrepareSave or explicitly by the
-      // consumer of this library.  Since image data compression can take
-      // some time, explicit calling makes more accurate progress available.
-      if (imageDataCompressed)
+      // Do not recompress if compressed data is already present.
+      if (ImageDataRaw != null)
         return;
 
-      if (ImageCompression == ImageCompression.Rle)
+      if (ImageData == null)
+        return;
+
+      if (ImageCompression == ImageCompression.Raw)
+      {
+        ImageDataRaw = ImageData;
+        this.Length = 2 + ImageDataRaw.Length;
+      }
+      else if (ImageCompression == ImageCompression.Rle)
       {
         var dataStream = new MemoryStream();
         var headerStream = new MemoryStream();
@@ -417,18 +406,15 @@ namespace PhotoshopFile
 
         // Save compressed data
         dataStream.Flush();
-        data = dataStream.ToArray();
+        ImageDataRaw = dataStream.ToArray();
         dataStream.Close();
 
-        Length = 2 + RleHeader.Length + Data.Length;
+        Length = 2 + RleHeader.Length + ImageDataRaw.Length;
       }
       else
       {
-        data = ImageData;
-        this.Length = 2 + Data.Length;
+        throw new NotImplementedException("Only raw and RLE compression have been implemented.");
       }
-
-      imageDataCompressed = true;
     }
 
     internal void SavePixelData(PsdBinaryWriter writer)
@@ -436,12 +422,12 @@ namespace PhotoshopFile
       Debug.WriteLine("Channel SavePixelData started at " + writer.BaseStream.Position.ToString(CultureInfo.InvariantCulture));
 
       writer.Write((short)ImageCompression);
-      if (Data == null)
+      if (ImageDataRaw == null)
         return;
       
       if (ImageCompression == PhotoshopFile.ImageCompression.Rle)
         writer.Write(this.RleHeader);
-      writer.Write(Data);
+      writer.Write(ImageDataRaw);
     }
 
   }

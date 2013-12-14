@@ -699,7 +699,7 @@ namespace PhotoshopFile
 
       foreach (var channel in this.BaseLayer.Channels)
       {
-        channel.Data = reader.ReadBytes(channel.Length);
+        channel.ImageDataRaw = reader.ReadBytes(channel.Length);
       }
 
       // If there is exactly one more channel than we need, then it is the
@@ -726,7 +726,7 @@ namespace PhotoshopFile
       }
       foreach (var channel in this.BaseLayer.Channels)
       {
-        writer.Write(channel.Data);
+        writer.Write(channel.ImageDataRaw);
       }
     }
 
@@ -743,7 +743,7 @@ namespace PhotoshopFile
 
       public void DecompressChannel(object context)
       {
-        ch.DecompressImageData();
+        ch.DecodeImageData();
       }
     }
 
