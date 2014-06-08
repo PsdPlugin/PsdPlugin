@@ -5,7 +5,7 @@
 //
 // This software is provided under the MIT License:
 //   Copyright (c) 2006-2007 Frank Blumenberg
-//   Copyright (c) 2010-2013 Tao Yue
+//   Copyright (c) 2010-2014 Tao Yue
 //
 // Portions of this file are provided under the BSD 3-clause License:
 //   Copyright (c) 2006, Jonas Beckeman
@@ -367,7 +367,7 @@ namespace PhotoshopFile
 
       while (reader.BaseStream.Position < endPosition)
       {
-        var info = LayerInfoFactory.Load(reader);
+        var info = LayerInfoFactory.Load(reader, true);
         AdditionalInfo.Add(info);
 
         if (info is RawLayerInfo)
@@ -412,7 +412,9 @@ namespace PhotoshopFile
         SaveGlobalLayerMask(writer);
         
         foreach (var info in AdditionalInfo)
-          info.Save(writer);
+        {
+          info.Save(writer, true);
+        }
 
         writer.WritePadding(startPosition, 2);
       }

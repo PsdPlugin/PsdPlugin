@@ -5,7 +5,7 @@
 //
 // This software is provided under the MIT License:
 //   Copyright (c) 2006-2007 Frank Blumenberg
-//   Copyright (c) 2010-2013 Tao Yue
+//   Copyright (c) 2010-2014 Tao Yue
 //
 // See LICENSE.txt for complete licensing and attribution information.
 //
@@ -19,7 +19,14 @@ namespace PhotoshopFile
 {
   public static class LayerInfoFactory
   {
-    public static LayerInfo Load(PsdBinaryReader reader)
+    /// <summary>
+    /// Loads the next LayerInfo record.
+    /// </summary>
+    /// <param name="reader">The file reader</param>
+    /// <param name="globalLayerInfo">True if the LayerInfo record is being
+    ///   loaded from the end of the Layer and Mask Information section;
+    ///   false if it is being loaded from the end of a Layer record.</param>
+    public static LayerInfo Load(PsdBinaryReader reader, bool globalLayerInfo)
     {
       Debug.WriteLine("LayerInfoFactory.Load started at " + reader.BaseStream.Position);
       
@@ -56,9 +63,15 @@ namespace PhotoshopFile
       //   2. However, some keys (LMsk) have even-padded lengths.
       //   3. Other keys (Txt2, Lr16, Lr32) have unpadded lengths.
       //
-      // The data is always 4-padded, regardless of the stated length.
+      // Photoshop writes data that is always 4-padded, even when the stated
+      // length is not a multiple of 4.  The length mismatch seems to occur
+      // only on global layer info.  We do not read extra padding in other
+      // cases because third-party programs are likely to follow the spec.
 
-      reader.ReadPadding(startPosition, 4);
+      if (globalLayerInfo)
+      {
+        reader.ReadPadding(startPosition, 4);
+      }      
 
       return result;
     }
@@ -70,7 +83,7 @@ namespace PhotoshopFile
 
     protected abstract void WriteData(PsdBinaryWriter writer);
 
-    public void Save(PsdBinaryWriter writer)
+    public void Save(PsdBinaryWriter writer, bool globalLayerInfo)
     {
       Debug.WriteLine("LayerInfo.Save started at " + writer.BaseStream.Position);
 
@@ -86,9 +99,12 @@ namespace PhotoshopFile
         WriteData(writer);
       }
 
-      // Regardless of how the length is padded, the data is always padded to
-      // a multiple of 4.
-      writer.WritePadding(startPosition, 4);
+      // Data for global layer info is always padded to a multiple of 4,
+      // even if this causes the stated length to be incorrect.
+      if (globalLayerInfo)
+      {
+        writer.WritePadding(startPosition, 4);
+      }
     }
   }
 }
