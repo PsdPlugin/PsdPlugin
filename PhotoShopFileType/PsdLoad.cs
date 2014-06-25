@@ -5,7 +5,7 @@
 //
 // This software is provided under the MIT License:
 //   Copyright (c) 2006-2007 Frank Blumenberg
-//   Copyright (c) 2010-2013 Tao Yue
+//   Copyright (c) 2010-2014 Tao Yue
 //
 // See LICENSE.txt for complete licensing and attribution information.
 //
@@ -63,7 +63,7 @@ namespace PaintDotNet.Data.PhotoshopFileType
           pdnLayer.Name = psdLayer.Name;
           pdnLayer.Opacity = psdLayer.Opacity;
           pdnLayer.Visible = psdLayer.Visible;
-          pdnLayer.SetBlendOp(BlendOpMapping.FromPsdBlendMode(psdLayer.BlendModeKey));
+          pdnLayer.BlendMode = BlendModeMapping.FromPsdBlendMode(psdLayer.BlendModeKey);
           pdnLayers[i] = pdnLayer;
 
           var context = new LoadLayerContext(psdLayer, pdnLayer);
