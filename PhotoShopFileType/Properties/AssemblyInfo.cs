@@ -5,7 +5,7 @@
 //
 // This software is provided under the MIT License:
 //   Copyright (c) 2006-2007 Frank Blumenberg
-//   Copyright (c) 2010-2013 Tao Yue
+//   Copyright (c) 2010-2014 Tao Yue
 //
 // See LICENSE.txt for complete licensing and attribution information.
 //
@@ -23,7 +23,7 @@ using System.Runtime.InteropServices;
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("")]
 [assembly: AssemblyProduct("Paint.NET PSD Plugin")]
-[assembly: AssemblyCopyright("Copyright © 2006-2013 Frank Blumenberg and Tao Yue")]
+[assembly: AssemblyCopyright("Copyright © 2006-2014 Frank Blumenberg and Tao Yue")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
 
@@ -44,5 +44,5 @@ using System.Runtime.InteropServices;
 //
 // You can specify all the values or you can default the Revision and Build Numbers 
 // by using the '*' as shown below:
-[assembly: AssemblyVersion("2.4.0.*")]
-[assembly: AssemblyFileVersion("2.4.0.0")]
+[assembly: AssemblyVersion("2.4.1.*")]
+[assembly: AssemblyFileVersion("2.4.1.0")]
