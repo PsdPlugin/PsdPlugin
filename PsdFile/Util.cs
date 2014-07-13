@@ -5,7 +5,7 @@
 //
 // This software is provided under the MIT License:
 //   Copyright (c) 2006-2007 Frank Blumenberg
-//   Copyright (c) 2010-2013 Tao Yue
+//   Copyright (c) 2010-2014 Tao Yue
 //
 // See LICENSE.txt for complete licensing and attribution information.
 //
@@ -15,6 +15,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
+using System.IO;
 using System.Linq;
 using System.Text;
 
@@ -241,6 +242,19 @@ namespace PhotoshopFile
         return false;
 
       return true;
+    }
+
+    /// <summary>
+    /// Writes a message to the debug console, indicating the current position
+    /// in the stream in both decimal and hexadecimal formats.
+    /// </summary>
+    [Conditional("DEBUG")]
+    public static void DebugMessage(Stream stream, string message,
+      params object[] args)
+    {
+      var formattedMessage = String.Format(message, args);
+      Debug.WriteLine("0x{0:x}, {0}, {1}",
+        stream.Position, formattedMessage);
     }
   }
 

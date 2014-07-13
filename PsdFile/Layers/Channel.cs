@@ -5,7 +5,7 @@
 //
 // This software is provided under the MIT License:
 //   Copyright (c) 2006-2007 Frank Blumenberg
-//   Copyright (c) 2010-2013 Tao Yue
+//   Copyright (c) 2010-2014 Tao Yue
 //
 // Portions of this file are provided under the BSD 3-clause License:
 //   Copyright (c) 2006, Jonas Beckeman
@@ -148,26 +148,30 @@ namespace PhotoshopFile
 
     internal Channel(PsdBinaryReader reader, Layer layer)
     {
-      Debug.WriteLine("Channel started at " + reader.BaseStream.Position.ToString(CultureInfo.InvariantCulture));
+      Util.DebugMessage(reader.BaseStream, "Load, Begin, Channel");
         
       ID = reader.ReadInt16();
       Length = reader.ReadInt32();
       Layer = layer;
+
+      Util.DebugMessage(reader.BaseStream, "Load, End, Channel, {0}", ID);
     }
 
     internal void Save(PsdBinaryWriter writer)
     {
-      Debug.WriteLine("Channel Save started at " + writer.BaseStream.Position.ToString(CultureInfo.InvariantCulture));
+      Util.DebugMessage(writer.BaseStream, "Save, Begin, Channel");
 
       writer.Write(ID);
       writer.Write(Length);
+
+      Util.DebugMessage(writer.BaseStream, "Save, End, Channel, {0}", ID);
     }
 
     //////////////////////////////////////////////////////////////////
 
     internal void LoadPixelData(PsdBinaryReader reader)
     {
-      Debug.WriteLine("Channel.LoadPixelData started at " + reader.BaseStream.Position.ToString(CultureInfo.InvariantCulture));
+      Util.DebugMessage(reader.BaseStream, "Load, Begin, Channel image");
 
       var endPosition = reader.BaseStream.Position + this.Length;
       ImageCompression = (ImageCompression)reader.ReadInt16();
@@ -196,6 +200,8 @@ namespace PhotoshopFile
           break;
       }
 
+      Util.DebugMessage(reader.BaseStream, "Load, End, Channel image, {0}",
+        ID, Layer.Name);
       Debug.Assert(reader.BaseStream.Position == endPosition,
         "Pixel data was not fully read in.");
     }
@@ -413,7 +419,7 @@ namespace PhotoshopFile
 
     internal void SavePixelData(PsdBinaryWriter writer)
     {
-      Debug.WriteLine("Channel SavePixelData started at " + writer.BaseStream.Position.ToString(CultureInfo.InvariantCulture));
+      Util.DebugMessage(writer.BaseStream, "Save, Begin, Channel image");
 
       writer.Write((short)ImageCompression);
       if (ImageDataRaw == null)
@@ -422,6 +428,9 @@ namespace PhotoshopFile
       if (ImageCompression == PhotoshopFile.ImageCompression.Rle)
         RleRowLengths.Write(writer);
       writer.Write(ImageDataRaw);
+
+      Util.DebugMessage(writer.BaseStream, "Save, End, Channel image, {0}",
+        ID, Layer.Name);
     }
 
   }

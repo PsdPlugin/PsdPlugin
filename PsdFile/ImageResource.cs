@@ -5,7 +5,7 @@
 //
 // This software is provided under the MIT License:
 //   Copyright (c) 2006-2007 Frank Blumenberg
-//   Copyright (c) 2010-2013 Tao Yue
+//   Copyright (c) 2010-2014 Tao Yue
 //
 // Portions of this file are provided under the BSD 3-clause License:
 //   Copyright (c) 2006, Jonas Beckeman
@@ -137,6 +137,8 @@ namespace PhotoshopFile
     /// </summary>
     public void Save(PsdBinaryWriter writer)
     {
+      Util.DebugMessage(writer.BaseStream, "Save, Begin, ImageResource");
+
       writer.WriteAsciiChars(Signature);
       writer.Write((UInt16)ID);
       writer.WritePascalString(Name, 2);
@@ -148,6 +150,8 @@ namespace PhotoshopFile
         WriteData(writer);
       }
       writer.WritePadding(startPosition, 2);
+
+      Util.DebugMessage(writer.BaseStream, "Save, End, ImageResource, {0}", ID);
     }
 
     /// <summary>
@@ -157,7 +161,7 @@ namespace PhotoshopFile
 
     public override string ToString()
     {
-      return String.Format(CultureInfo.InvariantCulture, "{0} {1}", (ResourceID)ID, Name);
+      return String.Format(CultureInfo.InvariantCulture, "{0} {1}", ID, Name);
     }
   }
 
@@ -168,7 +172,7 @@ namespace PhotoshopFile
   {
     public static ImageResource CreateImageResource(PsdBinaryReader reader)
     {
-      Debug.Print("ImageResource started at {0}", reader.BaseStream.Position);
+      Util.DebugMessage(reader.BaseStream, "Load, Begin, ImageResource");
 
       var signature = reader.ReadAsciiChars(4);
       var resourceIdInt = reader.ReadUInt16();
@@ -202,6 +206,9 @@ namespace PhotoshopFile
           resource = new RawImageResource(reader, signature, resourceId, name, dataLength);
           break;
       }
+
+      Util.DebugMessage(reader.BaseStream, "Load, End, ImageResource, {0}",
+        resourceId);
 
       // Reposition the reader if we do not consume the full resource block.
       // This takes care of the even-padding, and also preserves forward-

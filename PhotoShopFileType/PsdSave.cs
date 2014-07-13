@@ -341,7 +341,6 @@ namespace PaintDotNet.Data.PhotoshopFileType
           var progress = progressStart + progressDelta;
 
           callback(null, new ProgressEventArgs(progress));
-          Debug.WriteLine("Reporting save progress " + progress);
         }
       }
     }

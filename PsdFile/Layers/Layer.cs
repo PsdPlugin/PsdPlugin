@@ -127,7 +127,7 @@ namespace PhotoshopFile
     public Layer(PsdBinaryReader reader, PsdFile psdFile)
       : this(psdFile)
     {
-      Debug.WriteLine("Layer started at " + reader.BaseStream.Position.ToString(CultureInfo.InvariantCulture));
+      Util.DebugMessage(reader.BaseStream, "Load, Begin, Layer");
 
       Rect = reader.ReadRectangle();
 
@@ -158,8 +158,6 @@ namespace PhotoshopFile
 
       //-----------------------------------------------------------------------
 
-      Debug.WriteLine("Layer extraDataSize started at " + reader.BaseStream.Position.ToString(CultureInfo.InvariantCulture));
-
       // This is the total size of the MaskData, the BlendingRangesData, the 
       // Name and the AdjustmentLayerInfo.
       var extraDataSize = reader.ReadUInt32();
@@ -189,6 +187,7 @@ namespace PhotoshopFile
         }
       }
 
+      Util.DebugMessage(reader.BaseStream, "Load, End, Layer, {0}", Name);
     }
 
     ///////////////////////////////////////////////////////////////////////////
@@ -249,7 +248,7 @@ namespace PhotoshopFile
 
     public void Save(PsdBinaryWriter writer)
     {
-      Debug.WriteLine("Layer Save started at " + writer.BaseStream.Position.ToString(CultureInfo.InvariantCulture));
+      Util.DebugMessage(writer.BaseStream, "Save, Begin, Layer");
 
       writer.Write(Rect);
 
@@ -267,9 +266,6 @@ namespace PhotoshopFile
       writer.Write(Clipping);
 
       writer.Write((byte)flags.Data);
-
-      //-----------------------------------------------------------------------
-
       writer.Write((byte)0);
 
       //-----------------------------------------------------------------------
@@ -290,6 +286,8 @@ namespace PhotoshopFile
           info.Save(writer, false);
         }
       }
+
+      Util.DebugMessage(writer.BaseStream, "Save, End, Layer, {0}", Name);
     }
   }
 }

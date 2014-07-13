@@ -28,7 +28,7 @@ namespace PhotoshopFile
     ///   false if it is being loaded from the end of a Layer record.</param>
     public static LayerInfo Load(PsdBinaryReader reader, bool globalLayerInfo)
     {
-      Debug.WriteLine("LayerInfoFactory.Load started at " + reader.BaseStream.Position);
+      Util.DebugMessage(reader.BaseStream, "Load, Begin, LayerInfo");
       
       var signature = reader.ReadAsciiChars(4);
       if (signature != "8BIM")
@@ -71,8 +71,10 @@ namespace PhotoshopFile
       if (globalLayerInfo)
       {
         reader.ReadPadding(startPosition, 4);
-      }      
+      }
 
+      Util.DebugMessage(reader.BaseStream, "Load, End, LayerInfo, {0}",
+        result.Key);
       return result;
     }
   }
@@ -85,7 +87,7 @@ namespace PhotoshopFile
 
     public void Save(PsdBinaryWriter writer, bool globalLayerInfo)
     {
-      Debug.WriteLine("LayerInfo.Save started at " + writer.BaseStream.Position);
+      Util.DebugMessage(writer.BaseStream, "Save, Begin, LayerInfo");
 
       writer.WriteAsciiChars("8BIM");
       writer.WriteAsciiChars(Key);
@@ -105,6 +107,8 @@ namespace PhotoshopFile
       {
         writer.WritePadding(startPosition, 4);
       }
+
+      Util.DebugMessage(writer.BaseStream, "Save, End, LayerInfo, {0}", Key);
     }
   }
 }

@@ -5,7 +5,7 @@
 //
 // This software is provided under the MIT License:
 //   Copyright (c) 2006-2007 Frank Blumenberg
-//   Copyright (c) 2010-2013 Tao Yue
+//   Copyright (c) 2010-2014 Tao Yue
 //
 // Portions of this file are provided under the BSD 3-clause License:
 //   Copyright (c) 2006, Jonas Beckeman
@@ -115,7 +115,7 @@ namespace PhotoshopFile
 
     public MaskInfo(PsdBinaryReader reader, Layer layer)
     {
-      Debug.WriteLine("MaskInfo started at " + reader.BaseStream.Position.ToString(CultureInfo.InvariantCulture));
+      Util.DebugMessage(reader.BaseStream, "Load, Begin, MaskInfo");
 
       var maskLength = reader.ReadUInt32();
       if (maskLength <= 0)
@@ -142,13 +142,15 @@ namespace PhotoshopFile
 
       // 20-byte mask data will end with padding.
       reader.BaseStream.Position = endPosition;
+
+      Util.DebugMessage(reader.BaseStream, "Load, End, MaskInfo");
     }
 
     ///////////////////////////////////////////////////////////////////////////
 
     public void Save(PsdBinaryWriter writer)
     {
-      Debug.WriteLine("MaskInfo Save started at " + writer.BaseStream.Position.ToString(CultureInfo.InvariantCulture));
+      Util.DebugMessage(writer.BaseStream, "Save, Begin, MaskInfo");
 
       if (LayerMask == null)
       {
@@ -174,6 +176,8 @@ namespace PhotoshopFile
           writer.Write(UserMask.Rect);
         }
       }
+
+      Util.DebugMessage(writer.BaseStream, "Save, End, MaskInfo");
     }
 
   }

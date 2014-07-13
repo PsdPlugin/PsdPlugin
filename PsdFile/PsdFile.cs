@@ -201,7 +201,7 @@ namespace PhotoshopFile
 
     private void LoadHeader(PsdBinaryReader reader)
     {
-      Debug.WriteLine("LoadHeader started at " + reader.BaseStream.Position.ToString(CultureInfo.InvariantCulture));
+      Util.DebugMessage(reader.BaseStream, "Load, Begin, File header");
 
       var signature = reader.ReadAsciiChars(4);
       if (signature != "8BPS")
@@ -219,13 +219,15 @@ namespace PhotoshopFile
       this.ColumnCount = reader.ReadInt32();
       BitDepth = reader.ReadInt16();
       ColorMode = (PsdColorMode)reader.ReadInt16();
+
+      Util.DebugMessage(reader.BaseStream, "Load, End, File header");
     }
 
     ///////////////////////////////////////////////////////////////////////////
 
     private void SaveHeader(PsdBinaryWriter writer)
     {
-      Debug.WriteLine("SaveHeader started at " + writer.BaseStream.Position.ToString(CultureInfo.InvariantCulture));
+      Util.DebugMessage(writer.BaseStream, "Save, Begin, File header");
 
       string signature = "8BPS";
       writer.WriteAsciiChars(signature);
@@ -236,6 +238,8 @@ namespace PhotoshopFile
       writer.Write(ColumnCount);
       writer.Write((Int16)BitDepth);
       writer.Write((Int16)ColorMode);
+
+      Util.DebugMessage(writer.BaseStream, "Save, End, File header");
     }
 
     #endregion
@@ -255,21 +259,25 @@ namespace PhotoshopFile
 
     private void LoadColorModeData(PsdBinaryReader reader)
     {
-      Debug.WriteLine("LoadColorModeData started at " + reader.BaseStream.Position.ToString(CultureInfo.InvariantCulture));
+      Util.DebugMessage(reader.BaseStream, "Load, Begin, ColorModeData");
 
       var paletteLength = reader.ReadUInt32();
       if (paletteLength > 0)
       {
         ColorModeData = reader.ReadBytes((int)paletteLength);
       }
+
+      Util.DebugMessage(reader.BaseStream, "Load, End, ColorModeData");
     }
 
     private void SaveColorModeData(PsdBinaryWriter writer)
     {
-      Debug.WriteLine("SaveColorModeData started at " + writer.BaseStream.Position.ToString(CultureInfo.InvariantCulture));
+      Util.DebugMessage(writer.BaseStream, "Save, Begin, ColorModeData");
 
       writer.Write((UInt32)ColorModeData.Length);
       writer.Write(ColorModeData);
+
+      Util.DebugMessage(writer.BaseStream, "Save, End, ColorModeData");
     }
 
     #endregion
@@ -301,7 +309,7 @@ namespace PhotoshopFile
 
     private void LoadImageResources(PsdBinaryReader reader)
     {
-      Debug.WriteLine("LoadImageResources started at " + reader.BaseStream.Position.ToString(CultureInfo.InvariantCulture));
+      Util.DebugMessage(reader.BaseStream, "Load, Begin, ImageResources");
 
       var imageResourcesLength = reader.ReadUInt32();
       if (imageResourcesLength <= 0)
@@ -315,6 +323,8 @@ namespace PhotoshopFile
         ImageResources.Add(imageResource);
       }
 
+      Util.DebugMessage(reader.BaseStream, "Load, End, ImageResources");
+
       //-----------------------------------------------------------------------
       // make sure we are not on a wrong offset, so set the stream position 
       // manually
@@ -325,13 +335,15 @@ namespace PhotoshopFile
 
     private void SaveImageResources(PsdBinaryWriter writer)
     {
-     Debug.WriteLine("SaveImageResources started at " + writer.BaseStream.Position.ToString(CultureInfo.InvariantCulture));
+      Util.DebugMessage(writer.BaseStream, "Save, Begin, ImageResources");
 
       using (new PsdBlockLengthWriter(writer))
       {
         foreach (var imgRes in ImageResources)
           imgRes.Save(writer);
       }
+
+      Util.DebugMessage(writer.BaseStream, "Save, End, ImageResources");
     }
 
     #endregion
@@ -350,7 +362,7 @@ namespace PhotoshopFile
 
     private void LoadLayerAndMaskInfo(PsdBinaryReader reader)
     {
-      Debug.WriteLine("LoadLayerAndMaskInfo started at " + reader.BaseStream.Position.ToString(CultureInfo.InvariantCulture));
+      Util.DebugMessage(reader.BaseStream, "Load, Begin, Layer and mask info");
 
       var layersAndMaskLength = reader.ReadUInt32();
       if (layersAndMaskLength <= 0)
@@ -392,6 +404,8 @@ namespace PhotoshopFile
         }
       }
 
+      Util.DebugMessage(reader.BaseStream, "Load, End, Layer and mask info");
+
       //-----------------------------------------------------------------------
       // make sure we are not on a wrong offset, so set the stream position 
       // manually
@@ -402,7 +416,7 @@ namespace PhotoshopFile
 
     private void SaveLayerAndMaskInfo(PsdBinaryWriter writer)
     {
-      Debug.WriteLine("SaveLayerAndMaskInfo started at " + writer.BaseStream.Position.ToString(CultureInfo.InvariantCulture));
+      Util.DebugMessage(writer.BaseStream, "Save, Begin, Layer and mask info");
 
       using (new PsdBlockLengthWriter(writer))
       {
@@ -418,6 +432,8 @@ namespace PhotoshopFile
 
         writer.WritePadding(startPosition, 2);
       }
+
+      Util.DebugMessage(writer.BaseStream, "Save, End, Layer and mask info");
     }
 
     ///////////////////////////////////////////////////////////////////////////
@@ -429,7 +445,7 @@ namespace PhotoshopFile
     /// <param name="hasHeader">Whether the Layers Info section has a length header.</param>
     private void LoadLayers(PsdBinaryReader reader, bool hasHeader)
     {
-      Debug.WriteLine("LoadLayers started at " + reader.BaseStream.Position.ToString(CultureInfo.InvariantCulture));
+      Util.DebugMessage(reader.BaseStream, "Load, Begin, Layers");
 
       UInt32 sectionLength = 0;
       if (hasHeader)
@@ -486,6 +502,8 @@ namespace PhotoshopFile
         if (reader.BaseStream.Position < endPosition)
           reader.BaseStream.Position = endPosition;
       }
+
+      Util.DebugMessage(reader.BaseStream, "Load, End, Layers");
     }
 
     ///////////////////////////////////////////////////////////////////////////
@@ -601,7 +619,7 @@ namespace PhotoshopFile
 
     private void SaveLayers(PsdBinaryWriter writer)
     {
-      Debug.WriteLine("SaveLayers started at " + writer.BaseStream.Position.ToString(CultureInfo.InvariantCulture));
+      Util.DebugMessage(writer.BaseStream, "Save, Begin, Layers");
 
       using (new PsdBlockLengthWriter(writer))
       {
@@ -635,6 +653,8 @@ namespace PhotoshopFile
         // but it is actually padded to a multiple of 4.
         writer.WritePadding(startPosition, 4);
       }
+
+      Util.DebugMessage(writer.BaseStream, "Save, End, Layers");
     }
 
     ///////////////////////////////////////////////////////////////////////////
@@ -643,23 +663,27 @@ namespace PhotoshopFile
 
     private void LoadGlobalLayerMask(PsdBinaryReader reader)
     {
-      Debug.WriteLine("LoadGlobalLayerMask started at " + reader.BaseStream.Position.ToString(CultureInfo.InvariantCulture));
+      Util.DebugMessage(reader.BaseStream, "Load, Begin, GlobalLayerMask");
 
       var maskLength = reader.ReadUInt32();
       if (maskLength <= 0)
         return;
 
       GlobalLayerMaskData = reader.ReadBytes((int)maskLength);
+
+      Util.DebugMessage(reader.BaseStream, "Load, End, GlobalLayerMask");
     }
 
     ///////////////////////////////////////////////////////////////////////////
 
     private void SaveGlobalLayerMask(PsdBinaryWriter writer)
     {
-      Debug.WriteLine("SaveGlobalLayerMask started at " + writer.BaseStream.Position.ToString(CultureInfo.InvariantCulture));
+      Util.DebugMessage(writer.BaseStream, "Save, Begin, GlobalLayerMask");
 
       writer.Write((UInt32)GlobalLayerMaskData.Length);
       writer.Write(GlobalLayerMaskData);
+
+      Util.DebugMessage(writer.BaseStream, "Save, End, GlobalLayerMask");
     }
 
     ///////////////////////////////////////////////////////////////////////////
@@ -674,7 +698,7 @@ namespace PhotoshopFile
 
     private void LoadImage(PsdBinaryReader reader)
     {
-      Debug.WriteLine("LoadImage started at " + reader.BaseStream.Position.ToString(CultureInfo.InvariantCulture));
+      Util.DebugMessage(reader.BaseStream, "Load, Begin, Composite image");
 
       ImageCompression = (ImageCompression)reader.ReadInt16();
 
@@ -709,13 +733,15 @@ namespace PhotoshopFile
         var alphaChannel = BaseLayer.Channels.Last();
         alphaChannel.ID = -1;
       }
+
+      Util.DebugMessage(reader.BaseStream, "Load, End, Composite image");
     }
 
     ///////////////////////////////////////////////////////////////////////////
 
     private void SaveImage(PsdBinaryWriter writer)
     {
-      Debug.WriteLine("SaveImage started at " + writer.BaseStream.Position.ToString(CultureInfo.InvariantCulture));
+      Util.DebugMessage(writer.BaseStream, "Save, Begin, Composite image");
 
       writer.Write((short)this.ImageCompression);
       if (this.ImageCompression == PhotoshopFile.ImageCompression.Rle)
@@ -727,6 +753,8 @@ namespace PhotoshopFile
       {
         writer.Write(channel.ImageDataRaw);
       }
+
+      Util.DebugMessage(writer.BaseStream, "Save, End, Composite image");
     }
 
     ///////////////////////////////////////////////////////////////////////////
