@@ -51,33 +51,32 @@ namespace PaintDotNet.Data.PhotoshopFileType
       {
         psdFile.VerifyLayerSections();
         ApplyLayerSections(psdFile.Layers);
-        var pdnLayers = new Layer[psdFile.Layers.Count];
 
-        var threadPool = new PaintDotNet.Threading.PrivateThreadPool();
-        for (int i = 0; i < psdFile.Layers.Count; i++)
-        {
-          var psdLayer = psdFile.Layers[i];
-          psdLayer.CreateMissingChannels();
-
-          var pdnLayer = new BitmapLayer(psdFile.ColumnCount, psdFile.RowCount);
-          pdnLayer.Name = psdLayer.Name;
-          pdnLayer.Opacity = psdLayer.Opacity;
-          pdnLayer.Visible = psdLayer.Visible;
-          pdnLayer.BlendMode = BlendModeMapping.FromPsdBlendMode(psdLayer.BlendModeKey);
-          pdnLayers[i] = pdnLayer;
-
-          var context = new LoadLayerContext(psdLayer, pdnLayer);
-          var waitCallback = new WaitCallback(context.LoadLayer);
-          threadPool.QueueUserWorkItem(waitCallback);
-        }
-        threadPool.Drain();
-
+        var pdnLayers = psdFile.Layers.AsParallel().AsOrdered()
+          .Select(psdLayer => psdLayer.DecodeToPdnLayer())
+          .ToList();
         document.Layers.AddRange(pdnLayers);
       }
 
       SetPdnResolutionInfo(psdFile, document);
 
       return document;
+    }
+
+    internal static BitmapLayer DecodeToPdnLayer(
+      this PhotoshopFile.Layer psdLayer)
+    {
+      var psdFile = psdLayer.PsdFile;
+      psdLayer.CreateMissingChannels();
+
+      var pdnLayer = new BitmapLayer(psdFile.ColumnCount, psdFile.RowCount);
+      pdnLayer.Name = psdLayer.Name;
+      pdnLayer.Opacity = psdLayer.Opacity;
+      pdnLayer.Visible = psdLayer.Visible;
+      pdnLayer.BlendMode = BlendModeMapping.FromPsdBlendMode(psdLayer.BlendModeKey);
+      ImageDecoderPdn.DecodeImage(pdnLayer, psdLayer);
+
+      return pdnLayer;
     }
 
     /// <summary>
@@ -251,23 +250,6 @@ namespace PaintDotNet.Data.PhotoshopFileType
         computerInfo.TotalVirtualMemory);
       if (bytesRequired > accessibleMemory)
         throw new OutOfMemoryException();
-    }
-
-    private class LoadLayerContext
-    {
-      PhotoshopFile.Layer psdLayer;
-      BitmapLayer pdnLayer;
-
-      public LoadLayerContext(PhotoshopFile.Layer psdLayer, BitmapLayer pdnLayer)
-      {
-        this.psdLayer = psdLayer;
-        this.pdnLayer = pdnLayer;
-      }
-
-      public void LoadLayer(object context)
-      {
-        ImageDecoderPdn.DecodeImage(pdnLayer, psdLayer);
-      }
     }
   }
 

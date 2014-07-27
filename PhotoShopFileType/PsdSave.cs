@@ -14,8 +14,9 @@
 using System.Diagnostics;
 using System.Drawing;
 using System.IO;
+using System.Linq;
 using System.Text;
-using System.Threading;
+using System.Threading.Tasks;
 
 using PhotoshopFile;
 
@@ -79,17 +80,18 @@ namespace PaintDotNet.Data.PhotoshopFileType
       // Store layer image data.
       //-----------------------------------------------------------------------
 
-      var threadPool = new PaintDotNet.Threading.PrivateThreadPool();
-      foreach (BitmapLayer layer in input.Layers)
+      // LayerList is an ArrayList, so we have to cast to get a generic
+      // IEnumerable that works with LINQ.
+      var pdnLayers = input.Layers.Cast<BitmapLayer>();
+      var psdLayers = pdnLayers.AsParallel().AsOrdered().Select(pdnLayer =>
       {
         var psdLayer = new PhotoshopFile.Layer(psdFile);
-        psdFile.Layers.Add(psdLayer);
+        StoreLayer(pdnLayer, psdLayer, psdToken);
 
-        var slc = new StoreLayerContext(layer, psdLayer, psdToken, storeProgressNotifier);
-        var waitCallback = new WaitCallback(slc.StoreLayer);
-        threadPool.QueueUserWorkItem(waitCallback);
-      }
-      threadPool.Drain();
+        storeProgressNotifier.NotifyIncrement();
+        return psdLayer;
+      });
+      psdFile.Layers.AddRange(psdLayers);
 
       psdFile.Save(output, Encoding.Default);
     }
@@ -283,29 +285,6 @@ namespace PaintDotNet.Data.PhotoshopFileType
       channels[1].CompressImageData();
       channels[2].CompressImageData();
       alphaChannel.CompressImageData();
-    }
-
-    private class StoreLayerContext
-    {
-      private BitmapLayer layer;
-      private PsdSaveConfigToken psdToken;
-      PhotoshopFile.Layer psdLayer;
-      DiscreteProgressNotifier progress;
-
-      public StoreLayerContext(BitmapLayer layer, PhotoshopFile.Layer psdLayer,
-        PsdSaveConfigToken psdToken, DiscreteProgressNotifier progress)
-      {
-        this.layer = layer;
-        this.psdToken = psdToken;
-        this.psdLayer = psdLayer;
-        this.progress = progress;
-      }
-
-      public void StoreLayer(object context)
-      {
-        PsdSave.StoreLayer(layer, psdLayer, psdToken);
-        progress.NotifyIncrement();
-      }
     }
 
     private class DiscreteProgressNotifier

@@ -22,8 +22,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text;
-using System.Threading;
-
+using System.Threading.Tasks;
 
 namespace PhotoshopFile
 {
@@ -513,19 +512,12 @@ namespace PhotoshopFile
     /// </summary>
     private void DecompressImages()
     {
-      var threadPool = new PaintDotNet.Threading.PrivateThreadPool();
-
-      var imageLayers = Layers.Concat(new List<Layer>() { this.BaseLayer });
-      foreach (var layer in imageLayers)
+      var layersAndComposite = Layers.Concat(new[] { BaseLayer });
+      var channels = layersAndComposite.SelectMany(x => x.Channels);
+      Parallel.ForEach(channels, channel =>
       {
-        foreach (var channel in layer.Channels)
-        {
-          var dcc = new DecompressChannelContext(channel);
-          var waitCallback = new WaitCallback(dcc.DecompressChannel);
-          threadPool.QueueUserWorkItem(waitCallback);
-        }
-      }
-      threadPool.Drain();
+        channel.DecodeImageData();
+      });
 
       foreach (var layer in Layers)
       {
@@ -755,23 +747,6 @@ namespace PhotoshopFile
       }
 
       Util.DebugMessage(writer.BaseStream, "Save, End, Composite image");
-    }
-
-    ///////////////////////////////////////////////////////////////////////////
-
-    private class DecompressChannelContext
-    {
-      private Channel ch;
-
-      public DecompressChannelContext(Channel ch)
-      {
-        this.ch = ch;
-      }
-
-      public void DecompressChannel(object context)
-      {
-        ch.DecodeImageData();
-      }
     }
 
     #endregion
