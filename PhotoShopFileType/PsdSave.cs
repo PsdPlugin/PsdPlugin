@@ -11,6 +11,7 @@
 //
 /////////////////////////////////////////////////////////////////////////////////
 
+using System;
 using System.Diagnostics;
 using System.Drawing;
 using System.IO;
@@ -25,11 +26,8 @@ namespace PaintDotNet.Data.PhotoshopFileType
   public static class PsdSave
   {
     public static void Save(Document input, Stream output, PsdSaveConfigToken psdToken,
-      Surface scratchSurface, ProgressEventHandler callback)
+      Surface scratchSurface, ProgressEventHandler progressCallback)
     {
-      double renderProgress = 30.0;
-      double storeProgress = 90.0;
-      
       var psdFile = new PsdFile();
       psdFile.RowCount = input.Height;
       psdFile.ColumnCount = input.Width;
@@ -46,52 +44,58 @@ namespace PaintDotNet.Data.PhotoshopFileType
         ? ImageCompression.Rle
         : ImageCompression.Raw;
 
-      //-----------------------------------------------------------------------
-      // Render and store the full composite image
-      //-----------------------------------------------------------------------
+      // Treat the composite image as another layer when reporting progress.
+      var progress = new ProgressNotifier(progressCallback);
+      var percentPerLayer = percentStoreImages
+        / (input.Layers.Count + 1);
 
-      // Allocate space for the image data
-      int imageSize = psdFile.RowCount * psdFile.ColumnCount;
-      for (short i = 0; i < psdFile.ChannelCount; i++)
-      {
-        var channel = new Channel(i, psdFile.BaseLayer);
-        channel.ImageData = new byte[imageSize];
-        channel.ImageCompression = psdFile.ImageCompression;
-        psdFile.BaseLayer.Channels.Add(channel);
-      }
-
+      // Render the composite image.  This operation is parallelized within
+      // Paint.NET using its own private thread pool.
       using (var ra = new RenderArgs(scratchSurface))
       {
         input.Flatten(scratchSurface);
+        progress.Notify(percentRenderComposite);
       }
 
-      // Prepare to store image data.
-      callback(null, new ProgressEventArgs(renderProgress));
-      var storeProgressNotifier = new DiscreteProgressNotifier(callback,
-        input.Layers.Count + 1, renderProgress, storeProgress);
-
-      // Store composite image data.
-      var channelsArray = psdFile.BaseLayer.Channels.ToIdArray();
-      StoreLayerImage(channelsArray, channelsArray[3],
-        scratchSurface, psdFile.BaseLayer.Rect);
-      storeProgressNotifier.NotifyIncrement();
-
-      //-----------------------------------------------------------------------
-      // Store layer image data.
-      //-----------------------------------------------------------------------
-
-      // LayerList is an ArrayList, so we have to cast to get a generic
-      // IEnumerable that works with LINQ.
-      var pdnLayers = input.Layers.Cast<BitmapLayer>();
-      var psdLayers = pdnLayers.AsParallel().AsOrdered().Select(pdnLayer =>
+      // Delegate to store the composite
+      Action storeCompositeAction = () =>
       {
-        var psdLayer = new PhotoshopFile.Layer(psdFile);
-        StoreLayer(pdnLayer, psdLayer, psdToken);
+        // Allocate space for the composite image data
+        int imageSize = psdFile.RowCount * psdFile.ColumnCount;
+        for (short i = 0; i < psdFile.ChannelCount; i++)
+        {
+          var channel = new Channel(i, psdFile.BaseLayer);
+          channel.ImageData = new byte[imageSize];
+          channel.ImageCompression = psdFile.ImageCompression;
+          psdFile.BaseLayer.Channels.Add(channel);
+        }
 
-        storeProgressNotifier.NotifyIncrement();
-        return psdLayer;
-      });
-      psdFile.Layers.AddRange(psdLayers);
+        var channelsArray = psdFile.BaseLayer.Channels.ToIdArray();
+        StoreLayerImage(channelsArray, channelsArray[3],
+          scratchSurface, psdFile.BaseLayer.Rect);
+
+        progress.Notify(percentPerLayer);
+      };
+
+      // Delegate to store the layers
+      Action storeLayersAction = () =>
+      {
+        // LayerList is an ArrayList, so we have to cast to get a generic
+        // IEnumerable that works with LINQ.
+        var pdnLayers = input.Layers.Cast<BitmapLayer>();
+        var psdLayers = pdnLayers.AsParallel().AsOrdered().Select(pdnLayer =>
+        {
+          var psdLayer = new PhotoshopFile.Layer(psdFile);
+          StoreLayer(pdnLayer, psdLayer, psdToken);
+
+          progress.Notify(percentPerLayer);
+          return psdLayer;
+        });
+        psdFile.Layers.AddRange(psdLayers);
+      };
+
+      // Process composite and layers in parallel
+      Parallel.Invoke(storeCompositeAction, storeLayersAction);
 
       psdFile.Save(output, Encoding.Default);
     }
@@ -251,7 +255,7 @@ namespace PaintDotNet.Data.PhotoshopFileType
     }
 
     /// <summary>
-    /// Store and compress layer image data.
+    /// Stores and compresses the image data for the layer.
     /// </summary>
     /// <param name="channels">Destination channels.</param>
     /// <param name="alphaChannel">Destination alpha channel.</param>
@@ -260,70 +264,57 @@ namespace PaintDotNet.Data.PhotoshopFileType
     unsafe private static void StoreLayerImage(Channel[] channels, Channel alphaChannel,
       Surface surface, Rectangle rect)
     {
-      unsafe
+      for (int y = 0; y < rect.Height; y++)
       {
-        for (int y = 0; y < rect.Height; y++)
+        int destRowIndex = y * rect.Width;
+        ColorBgra* srcRow = surface.GetRowAddress(y + rect.Top);
+        ColorBgra* srcPixel = srcRow + rect.Left;
+
+        for (int x = 0; x < rect.Width; x++)
         {
-          int destRowIndex = y * rect.Width;
-          ColorBgra* srcRow = surface.GetRowAddress(y + rect.Top);
-          ColorBgra* srcPixel = srcRow + rect.Left;
+          int destIndex = destRowIndex + x;
 
-          for (int x = 0; x < rect.Width; x++)
-          {
-            int destIndex = destRowIndex + x;
-
-            channels[0].ImageData[destIndex] = srcPixel->R;
-            channels[1].ImageData[destIndex] = srcPixel->G;
-            channels[2].ImageData[destIndex] = srcPixel->B;
-            alphaChannel.ImageData[destIndex] = srcPixel->A;
-            srcPixel++;
-          }
+          channels[0].ImageData[destIndex] = srcPixel->R;
+          channels[1].ImageData[destIndex] = srcPixel->G;
+          channels[2].ImageData[destIndex] = srcPixel->B;
+          alphaChannel.ImageData[destIndex] = srcPixel->A;
+          srcPixel++;
         }
       }
 
-      channels[0].CompressImageData();
-      channels[1].CompressImageData();
-      channels[2].CompressImageData();
-      alphaChannel.CompressImageData();
+      Parallel.ForEach(channels, channel =>
+        channel.CompressImageData()
+      );
     }
 
-    private class DiscreteProgressNotifier
+    #region Progress notification
+
+    // We only report progress to 90%, reserving 10% for writing out to disk.
+    private static double percentRenderComposite = 20.0;
+    private static double percentStoreImages = 70.0;
+
+    private class ProgressNotifier
     {
       private ProgressEventHandler callback;
-      private double totalIncrements;
-      private int completedIncrements;
-      private double progressStart;
-      private double progressEnd;
+      private double percent;
 
-      public DiscreteProgressNotifier(ProgressEventHandler callback,
-        int numIncrements, double progressStart, double progressEnd)
+      internal ProgressNotifier(ProgressEventHandler progressCallback)
       {
-        this.callback = callback;
-        this.totalIncrements = (double)numIncrements;
-        this.progressStart = progressStart;
-        this.progressEnd = progressEnd;
-
-        this.completedIncrements = 0;
-        callback(null, new ProgressEventArgs(progressStart));
+        callback = progressCallback;
+        percent = 0;
       }
 
-      /// <summary>
-      /// Complete an increment.
-      /// </summary>
-      public void NotifyIncrement()
+      internal void Notify(double percentIncrement)
       {
         lock (this)
         {
-          completedIncrements++;
-          var progressDelta = completedIncrements / totalIncrements
-            * (progressEnd - progressStart);
-          var progress = progressStart + progressDelta;
-
-          callback(null, new ProgressEventArgs(progress));
+          percent += percentIncrement;
+          callback.Invoke(null, new ProgressEventArgs(percent));
         }
       }
     }
 
+    #endregion
   }
 
 }
