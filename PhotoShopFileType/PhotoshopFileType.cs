@@ -5,7 +5,7 @@
 //
 // This software is provided under the MIT License:
 //   Copyright (c) 2006-2007 Frank Blumenberg
-//   Copyright (c) 2010-2012 Tao Yue
+//   Copyright (c) 2010-2014 Tao Yue
 //
 // See LICENSE.txt for complete licensing and attribution information.
 //
@@ -47,7 +47,7 @@ namespace PaintDotNet.Data.PhotoshopFileType
                FileTypeFlags.SupportsSaving |
                FileTypeFlags.SavesWithProgress |
                FileTypeFlags.SupportsLayers,
-             new string[] { ".psd" })
+             new string[] { ".psd", ".psb" })
     {
     }
 
@@ -64,6 +64,10 @@ namespace PaintDotNet.Data.PhotoshopFileType
     protected override void OnSave(Document input, System.IO.Stream output, SaveConfigToken token,
       Surface scratchSurface, ProgressEventHandler callback)
     {
+      // Because the function signature takes in a Stream, we cannot force the
+      // extension to .PSB for large documents.  However, Photoshop is happy
+      // to load a PSB file even if it has a .PSD extension.
+
       var psdToken = (PsdSaveConfigToken)token;
       PsdSave.Save(input, output, psdToken, scratchSurface, callback);
     }

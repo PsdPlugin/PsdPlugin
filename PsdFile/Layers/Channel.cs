@@ -109,7 +109,7 @@ namespace PhotoshopFile
     /// <summary>
     /// Total length of the channel data, including compression headers.
     /// </summary>
-    public int Length { get; set; }
+    public long Length { get; set; }
 
     /// <summary>
     /// Raw image data for this color channel, in compressed on-disk format.
@@ -151,7 +151,9 @@ namespace PhotoshopFile
       Util.DebugMessage(reader.BaseStream, "Load, Begin, Channel");
         
       ID = reader.ReadInt16();
-      Length = reader.ReadInt32();
+      Length = (layer.PsdFile.IsLargeDocument)
+        ? reader.ReadInt64()
+        : reader.ReadInt32();
       Layer = layer;
 
       Util.DebugMessage(reader.BaseStream, "Load, End, Channel, {0}", ID);
@@ -162,7 +164,14 @@ namespace PhotoshopFile
       Util.DebugMessage(writer.BaseStream, "Save, Begin, Channel");
 
       writer.Write(ID);
-      writer.Write(Length);
+      if (Layer.PsdFile.IsLargeDocument)
+      {
+        writer.Write(Length);
+      }
+      else
+      {
+        writer.Write((Int32)Length);
+      }
 
       Util.DebugMessage(writer.BaseStream, "Save, End, Channel, {0}", ID);
     }
@@ -175,7 +184,9 @@ namespace PhotoshopFile
 
       var endPosition = reader.BaseStream.Position + this.Length;
       ImageCompression = (ImageCompression)reader.ReadInt16();
-      var dataLength = this.Length - 2;
+      var longDataLength = this.Length - 2;
+      Util.CheckByteArrayLength(longDataLength);
+      var dataLength = (int)longDataLength;
 
       switch (ImageCompression)
       {
@@ -184,7 +195,8 @@ namespace PhotoshopFile
           break;
         case ImageCompression.Rle:
           // RLE row lengths
-          RleRowLengths = new RleRowLengths(reader, Rect.Height);
+          RleRowLengths = new RleRowLengths(reader, Rect.Height,
+            Layer.PsdFile.IsLargeDocument);
           var rleDataLength = (int)(endPosition - reader.BaseStream.Position);
           Debug.Assert(rleDataLength == RleRowLengths.Total,
             "RLE row lengths do not sum to length of channel image data.");
@@ -229,7 +241,9 @@ namespace PhotoshopFile
       using (var stream = new MemoryStream(ImageDataRaw))
       {
         var bytesPerRow = Util.BytesPerRow(Rect, Layer.PsdFile.BitDepth);
-        var bytesTotal = Rect.Height * bytesPerRow;
+        var longBytesTotal = (long)Rect.Height * bytesPerRow;
+        Util.CheckByteArrayLength(longBytesTotal);
+        var bytesTotal = (int)longBytesTotal;
         ImageData = new byte[bytesTotal];
 
         switch (this.ImageCompression)
@@ -266,9 +280,13 @@ namespace PhotoshopFile
     private void ReverseEndianness(byte[] buffer, Rectangle rect)
     {
       var byteDepth = Util.BytesFromBitDepth(Layer.PsdFile.BitDepth);
-      var pixelsTotal = rect.Width * rect.Height;
-      if (pixelsTotal == 0)
+      var longPixelsTotal = (long)rect.Width * rect.Height;
+      if (longPixelsTotal == 0)
+      {
         return;
+      }
+      Util.CheckByteArrayLength(longPixelsTotal);
+      var pixelsTotal = (int)longPixelsTotal;
 
       if (byteDepth == 2)
       {
@@ -383,38 +401,47 @@ namespace PhotoshopFile
       if (ImageData == null)
         return;
 
-      if (ImageCompression == ImageCompression.Raw)
+      switch (ImageCompression)
       {
-        ImageDataRaw = ImageData;
-        this.Length = 2 + ImageDataRaw.Length;
-      }
-      else if (ImageCompression == ImageCompression.Rle)
-      {
-        RleRowLengths = new RleRowLengths(Rect.Height);
+        case ImageCompression.Raw:
+          ImageDataRaw = ImageData;
+          this.Length = 2 + ImageDataRaw.Length;
+          break;
 
-        using (var dataStream = new MemoryStream())
+        case ImageCompression.Rle:
+          CompressImageDataRle();
+          break;
+
+        default:
+          throw new NotImplementedException(
+            "Only raw and RLE compression have been implemented.");
+      }
+    }
+
+    private void CompressImageDataRle()
+    {
+      RleRowLengths = new RleRowLengths(Rect.Height);
+
+      using (var dataStream = new MemoryStream())
+      {
+        var rleWriter = new RleWriter(dataStream);
+        var bytesPerRow = Util.BytesPerRow(Rect, Layer.PsdFile.BitDepth);
+        for (int row = 0; row < Rect.Height; row++)
         {
-          var rleWriter = new RleWriter(dataStream);
-          var bytesPerRow = Util.BytesPerRow(Rect, Layer.PsdFile.BitDepth);
-          for (int row = 0; row < Rect.Height; row++)
-          {
-            int rowIndex = row * Rect.Width;
-            RleRowLengths[row] = rleWriter.Write(
-              ImageData, rowIndex, bytesPerRow);
-          }
-
-          // Save compressed data
-          dataStream.Flush();
-          ImageDataRaw = dataStream.ToArray();
-          Debug.Assert(RleRowLengths.Total == ImageDataRaw.Length,
-            "RLE row lengths do not sum to the compressed data length.");
+          int rowIndex = row * Rect.Width;
+          RleRowLengths[row] = rleWriter.Write(
+            ImageData, rowIndex, bytesPerRow);
         }
-        Length = 2 + 2 * Rect.Height + ImageDataRaw.Length;
+
+        // Save compressed data
+        dataStream.Flush();
+        ImageDataRaw = dataStream.ToArray();
+        Debug.Assert(RleRowLengths.Total == ImageDataRaw.Length,
+          "RLE row lengths do not sum to the compressed data length.");
       }
-      else
-      {
-        throw new NotImplementedException("Only raw and RLE compression have been implemented.");
-      }
+
+      var rowLengthSize = Layer.PsdFile.IsLargeDocument ? 4 : 2;
+      Length = 2 + rowLengthSize * Rect.Height + ImageDataRaw.Length;
     }
 
     internal void SavePixelData(PsdBinaryWriter writer)
@@ -423,10 +450,14 @@ namespace PhotoshopFile
 
       writer.Write((short)ImageCompression);
       if (ImageDataRaw == null)
+      {
         return;
-      
+      }
+
       if (ImageCompression == PhotoshopFile.ImageCompression.Rle)
-        RleRowLengths.Write(writer);
+      {
+        RleRowLengths.Write(writer, Layer.PsdFile.IsLargeDocument);
+      }
       writer.Write(ImageDataRaw);
 
       Util.DebugMessage(writer.BaseStream, "Save, End, Channel image, {0}",

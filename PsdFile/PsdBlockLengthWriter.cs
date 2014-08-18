@@ -5,7 +5,7 @@
 //
 // This software is provided under the MIT License:
 //   Copyright (c) 2006-2007 Frank Blumenberg
-//   Copyright (c) 2010-2012 Tao Yue
+//   Copyright (c) 2010-2014 Tao Yue
 //
 // Portions of this file are provided under the BSD 3-clause License:
 //   Copyright (c) 2006, Jonas Beckeman
@@ -29,17 +29,28 @@ namespace PhotoshopFile
 
     long lengthPosition;
     long startPosition;
+    bool hasLongLength;
     PsdBinaryWriter writer;
 
     public PsdBlockLengthWriter(PsdBinaryWriter writer)
+      : this(writer, false)
+    {
+    }
+
+    public PsdBlockLengthWriter(PsdBinaryWriter writer, bool hasLongLength)
     {
       this.writer = writer;
+      this.hasLongLength = hasLongLength;
 
       // Store position so that we can return to it when the length is known.
       lengthPosition = writer.BaseStream.Position;
 
       // Write a sentinel value as a placeholder for the length.
       writer.Write((UInt32)0xFEEDFEED);
+      if (hasLongLength)
+      {
+        writer.Write((UInt32)0xFEEDFEED);
+      }
 
       // Store the start position of the data block so that we can calculate
       // its length when we're done writing.
@@ -52,7 +63,14 @@ namespace PhotoshopFile
 
       writer.BaseStream.Position = lengthPosition;
       long length = endPosition - startPosition;
-      writer.Write((UInt32)length);
+      if (hasLongLength)
+      {
+        writer.Write(length);
+      }
+      else
+      { 
+        writer.Write((UInt32)length);
+      }
 
       writer.BaseStream.Position = endPosition;
     }

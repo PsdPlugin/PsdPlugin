@@ -38,23 +38,21 @@ namespace PhotoshopFile
     Lab = 9
   };
 
+  public enum PsdFileVersion : short
+  {
+    Psd = 1,
+    PsbLargeDocument = 2
+  }
 
   public class PsdFile
   {
-    /// <summary>
-    /// Represents the composite image.
-    /// </summary>
-    public Layer BaseLayer { get; set; }
+    #region Constructors
 
-    public ImageCompression ImageCompression { get; set; }
-
-    ///////////////////////////////////////////////////////////////////////////
-
-    public PsdFile()
+    public PsdFile(PsdFileVersion version = PsdFileVersion.Psd)
     {
-      Version = 1;
-      BaseLayer = new Layer(this);
+      Version = version;
 
+      BaseLayer = new Layer(this);
       ImageResources = new ImageResources();
       Layers = new List<Layer>();
       AdditionalInfo = new List<LayerInfo>();
@@ -75,7 +73,9 @@ namespace PhotoshopFile
       Load(stream, encoding);
     }
 
-    ///////////////////////////////////////////////////////////////////////////
+    #endregion
+
+    #region Load and save
 
     private void Load(Stream stream, Encoding encoding)
     {
@@ -115,14 +115,19 @@ namespace PhotoshopFile
       SaveImage(writer);
     }
 
-    ///////////////////////////////////////////////////////////////////////////
+    #endregion
 
     #region Header
 
     /// <summary>
-    /// Always equal to 1.
+    /// Photoshop file format version.
     /// </summary>
-    public Int16 Version { get; private set; }
+    public PsdFileVersion Version { get; private set; }
+
+    public bool IsLargeDocument
+    {
+      get { return Version == PsdFileVersion.PsbLargeDocument; }
+    }
 
     private Int16 channelCount;
     /// <summary>
@@ -139,6 +144,22 @@ namespace PhotoshopFile
       }
     }
 
+    private void CheckDimension(int dimension)
+    {
+      if (dimension < 1)
+      {
+        throw new ArgumentException("Image dimension must be at least 1.");
+      }
+      if ((Version == PsdFileVersion.Psd) && (dimension > 30000))
+      {
+        throw new ArgumentException("PSD image dimension cannot exceed 30000.");
+      }
+      if ((Version == PsdFileVersion.PsbLargeDocument) && (dimension > 300000))
+      {
+        throw new ArgumentException("PSB image dimension cannot exceed 300000.");
+      }
+    }
+
     /// <summary>
     /// The height of the image in pixels.
     /// </summary>
@@ -147,8 +168,7 @@ namespace PhotoshopFile
       get { return this.BaseLayer.Rect.Height; }
       set
       {
-        if (value < 0 || value > 30000)
-          throw new ArgumentException("Number of rows must be from 1 to 30000.");
+        CheckDimension(value);
         BaseLayer.Rect = new Rectangle(0, 0, BaseLayer.Rect.Width, value);
       }
     }
@@ -162,9 +182,8 @@ namespace PhotoshopFile
       get { return this.BaseLayer.Rect.Width; }
       set
       {
-        if (value < 0 || value > 30000)
-          throw new ArgumentException("Number of columns must be from 1 to 30000.");
-        this.BaseLayer.Rect = new Rectangle(0, 0, value, this.BaseLayer.Rect.Height);
+        CheckDimension(value);
+        BaseLayer.Rect = new Rectangle(0, 0, value, BaseLayer.Rect.Height);
       }
     }
 
@@ -206,9 +225,13 @@ namespace PhotoshopFile
       if (signature != "8BPS")
         throw new PsdInvalidException("The given stream is not a valid PSD file");
 
-      Version = reader.ReadInt16();
-      if (Version != 1)
+      Version = (PsdFileVersion)reader.ReadInt16();
+      Util.DebugMessage(reader.BaseStream, "Load, Info, Version {0}", (int)Version);
+      if ((Version != PsdFileVersion.Psd)
+        && (Version != PsdFileVersion.PsbLargeDocument))
+      {
         throw new PsdInvalidException("The PSD file has an unknown version");
+      }
 
       //6 bytes reserved
       reader.BaseStream.Position += 6;
@@ -230,7 +253,7 @@ namespace PhotoshopFile
 
       string signature = "8BPS";
       writer.WriteAsciiChars(signature);
-      writer.Write(Version);
+      writer.Write((Int16)Version);
       writer.Write(new byte[] { 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, });
       writer.Write(ChannelCount);
       writer.Write(RowCount);
@@ -363,7 +386,9 @@ namespace PhotoshopFile
     {
       Util.DebugMessage(reader.BaseStream, "Load, Begin, Layer and mask info");
 
-      var layersAndMaskLength = reader.ReadUInt32();
+      var layersAndMaskLength = IsLargeDocument
+        ? reader.ReadInt64()
+        : reader.ReadUInt32();
       if (layersAndMaskLength <= 0)
         return;
 
@@ -378,7 +403,9 @@ namespace PhotoshopFile
 
       while (reader.BaseStream.Position < endPosition)
       {
-        var info = LayerInfoFactory.Load(reader, true);
+        var info = LayerInfoFactory.Load(reader,
+          globalLayerInfo: true,
+          isLargeDocument: IsLargeDocument);
         AdditionalInfo.Add(info);
 
         if (info is RawLayerInfo)
@@ -417,7 +444,7 @@ namespace PhotoshopFile
     {
       Util.DebugMessage(writer.BaseStream, "Save, Begin, Layer and mask info");
 
-      using (new PsdBlockLengthWriter(writer))
+      using (new PsdBlockLengthWriter(writer, IsLargeDocument))
       {
         var startPosition = writer.BaseStream.Position;
 
@@ -426,7 +453,9 @@ namespace PhotoshopFile
         
         foreach (var info in AdditionalInfo)
         {
-          info.Save(writer, true);
+          info.Save(writer,
+            globalLayerInfo: true,
+            isLargeDocument: IsLargeDocument);
         }
 
         writer.WritePadding(startPosition, 2);
@@ -446,10 +475,12 @@ namespace PhotoshopFile
     {
       Util.DebugMessage(reader.BaseStream, "Load, Begin, Layers");
 
-      UInt32 sectionLength = 0;
+      long sectionLength = 0;
       if (hasHeader)
       {
-        sectionLength = reader.ReadUInt32();
+        sectionLength = IsLargeDocument
+          ? reader.ReadInt64()
+          : reader.ReadUInt32();
         if (sectionLength <= 0)
           return;
       }
@@ -536,6 +567,10 @@ namespace PhotoshopFile
     /// </summary>
     public void PrepareSave()
     {
+      CheckDimension(ColumnCount);
+      CheckDimension(RowCount);
+      VerifyLayerSections();
+      
       var imageLayers = Layers.Concat(new List<Layer>() { this.BaseLayer }).ToList();
 
       foreach (var layer in imageLayers)
@@ -544,7 +579,6 @@ namespace PhotoshopFile
       }
 
       SetVersionInfo();
-      VerifyLayerSections();
     }
 
     /// <summary>
@@ -613,7 +647,7 @@ namespace PhotoshopFile
     {
       Util.DebugMessage(writer.BaseStream, "Save, Begin, Layers");
 
-      using (new PsdBlockLengthWriter(writer))
+      using (new PsdBlockLengthWriter(writer, IsLargeDocument))
       {
         var numLayers = (Int16)Layers.Count;
         if (AbsoluteAlpha)
@@ -684,9 +718,14 @@ namespace PhotoshopFile
 
     ///////////////////////////////////////////////////////////////////////////
 
-    #region ImageData
+    #region Composite image
 
-    ///////////////////////////////////////////////////////////////////////////
+    /// <summary>
+    /// Represents the composite image.
+    /// </summary>
+    public Layer BaseLayer { get; set; }
+
+    public ImageCompression ImageCompression { get; set; }
 
     private void LoadImage(PsdBinaryReader reader)
     {
@@ -697,6 +736,8 @@ namespace PhotoshopFile
       // Create channels
       for (Int16 i = 0; i < ChannelCount; i++)
       {
+        Util.DebugMessage(reader.BaseStream, "Load, Begin, Channel image data");
+
         var channel = new Channel(i, this.BaseLayer);
         channel.ImageCompression = ImageCompression;
         channel.Length = this.RowCount * Util.BytesPerRow(BaseLayer.Rect, BitDepth);
@@ -705,16 +746,18 @@ namespace PhotoshopFile
         // with each channel.
         if (ImageCompression == ImageCompression.Rle)
         {
-          channel.RleRowLengths = new RleRowLengths(reader, RowCount);
+          channel.RleRowLengths = new RleRowLengths(reader, RowCount, IsLargeDocument);
           channel.Length = channel.RleRowLengths.Total;
         }
 
         BaseLayer.Channels.Add(channel);
+        Util.DebugMessage(reader.BaseStream, "Load, End, Channel image data");
       }
 
       foreach (var channel in this.BaseLayer.Channels)
       {
-        channel.ImageDataRaw = reader.ReadBytes(channel.Length);
+        Util.CheckByteArrayLength(channel.Length);
+        channel.ImageDataRaw = reader.ReadBytes((int)channel.Length);
       }
 
       // If there is exactly one more channel than we need, then it is the
@@ -739,11 +782,17 @@ namespace PhotoshopFile
       if (this.ImageCompression == PhotoshopFile.ImageCompression.Rle)
       {
         foreach (var channel in this.BaseLayer.Channels)
-          channel.RleRowLengths.Write(writer);
+        {
+          Util.DebugMessage(writer.BaseStream, "Save, Begin, RLE header");
+          channel.RleRowLengths.Write(writer, IsLargeDocument);
+          Util.DebugMessage(writer.BaseStream, "Save, End, RLE header");
+        }
       }
       foreach (var channel in this.BaseLayer.Channels)
       {
+        Util.DebugMessage(writer.BaseStream, "Save, Begin, Channel image data");
         writer.Write(channel.ImageDataRaw);
+        Util.DebugMessage(writer.BaseStream, "Save, End, Channel image data");
       }
 
       Util.DebugMessage(writer.BaseStream, "Save, End, Composite image");

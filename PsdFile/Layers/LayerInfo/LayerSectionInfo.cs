@@ -5,7 +5,7 @@
 //
 // This software is provided under the MIT License:
 //   Copyright (c) 2006-2007 Frank Blumenberg
-//   Copyright (c) 2010-2013 Tao Yue
+//   Copyright (c) 2010-2014 Tao Yue
 //
 // See LICENSE.txt for complete licensing and attribution information.
 //
@@ -34,6 +34,11 @@ namespace PhotoshopFile
   /// </summary>
   public class LayerSectionInfo : LayerInfo
   {
+    public override string Signature
+    {
+      get { return "8BIM"; }
+    }
+
     private string key;
     public override string Key
     {

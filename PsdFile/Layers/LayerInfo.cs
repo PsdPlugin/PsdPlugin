@@ -26,16 +26,28 @@ namespace PhotoshopFile
     /// <param name="globalLayerInfo">True if the LayerInfo record is being
     ///   loaded from the end of the Layer and Mask Information section;
     ///   false if it is being loaded from the end of a Layer record.</param>
-    public static LayerInfo Load(PsdBinaryReader reader, bool globalLayerInfo)
+    /// <param name="isLargeDocument">True if the LayerInfo record is being
+    ///   read into a PSB large document; false if it is being read into
+    ///   an ordinary PSD document.</param>
+    public static LayerInfo Load(PsdBinaryReader reader, bool globalLayerInfo,
+      bool isLargeDocument)
     {
       Util.DebugMessage(reader.BaseStream, "Load, Begin, LayerInfo");
       
+      // Some keys use a signature of 8B64, but the identity of these keys
+      // is undocumented.  We will therefore accept either signature.
       var signature = reader.ReadAsciiChars(4);
-      if (signature != "8BIM")
-        throw new PsdInvalidException("Could not read LayerInfo due to signature mismatch.");
+      if ((signature != "8BIM") && (signature != "8B64"))
+      {
+        throw new PsdInvalidException(
+          "LayerInfo signature invalid, must be 8BIM or 8B64.");
+      }
 
       var key = reader.ReadAsciiChars(4);
-      var length = reader.ReadInt32();
+      var hasLongLength = LayerInfoUtil.HasLongLength(key, isLargeDocument);
+      var length = hasLongLength
+        ? reader.ReadInt64()
+        : reader.ReadInt32();
       var startPosition = reader.BaseStream.Position;
 
       LayerInfo result;
@@ -43,13 +55,13 @@ namespace PhotoshopFile
       {
         case "lsct":
         case "lsdk":
-          result = new LayerSectionInfo(reader, key, length);
+          result = new LayerSectionInfo(reader, key, (int)length);
           break;
         case "luni":
           result = new LayerUnicodeName(reader);
           break;
         default:
-          result = new RawLayerInfo(reader, key, length);
+          result = new RawLayerInfo(reader, signature, key, length);
           break;
       }
 
@@ -73,27 +85,63 @@ namespace PhotoshopFile
         reader.ReadPadding(startPosition, 4);
       }
 
-      Util.DebugMessage(reader.BaseStream, "Load, End, LayerInfo, {0}",
-        result.Key);
+      Util.DebugMessage(reader.BaseStream, "Load, End, LayerInfo, {0}, {1}",
+        result.Signature, result.Key);
       return result;
+    }
+  }
+
+  internal static class LayerInfoUtil
+  {
+    internal static bool HasLongLength(string key, bool isLargeDocument)
+    {
+      if (!isLargeDocument)
+      {
+        return false;
+      }
+
+      switch (key)
+      {
+        case "LMsk":
+        case "Lr16":
+        case "Lr32":
+        case "Layr":
+        case "Mt16":
+        case "Mt32":
+        case "Mtrn":
+        case "Alph":
+        case "FMsk":
+        case "lnk2":
+        case "FEid":
+        case "FXid":
+        case "PxSD":
+          return true;
+
+        default:
+          return false;
+      }
     }
   }
 
   public abstract class LayerInfo
   {
+    public abstract string Signature { get; }
+
     public abstract string Key { get; }
 
     protected abstract void WriteData(PsdBinaryWriter writer);
 
-    public void Save(PsdBinaryWriter writer, bool globalLayerInfo)
+    public void Save(PsdBinaryWriter writer, bool globalLayerInfo,
+      bool isLargeDocument)
     {
       Util.DebugMessage(writer.BaseStream, "Save, Begin, LayerInfo");
 
-      writer.WriteAsciiChars("8BIM");
+      writer.WriteAsciiChars(Signature);
       writer.WriteAsciiChars(Key);
 
       var startPosition = writer.BaseStream.Position;
-      using (var lengthWriter = new PsdBlockLengthWriter(writer))
+      using (var lengthWriter = new PsdBlockLengthWriter(writer,
+        LayerInfoUtil.HasLongLength(Key, isLargeDocument)))
       {
         // Depending on the key, the length may be unpadded, 2-padded, or
         // 4-padded.  Thus, it is up to each implementation of WriteData to

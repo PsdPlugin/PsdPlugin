@@ -173,7 +173,9 @@ namespace PhotoshopFile
       long adjustmentLayerEndPos = extraDataStartPosition + extraDataSize;
       while (reader.BaseStream.Position < adjustmentLayerEndPos)
       {
-        var layerInfo = LayerInfoFactory.Load(reader, false);
+        var layerInfo = LayerInfoFactory.Load(reader,
+          globalLayerInfo: false,
+          isLargeDocument: PsdFile.IsLargeDocument);
         AdditionalInfo.Add(layerInfo);
       }
 
@@ -283,7 +285,9 @@ namespace PhotoshopFile
 
         foreach (LayerInfo info in AdditionalInfo)
         {
-          info.Save(writer, false);
+          info.Save(writer,
+            globalLayerInfo: false,
+            isLargeDocument: PsdFile.IsLargeDocument);
         }
       }
 

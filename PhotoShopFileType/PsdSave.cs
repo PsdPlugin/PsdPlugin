@@ -28,13 +28,16 @@ namespace PaintDotNet.Data.PhotoshopFileType
     public static void Save(Document input, Stream output, PsdSaveConfigToken psdToken,
       Surface scratchSurface, ProgressEventHandler progressCallback)
     {
-      var psdFile = new PsdFile();
+      var psdVersion = ((input.Height > 30000) || (input.Width > 30000))
+        ? PsdFileVersion.PsbLargeDocument
+        : PsdFileVersion.Psd;
+      var psdFile = new PsdFile(psdVersion);
+
       psdFile.RowCount = input.Height;
       psdFile.ColumnCount = input.Width;
 
       // We only save in RGBA format, 8 bits per channel, which corresponds to
-      // Paint.NET's internal representation.  No color mode data is necessary,
-      // since PSD files default to RGB.
+      // Paint.NET's internal representation.
 
       psdFile.ChannelCount = 4; 
       psdFile.ColorMode = PsdColorMode.RGB;

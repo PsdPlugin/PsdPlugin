@@ -244,6 +244,19 @@ namespace PhotoshopFile
       return true;
     }
 
+    public static void CheckByteArrayLength(long length)
+    {
+      if (length < 0)
+      {
+        throw new Exception("Byte array cannot have a negative length.");
+      }
+      if (length > 0x7fffffc7)
+      {
+        throw new OutOfMemoryException(
+          "Byte array cannot exceed 2,147,483,591 in length.");
+      }
+    }
+
     /// <summary>
     /// Writes a message to the debug console, indicating the current position
     /// in the stream in both decimal and hexadecimal formats.

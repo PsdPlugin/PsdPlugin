@@ -238,8 +238,8 @@ namespace PaintDotNet.Data.PhotoshopFileType
       var numLayers = psdFile.Layers.Count + 2;
       if (psdFile.Layers.Count == 0)
         numLayers++;
-      long numPixels = psdFile.ColumnCount * psdFile.RowCount;
-      ulong bytesRequired = (ulong)(4 * numPixels * numLayers);
+      long numPixels = (long)psdFile.ColumnCount * psdFile.RowCount;
+      ulong bytesRequired = (ulong)(checked(4 * numPixels * numLayers));
 
       // Check that the file will fit entirely into physical memory, so that we
       // do not thrash and make the Paint.NET UI nonresponsive.  We also have
