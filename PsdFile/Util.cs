@@ -32,6 +32,13 @@ namespace PhotoshopFile
       public int Right { get; set; }
     }
 
+    public static Rectangle IntersectWith(
+      this Rectangle thisRect, Rectangle rect)
+    {
+      thisRect.Intersect(rect);
+      return thisRect;
+    }
+
     /////////////////////////////////////////////////////////////////////////// 
 
     /// <summary>
@@ -42,6 +49,15 @@ namespace PhotoshopFile
       while (ptr < ptrEnd)
       {
         *ptr = value;
+        ptr++;
+      }
+    }
+
+    unsafe static public void Invert(byte* ptr, byte* ptrEnd)
+    {
+      while (ptr < ptrEnd)
+      {
+        *ptr = (byte)(*ptr ^ 0xff);
         ptr++;
       }
     }

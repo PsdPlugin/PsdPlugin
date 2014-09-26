@@ -5,7 +5,7 @@
 //
 // This software is provided under the MIT License:
 //   Copyright (c) 2006-2007 Frank Blumenberg
-//   Copyright (c) 2010-2013 Tao Yue
+//   Copyright (c) 2010-2014 Tao Yue
 //
 // See LICENSE.txt for complete licensing and attribution information.
 //
@@ -35,10 +35,11 @@ namespace PaintDotNet.Data.PhotoshopFileType
       public PsdColorMode ColorMode { get; private set; }
       public byte[] ColorModeData { get; private set; }
 
-      public Mask LayerMask { get; private set; }
-      public Mask UserMask { get; private set; }
+      public Rectangle Rectangle { get; private set; }
+      public MaskDecodeContext LayerMaskContext { get; private set; }
+      public MaskDecodeContext UserMaskContext { get; private set; }
 
-      public DecodeContext(PhotoshopFile.Layer layer)
+      public DecodeContext(PhotoshopFile.Layer layer, Rectangle bounds)
       {
         Layer = layer;
         ByteDepth = Util.BytesFromBitDepth(layer.PsdFile.BitDepth);
@@ -47,11 +48,51 @@ namespace PaintDotNet.Data.PhotoshopFileType
         ColorMode = layer.PsdFile.ColorMode;
         ColorModeData = layer.PsdFile.ColorModeData;
 
+        // Clip the layer to the specified bounds
+        Rectangle = Layer.Rect.IntersectWith(bounds);
+
         if (layer.Masks != null)
         {
-          LayerMask = layer.Masks.LayerMask;
-          UserMask = layer.Masks.UserMask;
+          LayerMaskContext = GetMaskContext(layer.Masks.LayerMask);
+          UserMaskContext = GetMaskContext(layer.Masks.UserMask);
         }
+      }
+
+      private MaskDecodeContext GetMaskContext(Mask mask)
+      {
+        if ((mask == null) || (mask.Disabled))
+        {
+          return null;
+        }
+
+        return new MaskDecodeContext(mask, this);
+      }
+    }
+
+    private class MaskDecodeContext
+    {
+      public Mask Mask { get; private set; }
+      public Rectangle Rectangle { get; private set; }
+      public byte[] AlphaBuffer { get; private set; }
+
+      public MaskDecodeContext(Mask mask, DecodeContext layerContext)
+      {
+        Mask = mask;
+
+        // The PositionVsLayer flag is documented to indicate a position
+        // relative to the layer, but Photoshop treats the position as
+        // absolute.  So that's what we do, too.
+        Rectangle = mask.Rect.IntersectWith(layerContext.Rectangle);
+        AlphaBuffer = new byte[layerContext.Rectangle.Width];
+      }
+
+      public bool IsRowEmpty(int row)
+      {
+        return (Mask.ImageData == null)
+          || (Mask.ImageData.Length == 0)
+          || (Rectangle.Size.IsEmpty)
+          || (row < Rectangle.Top)
+          || (row >= Rectangle.Bottom);
       }
     }
 
@@ -61,7 +102,7 @@ namespace PaintDotNet.Data.PhotoshopFileType
     public static unsafe void DecodeImage(BitmapLayer pdnLayer,
       PhotoshopFile.Layer psdLayer)
     {
-      var decodeContext = new DecodeContext(psdLayer);
+      var decodeContext = new DecodeContext(psdLayer, pdnLayer.Bounds);
       DecodeDelegate decoder = null;
 
       if (decodeContext.ByteDepth == 4)
@@ -123,53 +164,39 @@ namespace PaintDotNet.Data.PhotoshopFileType
     {
       var psdLayer = decodeContext.Layer;
       var surface = pdnLayer.Surface;
-
-      // Map source row to destination row.
-      int ySrcStart = Math.Max(0, -psdLayer.Rect.Y);
-      int yDestStart = psdLayer.Rect.Y + ySrcStart;
-      int yDestEnd = Math.Min(surface.Height, psdLayer.Rect.Y + psdLayer.Rect.Height);
-
-      // Map source column to destination column.
-      int xSrcStart = Math.Max(0, -psdLayer.Rect.X);
-      int xDestStart = psdLayer.Rect.X + xSrcStart;
-      int xDestEnd = Math.Min(surface.Width, psdLayer.Rect.X + psdLayer.Rect.Width);
+      var rect = decodeContext.Rectangle;
 
       // Convert rows from the Photoshop representation, writing the
       // resulting ARGB values to to the Paint.NET Surface.
-      int ySrc = ySrcStart;
-      int yDest = yDestStart;
-      while (yDest < yDestEnd)
+
+      for (int y = rect.Top; y < rect.Bottom; y++)
       {
-        // Calculate indexes into ImageData source.
-        int idxSrcRow = ySrc * psdLayer.Rect.Width * decodeContext.ByteDepth;
-        int idxSrcStart = idxSrcRow + xSrcStart * decodeContext.ByteDepth;
+        // Calculate index into ImageData source from row and column.
+        int idxSrcPixel = (y - psdLayer.Rect.Top) * psdLayer.Rect.Width
+          + (rect.Left - psdLayer.Rect.Left);
+        int idxSrcByte = idxSrcPixel * decodeContext.ByteDepth;
 
         // Calculate pointers to destination Surface.
-        var pDestRow = surface.GetRowAddress(yDest);
-        var pDestStart = pDestRow + xDestStart;
-        var pDestEnd = pDestRow + xDestEnd;
+        var pDestRow = surface.GetRowAddress(y);
+        var pDestStart = pDestRow + decodeContext.Rectangle.Left;
+        var pDestEnd = pDestRow + decodeContext.Rectangle.Right;
 
         // For 16-bit images, take the higher-order byte from the image
         // data, which is now in little-endian order.
         if (decodeContext.ByteDepth == 2)
-          idxSrcStart++;
+          idxSrcByte++;
 
         // Decode the color and alpha channels
-        decoder(pDestStart, pDestEnd, idxSrcStart, decodeContext);
-        SetPDNAlphaRow(pDestStart, pDestEnd, idxSrcStart,
+        decoder(pDestStart, pDestEnd, idxSrcByte, decodeContext);
+        SetPDNAlphaRow(pDestStart, pDestEnd, idxSrcByte,
           decodeContext.ByteDepth, decodeContext.AlphaChannel);
 
         // Apply layer masks(s) to the alpha channel
-        var numPixels = xDestEnd - xDestStart;
-        var layerMaskAlphaRow = GetMaskAlphaRow(yDest, xDestStart, numPixels,
-          decodeContext.ByteDepth, decodeContext.LayerMask);
-        var userMaskAlphaRow = GetMaskAlphaRow(yDest, xDestStart, numPixels,
-          decodeContext.ByteDepth, decodeContext.UserMask);
+        var layerMaskAlphaRow = GetMaskAlphaRow(y,
+          decodeContext, decodeContext.LayerMaskContext);
+        var userMaskAlphaRow = GetMaskAlphaRow(y,
+          decodeContext, decodeContext.UserMaskContext);
         ApplyPDNMask(pDestStart, pDestEnd, layerMaskAlphaRow, userMaskAlphaRow);
-
-        // Advance to the next row
-        ySrc++;
-        yDest++;
       }
     }
 
@@ -212,103 +239,99 @@ namespace PaintDotNet.Data.PhotoshopFileType
     /////////////////////////////////////////////////////////////////////////// 
 
     /// <summary>
-    /// Get alpha values from the layer mask, corresponding to the Surface
-    /// position.
+    /// Gets one row of alpha values from the mask.
     /// </summary>
-    /// <param name="ySurface">Row index on the Surface.</param>
-    /// <param name="xSurface">Starting column index in the Surface.</param>
-    /// <param name="numPixels">Number of columns to apply to the Surface.</param>
-    /// <param name="mask">Mask to convert into alpha values.</param>
-    /// <returns>Array of alpha values for the row.  Index 0 corresponds to xSurface.</returns>
+    /// <param name="y">The y-coordinate of the row.</param>
+    /// <param name="layerContext">The decode context for the layer containing
+    ///   the mask.</param>
+    /// <param name="maskContext">The decode context for the mask.</param>
+    /// <returns>An array of alpha values for the row, corresponding to the
+    ///   width of the layer decode context.</returns>
     unsafe private static byte[] GetMaskAlphaRow(
-      int ySurface, int xSurface, int numPixels, int byteDepth, Mask mask)
+      int y, DecodeContext layerContext, MaskDecodeContext maskContext)
     {
-      // If there is no mask or it is disabled, then return null to suppress
-      // alpha-merging.
-      if ((mask == null) || (mask.Disabled))
+      if (maskContext == null)
+      {
         return null;
-      if ((mask.ImageData == null) || (mask.ImageData.Length == 0))
-        return null;
+      }
+      var mask = maskContext.Mask;
 
       // Background color for areas not covered by the mask
-      bool isInvertedMask = mask.InvertOnBlend;
-      byte backgroundColor = isInvertedMask
+      byte backgroundColor = mask.InvertOnBlend
         ? (byte)(255 - mask.BackgroundColor)
         : mask.BackgroundColor;
-            
-      // Fill alpha array with background color
-      var alphaRow = new byte[numPixels];
-      fixed (byte* pAlphaRow = &alphaRow[0])
+      fixed (byte* pAlpha = &maskContext.AlphaBuffer[0])
       {
-        byte* pAlpha = pAlphaRow;
-        Util.Fill(pAlpha, pAlphaRow + numPixels, backgroundColor);
+        Util.Fill(pAlpha, pAlpha + maskContext.AlphaBuffer.Length,
+          backgroundColor);
       }
-
-      // Calculate the Mask position that corresponds to the Surface position
-      int yMask = ySurface - mask.Rect.Y;
-      int xMaskStart = xSurface - mask.Rect.X;
-      if (mask.PositionVsLayer)
+      if (maskContext.IsRowEmpty(y))
       {
-        // Mask is specified relative to the layer.
-        yMask -= mask.Layer.Rect.Y;
-        xMaskStart -= mask.Layer.Rect.X;
+        return maskContext.AlphaBuffer;
       }
-      int xMaskEnd = xMaskStart + numPixels;
-
-      // Row position is outside the mask rectangle.
-      if ((yMask < 0) || (yMask >= mask.Rect.Height))
-        return alphaRow;
-
-      // Clip the copy parameters to the mask boundaries.
-      int xAlphaStart = 0;
-      int xAlphaEnd = numPixels;
-      if (xMaskStart < 0)
-      {
-        xAlphaStart -= xMaskStart;
-        xMaskStart = 0;
-      }
-      if (xMaskEnd > mask.Rect.Width)
-      {
-        xAlphaEnd += (mask.Rect.Width - xMaskEnd);
-        xMaskEnd = mask.Rect.Width;
-      }
-
-      // Mask lies outside the layer region.
-      if (xAlphaStart > xAlphaEnd)
-        return alphaRow;
-
+      
       //////////////////////////////////////
       // Transfer mask into the alpha array
-      fixed (byte* pAlphaRow = &alphaRow[0],
+      fixed (byte* pAlphaRow = &maskContext.AlphaBuffer[0],
         pMaskData = &mask.ImageData[0])
       {
-        // Get pointers to positions
-        byte* pAlpha = pAlphaRow + xAlphaStart;
-        byte* pAlphaEnd = pAlphaRow + xAlphaEnd;
-        byte* pMaskRow = pMaskData + yMask * mask.Rect.Width * byteDepth;
-        byte* pMask = pMaskRow + xMaskStart * byteDepth;
+        // Get pointers to starting positions
+        int alphaColumn = maskContext.Rectangle.X - layerContext.Rectangle.X;
+        byte* pAlpha = pAlphaRow + alphaColumn;
+        byte* pAlphaEnd = pAlpha + maskContext.Rectangle.Width;
+
+        int maskRow = y - maskContext.Mask.Rect.Y;
+        int maskColumn = maskContext.Rectangle.X - maskContext.Mask.Rect.X;
+        int idxMaskPixel = (maskRow * mask.Rect.Width) + maskColumn;
+        byte* pMask = pMaskData + idxMaskPixel * layerContext.ByteDepth;
 
         // Take the high-order byte if values are 16-bit (little-endian)
-        if (byteDepth == 2)
+        if (layerContext.ByteDepth == 2)
           pMask++;
 
         // Decode mask into the alpha array.
-        while (pAlpha < pAlphaEnd)
+        if (layerContext.ByteDepth == 4)
         {
-          byte maskAlpha = (byteDepth < 4)
-            ? *pMask
-            : RGBByteFromHDRFloat(pMask);
-          if (isInvertedMask)
-            maskAlpha = (byte)(255 - maskAlpha);
+          DecodeMaskAlphaRow32(pAlpha, pAlphaEnd, pMask);
+        }
+        else
+        {
+          DecodeMaskAlphaRow(pAlpha, pAlphaEnd, pMask, layerContext.ByteDepth);
+        }
 
-          *pAlpha = maskAlpha;
-
-          pAlpha++;
-          pMask += byteDepth;
+        // Obsolete since Photoshop CS6, but retained for compatibility with
+        // older versions.  Note that the background has already been inverted.
+        if (mask.InvertOnBlend)
+        {
+          Util.Invert(pAlpha, pAlphaEnd);
         }
       }
 
-      return alphaRow;
+      return maskContext.AlphaBuffer;
+    }
+
+    private static unsafe void DecodeMaskAlphaRow32(
+      byte* pAlpha, byte* pAlphaEnd, byte* pMask)
+    {
+      while (pAlpha < pAlphaEnd)
+      {
+        *pAlpha = RGBByteFromHDRFloat(pMask);
+
+        pAlpha++;
+        pMask += 4;
+      }
+    }
+
+    private static unsafe void DecodeMaskAlphaRow(
+      byte* pAlpha, byte* pAlphaEnd, byte* pMask, int byteDepth)
+    {
+      while (pAlpha < pAlphaEnd)
+      {
+        *pAlpha = *pMask;
+
+        pAlpha++;
+        pMask += byteDepth;
+      }
     }
 
     /////////////////////////////////////////////////////////////////////////// 
