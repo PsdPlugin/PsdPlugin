@@ -5,7 +5,7 @@
 //
 // This software is provided under the MIT License:
 //   Copyright (c) 2006-2007 Frank Blumenberg
-//   Copyright (c) 2010-2013 Tao Yue
+//   Copyright (c) 2010-2015 Tao Yue
 //
 // See LICENSE.txt for complete licensing and attribution information.
 //
@@ -272,11 +272,13 @@ namespace PhotoshopFile.Tests
       /// </summary>
       /// <param name="byte">Byte to write repeatedly to RLE and raw data buffers.</param>
       /// <param name="count">Number of times the byte repeats.</param>
-      unsafe private void WriteRepeatedBytes (ref byte* ptrData,
+      unsafe private void WriteRepeatedBytes(ref byte* ptrData,
         MemoryStream rleStream, byte b, int count)
       {
         if (count > 128)
-          throw new ArgumentOutOfRangeException("count");
+        {
+          throw new ArgumentOutOfRangeException(nameof(count));
+        }
 
         // Write RLE packet
         rleStream.WriteByte(unchecked((byte)(1 - count)));
@@ -301,7 +303,9 @@ namespace PhotoshopFile.Tests
         MemoryStream rleStream, byte b, int count)
       {
         if (count > 128)
-          throw new ArgumentOutOfRangeException("count");
+        {
+          throw new ArgumentOutOfRangeException(nameof(count));
+        }
 
         // Write raw header for packet
         var header = unchecked((byte)(count - 1));

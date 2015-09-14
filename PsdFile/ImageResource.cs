@@ -5,7 +5,7 @@
 //
 // This software is provided under the MIT License:
 //   Copyright (c) 2006-2007 Frank Blumenberg
-//   Copyright (c) 2010-2014 Tao Yue
+//   Copyright (c) 2010-2015 Tao Yue
 //
 // Portions of this file are provided under the BSD 3-clause License:
 //   Copyright (c) 2006, Jonas Beckeman
@@ -117,7 +117,10 @@ namespace PhotoshopFile
       set
       {
         if (value.Length != 4)
-          throw new ArgumentException("Signature must have length of 4");
+        {
+          throw new ArgumentException(
+            $"{nameof(Signature)} must be 4 characters in length.");
+        }
         signature = value;
       }
     }

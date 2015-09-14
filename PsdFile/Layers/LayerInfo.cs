@@ -5,7 +5,7 @@
 //
 // This software is provided under the MIT License:
 //   Copyright (c) 2006-2007 Frank Blumenberg
-//   Copyright (c) 2010-2014 Tao Yue
+//   Copyright (c) 2010-2015 Tao Yue
 //
 // See LICENSE.txt for complete licensing and attribution information.
 //
@@ -40,7 +40,7 @@ namespace PhotoshopFile
       if ((signature != "8BIM") && (signature != "8B64"))
       {
         throw new PsdInvalidException(
-          "LayerInfo signature invalid, must be 8BIM or 8B64.");
+          $"{nameof(LayerInfo)} signature invalid, must be 8BIM or 8B64.");
       }
 
       var key = reader.ReadAsciiChars(4);

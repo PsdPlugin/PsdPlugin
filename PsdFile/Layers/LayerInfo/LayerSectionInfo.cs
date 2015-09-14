@@ -5,7 +5,7 @@
 //
 // This software is provided under the MIT License:
 //   Copyright (c) 2006-2007 Frank Blumenberg
-//   Copyright (c) 2010-2014 Tao Yue
+//   Copyright (c) 2010-2015 Tao Yue
 //
 // See LICENSE.txt for complete licensing and attribution information.
 //
@@ -61,7 +61,10 @@ namespace PhotoshopFile
       set
       {
         if (value.Length != 4)
-          throw new ArgumentException("Blend mode key must have a length of 4.");
+        {
+          throw new ArgumentException(
+            $"{nameof(BlendModeKey)} must be 4 characters in length.");
+        }
         blendModeKey = value;
       }
     }

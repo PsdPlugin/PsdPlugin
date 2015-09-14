@@ -5,7 +5,7 @@
 //
 // This software is provided under the MIT License:
 //   Copyright (c) 2006-2007 Frank Blumenberg
-//   Copyright (c) 2010-2014 Tao Yue
+//   Copyright (c) 2010-2015 Tao Yue
 //
 // Portions of this file are provided under the BSD 3-clause License:
 //   Copyright (c) 2006, Jonas Beckeman
@@ -65,7 +65,11 @@ namespace PhotoshopFile
       get { return blendModeKey; }
       set
       {
-        if (value.Length != 4) throw new ArgumentException("Key length must be 4");
+        if (value.Length != 4)
+        {
+          throw new ArgumentException(
+            $"{nameof(BlendModeKey)} must be 4 characters in length.");
+        }
         blendModeKey = value;
       }
     }
@@ -234,7 +238,10 @@ namespace PhotoshopFile
       // ANSI layer name.
       var layerUnicodeNames = AdditionalInfo.Where(x => x is LayerUnicodeName);
       if (layerUnicodeNames.Count() > 1)
-        throw new PsdInvalidException("Layer has more than one LayerUnicodeName.");
+      {
+        throw new PsdInvalidException(
+          $"{nameof(Layer)} can only have one {nameof(LayerUnicodeName)}.");
+      }
 
       var layerUnicodeName = (LayerUnicodeName) layerUnicodeNames.FirstOrDefault();
       if (layerUnicodeName == null)
