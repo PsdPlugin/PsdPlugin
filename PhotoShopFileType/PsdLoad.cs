@@ -5,7 +5,7 @@
 //
 // This software is provided under the MIT License:
 //   Copyright (c) 2006-2007 Frank Blumenberg
-//   Copyright (c) 2010-2014 Tao Yue
+//   Copyright (c) 2010-2016 Tao Yue
 //
 // See LICENSE.txt for complete licensing and attribution information.
 //
@@ -26,7 +26,8 @@ namespace PaintDotNet.Data.PhotoshopFileType
     public static Document Load(System.IO.Stream input)
     {
       // Load and decompress Photoshop file structures
-      var psdFile = new PsdFile(input, Encoding.Default);
+      var loadContext = new DocumentLoadContext();
+      var psdFile = new PsdFile(input, loadContext);
 
       // Multichannel images are loaded by processing each channel as a
       // grayscale layer.
@@ -35,9 +36,8 @@ namespace PaintDotNet.Data.PhotoshopFileType
         CreateLayersFromChannels(psdFile);
         psdFile.ColorMode = PsdColorMode.Grayscale;
       }
-     
+
       // Convert into Paint.NET internal representation
-      CheckSufficientMemory(psdFile);
       var document = new Document(psdFile.ColumnCount, psdFile.RowCount);
 
       if (psdFile.Layers.Count == 0)
@@ -231,13 +231,16 @@ namespace PaintDotNet.Data.PhotoshopFileType
     /// tiny adjustment layers may blow up in size by several
     /// orders of magnitude.
     /// </remarks>
-    private static void CheckSufficientMemory(PsdFile psdFile)
+    internal static void CheckSufficientMemory(PsdFile psdFile)
     {
-      // Memory for PSD layers (or composite image), plus Paint.NET scratch
-      // and composite layers.
-      var numLayers = psdFile.Layers.Count + 2;
-      if (psdFile.Layers.Count == 0)
-        numLayers++;
+      // Multichannel images have channels converted to layers
+      var numLayers = (psdFile.ColorMode == PsdColorMode.Multichannel)
+        ? psdFile.BaseLayer.Channels.Count
+        : Math.Max(psdFile.Layers.Count, 1);
+
+      // Paint.NET also requires a scratch layer and composite layer
+      numLayers += 2;
+
       long numPixels = (long)psdFile.ColumnCount * psdFile.RowCount;
       ulong bytesRequired = (ulong)(checked(4 * numPixels * numLayers));
 
@@ -249,7 +252,9 @@ namespace PaintDotNet.Data.PhotoshopFileType
       var accessibleMemory = Math.Min(computerInfo.TotalPhysicalMemory,
         computerInfo.TotalVirtualMemory);
       if (bytesRequired > accessibleMemory)
+      {
         throw new OutOfMemoryException();
+      }
     }
   }
 

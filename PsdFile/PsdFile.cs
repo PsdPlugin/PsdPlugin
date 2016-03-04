@@ -5,7 +5,7 @@
 //
 // This software is provided under the MIT License:
 //   Copyright (c) 2006-2007 Frank Blumenberg
-//   Copyright (c) 2010-2014 Tao Yue
+//   Copyright (c) 2010-2016 Tao Yue
 //
 // Portions of this file are provided under the BSD 3-clause License:
 //   Copyright (c) 2006, Jonas Beckeman
@@ -58,28 +58,31 @@ namespace PhotoshopFile
       AdditionalInfo = new List<LayerInfo>();
     }
 
-    public PsdFile(string filename, Encoding encoding)
+    public PsdFile(string filename, LoadContext loadContext)
       : this()
     {
       using (var stream = new FileStream(filename, FileMode.Open))
       {
-        Load(stream, encoding);
+        Load(stream, loadContext);
       }
     }
 
-    public PsdFile(Stream stream, Encoding encoding)
+    public PsdFile(Stream stream, LoadContext loadContext)
       : this()
     {
-      Load(stream, encoding);
+      Load(stream, loadContext);
     }
 
     #endregion
 
     #region Load and save
 
-    private void Load(Stream stream, Encoding encoding)
+    internal LoadContext LoadContext { get; private set; }
+
+    private void Load(Stream stream, LoadContext loadContext)
     {
-      var reader = new PsdBinaryReader(stream, encoding);
+      LoadContext = loadContext;
+      var reader = new PsdBinaryReader(stream, loadContext.Encoding);
 
       LoadHeader(reader);
       LoadColorModeData(reader);
@@ -481,8 +484,14 @@ namespace PhotoshopFile
         sectionLength = IsLargeDocument
           ? reader.ReadInt64()
           : reader.ReadUInt32();
+
         if (sectionLength <= 0)
+        {
+          // The callback may take action when there are 0 layers, so it must
+          // be called even though the Layers Info section is empty.
+          LoadContext.OnLoadLayersHeader(this);
           return;
+        }
       }
 
       var startPosition = reader.BaseStream.Position;
@@ -496,14 +505,15 @@ namespace PhotoshopFile
         AbsoluteAlpha = true;
         numLayers = Math.Abs(numLayers);
       }
-      if (numLayers == 0)
-        return;
 
       for (int i = 0; i < numLayers; i++)
       {
         var layer = new Layer(reader, this);
         Layers.Add(layer);
       }
+
+      // Header is complete just before loading pixel data
+      LoadContext.OnLoadLayersHeader(this);
 
       //-----------------------------------------------------------------------
 

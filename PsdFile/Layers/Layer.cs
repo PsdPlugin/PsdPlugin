@@ -5,7 +5,7 @@
 //
 // This software is provided under the MIT License:
 //   Copyright (c) 2006-2007 Frank Blumenberg
-//   Copyright (c) 2010-2015 Tao Yue
+//   Copyright (c) 2010-2016 Tao Yue
 //
 // Portions of this file are provided under the BSD 3-clause License:
 //   Copyright (c) 2006, Jonas Beckeman
@@ -194,6 +194,8 @@ namespace PhotoshopFile
       }
 
       Util.DebugMessage(reader.BaseStream, "Load, End, Layer, {0}", Name);
+
+      PsdFile.LoadContext.OnLoadLayerHeader(this);
     }
 
     ///////////////////////////////////////////////////////////////////////////
