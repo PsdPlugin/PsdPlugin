@@ -76,6 +76,9 @@
     <Compile Include="..\PsdFile\ImageResources\VersionInfo.cs">
       <Link>PsdFile\ImageResources\VersionInfo.cs</Link>
     </Compile>
+    <Compile Include="..\PsdFile\Layers\LayerInfo\InfoLayers.cs">
+      <Link>PsdFile\Layers\LayerInfo\InfoLayers.cs</Link>
+    </Compile>
     <Compile Include="..\PsdFile\Layers\LayerInfo\LayerSectionInfo.cs">
       <Link>PsdFile\Layers\LayerInfo\LayerSectionInfo.cs</Link>
     </Compile>

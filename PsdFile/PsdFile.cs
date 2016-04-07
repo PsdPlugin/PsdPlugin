@@ -103,9 +103,6 @@ namespace PhotoshopFile
 
     public void Save(Stream stream, Encoding encoding)
     {
-      if (BitDepth != 8)
-        throw new NotImplementedException("Only 8-bit color has been implemented for saving.");
-
       var writer = new PsdBinaryWriter(stream, encoding);
       writer.AutoFlush = true;
 
@@ -407,8 +404,8 @@ namespace PhotoshopFile
       while (reader.BaseStream.Position < endPosition)
       {
         var info = LayerInfoFactory.Load(reader,
-          globalLayerInfo: true,
-          isLargeDocument: IsLargeDocument);
+          psdFile: this,
+          globalLayerInfo: true);
         AdditionalInfo.Add(info);
 
         if (info is RawLayerInfo)
@@ -416,16 +413,6 @@ namespace PhotoshopFile
           var layerInfo = (RawLayerInfo)info;
           switch (info.Key)
           {
-            case "Layr":
-            case "Lr16":
-            case "Lr32":
-              using (var memoryStream = new MemoryStream(layerInfo.Data))
-              using (var memoryReader = new PsdBinaryReader(memoryStream, reader))
-              {
-                LoadLayers(memoryReader, false);
-              }
-              break;
-
             case "LMsk":
               GlobalLayerMaskData = layerInfo.Data;
               break;
@@ -474,9 +461,9 @@ namespace PhotoshopFile
     /// </summary>
     /// <param name="reader">PSD reader.</param>
     /// <param name="hasHeader">Whether the Layers Info section has a length header.</param>
-    private void LoadLayers(PsdBinaryReader reader, bool hasHeader)
+    internal void LoadLayers(PsdBinaryReader reader, bool hasHeader)
     {
-      Util.DebugMessage(reader.BaseStream, "Load, Begin, Layers");
+      Util.DebugMessage(reader.BaseStream, "Load, Begin, Layers Info section");
 
       long sectionLength = 0;
       if (hasHeader)
@@ -490,6 +477,7 @@ namespace PhotoshopFile
           // The callback may take action when there are 0 layers, so it must
           // be called even though the Layers Info section is empty.
           LoadContext.OnLoadLayersHeader(this);
+          Util.DebugMessage(reader.BaseStream, "Load, End, Layers Info section");
           return;
         }
       }
@@ -520,10 +508,14 @@ namespace PhotoshopFile
       // Load image data for all channels.
       foreach (var layer in Layers)
       {
+        Util.DebugMessage(reader.BaseStream,
+          $"Load, Begin, Layer image, {layer.Name}");
         foreach (var channel in layer.Channels)
         {
           channel.LoadPixelData(reader);
         }
+        Util.DebugMessage(reader.BaseStream,
+          $"Load, End, Layer image, {layer.Name}");
       }
 
       // Length is set to 0 when called on higher bitdepth layers.
@@ -579,6 +571,7 @@ namespace PhotoshopFile
     {
       CheckDimension(ColumnCount);
       CheckDimension(RowCount);
+      VerifyInfoLayers();
       VerifyLayerSections();
       
       var imageLayers = Layers.Concat(new List<Layer>() { this.BaseLayer }).ToList();
@@ -589,6 +582,24 @@ namespace PhotoshopFile
       }
 
       SetVersionInfo();
+    }
+
+    /// <summary>
+    /// Verifies that any Additional Info layers are consistent.
+    /// </summary>
+    private void VerifyInfoLayers()
+    {
+      var infoLayersCount = AdditionalInfo.Count(x => x is InfoLayers);
+      if (infoLayersCount > 1)
+      {
+        throw new PsdInvalidException(
+          $"Cannot have more than one {nameof(InfoLayers)} in a PSD file.");
+      }
+      if ((infoLayersCount > 0) && (Layers.Count == 0))
+      {
+        throw new PsdInvalidException(
+          $"{nameof(InfoLayers)} cannot exist when there are 0 layers.");
+      }
     }
 
     /// <summary>
@@ -653,42 +664,80 @@ namespace PhotoshopFile
       }
     }
 
-    private void SaveLayers(PsdBinaryWriter writer)
+
+    /// <summary>
+    /// Saves the Layers Info section, including headers and padding.
+    /// </summary>
+    /// <param name="writer">The PSD writer.</param>
+    internal void SaveLayers(PsdBinaryWriter writer)
     {
-      Util.DebugMessage(writer.BaseStream, "Save, Begin, Layers");
+      Util.DebugMessage(writer.BaseStream, "Save, Begin, Layers Info section");
 
       using (new PsdBlockLengthWriter(writer, IsLargeDocument))
       {
-        var numLayers = (Int16)Layers.Count;
-        if (AbsoluteAlpha)
-          numLayers = (Int16)(-numLayers);
-
-        // Layers section must be empty if the color mode doesn't allow layers.
-        // Photoshop will refuse to load indexed and multichannel images if
-        // there is a nonempty layers section with a layer count of 0.
-        if (numLayers == 0)
-          return;
-        
         var startPosition = writer.BaseStream.Position;
-        writer.Write(numLayers);
 
-        foreach (var layer in Layers)
+        // Only one set of Layers can exist in the file.  If layers will be
+        // written to the Additional Info section, then the Layers section
+        // must be empty to avoid conflict.
+        var hasInfoLayers = AdditionalInfo.Exists(x => x is InfoLayers);
+        if (!hasInfoLayers)
         {
-          layer.Save(writer);
-        }
-
-        foreach (var layer in Layers)
-        {
-          foreach (var channel in layer.Channels)
-          {
-            channel.SavePixelData(writer);
-          }
+          SaveLayersData(writer);
         }
 
         // Documentation states that the Layers Info section is even-padded,
         // but it is actually padded to a multiple of 4.
         writer.WritePadding(startPosition, 4);
       }
+
+      Util.DebugMessage(writer.BaseStream, "Save, End, Layers Info section");
+    }
+
+    /// <summary>
+    /// Saves the layer data, excluding headers and padding.
+    /// </summary>
+    /// <param name="writer">The PSD writer.</param>
+    internal void SaveLayersData(PsdBinaryWriter writer)
+    {
+      Util.DebugMessage(writer.BaseStream, "Save, Begin, Layers");
+
+      var numLayers = (Int16)Layers.Count;
+      if (AbsoluteAlpha)
+      {
+        numLayers = (Int16)(-numLayers);
+      }
+
+      // Photoshop will not load files that have a layer count of 0 in the
+      // compatible Layers section.  Instead, the Layers section must be
+      // entirely empty.
+      if (numLayers == 0)
+      {
+        return;
+      }
+
+      writer.Write(numLayers);
+      
+      foreach (var layer in Layers)
+      {
+        layer.Save(writer);
+      }
+      
+      foreach (var layer in Layers)
+      {
+        Util.DebugMessage(writer.BaseStream,
+          $"Save, Begin, Layer image, {layer.Name}");
+        foreach (var channel in layer.Channels)
+        {
+          channel.SavePixelData(writer);
+        }
+        Util.DebugMessage(writer.BaseStream,
+          $"Save, End, Layer image, {layer.Name}");
+      }
+
+      // The caller is responsible for padding.  Photoshop writes padded
+      // lengths for compatible layers, but unpadded lengths for Additional
+      // Info layers.
 
       Util.DebugMessage(writer.BaseStream, "Save, End, Layers");
     }
@@ -703,7 +752,10 @@ namespace PhotoshopFile
 
       var maskLength = reader.ReadUInt32();
       if (maskLength <= 0)
+      {
+        Util.DebugMessage(reader.BaseStream, "Load, End, GlobalLayerMask");
         return;
+      }
 
       GlobalLayerMaskData = reader.ReadBytes((int)maskLength);
 
@@ -715,6 +767,13 @@ namespace PhotoshopFile
     private void SaveGlobalLayerMask(PsdBinaryWriter writer)
     {
       Util.DebugMessage(writer.BaseStream, "Save, Begin, GlobalLayerMask");
+
+      if (AdditionalInfo.Exists(x => x.Key == "LMsk"))
+      {
+        writer.Write((UInt32)0);
+        Util.DebugMessage(writer.BaseStream, "Save, End, GlobalLayerMask");
+        return;
+      }
 
       writer.Write((UInt32)GlobalLayerMaskData.Length);
       writer.Write(GlobalLayerMaskData);
@@ -766,8 +825,10 @@ namespace PhotoshopFile
 
       foreach (var channel in this.BaseLayer.Channels)
       {
+        Util.DebugMessage(reader.BaseStream, "Load, Begin, Channel image data");
         Util.CheckByteArrayLength(channel.Length);
         channel.ImageDataRaw = reader.ReadBytes((int)channel.Length);
+        Util.DebugMessage(reader.BaseStream, "Load, End, Channel image data");
       }
 
       // If there is exactly one more channel than we need, then it is the

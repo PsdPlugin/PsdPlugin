@@ -178,8 +178,8 @@ namespace PhotoshopFile
       while (reader.BaseStream.Position < adjustmentLayerEndPos)
       {
         var layerInfo = LayerInfoFactory.Load(reader,
-          globalLayerInfo: false,
-          isLargeDocument: PsdFile.IsLargeDocument);
+          psdFile: this.PsdFile,
+          globalLayerInfo: false);
         AdditionalInfo.Add(layerInfo);
       }
 

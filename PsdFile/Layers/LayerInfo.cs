@@ -5,7 +5,7 @@
 //
 // This software is provided under the MIT License:
 //   Copyright (c) 2006-2007 Frank Blumenberg
-//   Copyright (c) 2010-2015 Tao Yue
+//   Copyright (c) 2010-2016 Tao Yue
 //
 // See LICENSE.txt for complete licensing and attribution information.
 //
@@ -23,14 +23,12 @@ namespace PhotoshopFile
     /// Loads the next LayerInfo record.
     /// </summary>
     /// <param name="reader">The file reader</param>
+    /// <param name="psdFile">The PSD file.</param>
     /// <param name="globalLayerInfo">True if the LayerInfo record is being
     ///   loaded from the end of the Layer and Mask Information section;
     ///   false if it is being loaded from the end of a Layer record.</param>
-    /// <param name="isLargeDocument">True if the LayerInfo record is being
-    ///   read into a PSB large document; false if it is being read into
-    ///   an ordinary PSD document.</param>
-    public static LayerInfo Load(PsdBinaryReader reader, bool globalLayerInfo,
-      bool isLargeDocument)
+    public static LayerInfo Load(PsdBinaryReader reader, PsdFile psdFile,
+      bool globalLayerInfo)
     {
       Util.DebugMessage(reader.BaseStream, "Load, Begin, LayerInfo");
       
@@ -44,7 +42,7 @@ namespace PhotoshopFile
       }
 
       var key = reader.ReadAsciiChars(4);
-      var hasLongLength = LayerInfoUtil.HasLongLength(key, isLargeDocument);
+      var hasLongLength = LayerInfoUtil.HasLongLength(key, psdFile.IsLargeDocument);
       var length = hasLongLength
         ? reader.ReadInt64()
         : reader.ReadInt32();
@@ -53,6 +51,11 @@ namespace PhotoshopFile
       LayerInfo result;
       switch (key)
       {
+        case "Layr":
+        case "Lr16":
+        case "Lr32":
+          result = new InfoLayers(reader, psdFile, key, length);
+          break;
         case "lsct":
         case "lsdk":
           result = new LayerSectionInfo(reader, key, (int)length);
@@ -134,7 +137,8 @@ namespace PhotoshopFile
     public void Save(PsdBinaryWriter writer, bool globalLayerInfo,
       bool isLargeDocument)
     {
-      Util.DebugMessage(writer.BaseStream, "Save, Begin, LayerInfo");
+      Util.DebugMessage(writer.BaseStream, "Save, Begin, LayerInfo, {0}, {1}",
+        Signature, Key);
 
       writer.WriteAsciiChars(Signature);
       writer.WriteAsciiChars(Key);
@@ -156,7 +160,8 @@ namespace PhotoshopFile
         writer.WritePadding(startPosition, 4);
       }
 
-      Util.DebugMessage(writer.BaseStream, "Save, End, LayerInfo, {0}", Key);
+      Util.DebugMessage(writer.BaseStream, "Save, End, LayerInfo, {0}, {1}",
+        Signature, Key);
     }
   }
 }
