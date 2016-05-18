@@ -809,7 +809,8 @@ namespace PhotoshopFile
 
         var channel = new Channel(i, this.BaseLayer);
         channel.ImageCompression = ImageCompression;
-        channel.Length = this.RowCount * Util.BytesPerRow(BaseLayer.Rect, BitDepth);
+        channel.Length = this.RowCount
+          * Util.BytesPerRow(BaseLayer.Rect.Size, BitDepth);
 
         // The composite image stores all RLE headers up-front, rather than
         // with each channel.

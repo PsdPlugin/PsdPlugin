@@ -5,7 +5,7 @@
 //
 // This software is provided under the MIT License:
 //   Copyright (c) 2006-2007 Frank Blumenberg
-//   Copyright (c) 2010-2015 Tao Yue
+//   Copyright (c) 2010-2016 Tao Yue
 //
 // See LICENSE.txt for complete licensing and attribution information.
 //
@@ -105,6 +105,29 @@ namespace PhotoshopFile
 
     /////////////////////////////////////////////////////////////////////////// 
 
+    public static void SwapByteArray(int bitDepth,
+      byte[] byteArray, int startIdx, int count)
+    {
+      switch (bitDepth)
+      {
+        case 1:
+        case 8:
+          break;
+
+        case 16:
+          SwapByteArray2(byteArray, startIdx, count);
+          break;
+
+        case 32:
+          SwapByteArray4(byteArray, startIdx, count);
+          break;
+
+        default:
+          throw new Exception(
+            "Byte-swapping implemented only for 16-bit and 32-bit depths.");
+      }
+    }
+
     /// <summary>
     /// Reverses the endianness of 2-byte words in a byte array.
     /// </summary>
@@ -161,14 +184,21 @@ namespace PhotoshopFile
 
     /////////////////////////////////////////////////////////////////////////// 
 
-    public static int BytesPerRow(Rectangle rect, int depth)
+    /// <summary>
+    /// Calculates the number of bytes required to store a row of an image
+    /// with the specified bit depth.
+    /// </summary>
+    /// <param name="size">The size of the image in pixels.</param>
+    /// <param name="bitDepth">The bit depth of the image.</param>
+    /// <returns>The number of bytes needed to store a row of the image.</returns>
+    public static int BytesPerRow(Size size, int bitDepth)
     {
-      switch (depth)
+      switch (bitDepth)
       {
         case 1:
-          return (rect.Width + 7) / 8;
+          return (size.Width + 7) / 8;
         default:
-          return rect.Width * BytesFromBitDepth(depth);
+          return size.Width * BytesFromBitDepth(bitDepth);
       }
     }
 
@@ -210,6 +240,10 @@ namespace PhotoshopFile
       return padding;
     }
 
+    /// <summary>
+    /// Returns the number of bytes needed to store a single pixel of the
+    /// specified bit depth.
+    /// </summary>
     public static int BytesFromBitDepth(int depth)
     {
       switch (depth)

@@ -58,6 +58,30 @@
     <Reference Include="WindowsBase" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="..\PsdFile\Compression\EndianReverser.cs">
+      <Link>PsdFile\Compression\EndianReverser.cs</Link>
+    </Compile>
+    <Compile Include="..\PsdFile\Compression\ImageData.cs">
+      <Link>PsdFile\Compression\ImageData.cs</Link>
+    </Compile>
+    <Compile Include="..\PsdFile\Compression\ImageDataFactory.cs">
+      <Link>PsdFile\Compression\ImageDataFactory.cs</Link>
+    </Compile>
+    <Compile Include="..\PsdFile\Compression\RawImage.cs">
+      <Link>PsdFile\Compression\RawImage.cs</Link>
+    </Compile>
+    <Compile Include="..\PsdFile\Compression\RleImage.cs">
+      <Link>PsdFile\Compression\RleImage.cs</Link>
+    </Compile>
+    <Compile Include="..\PsdFile\Compression\ZipImage.cs">
+      <Link>PsdFile\Compression\ZipImage.cs</Link>
+    </Compile>
+    <Compile Include="..\PsdFile\Compression\ZipPredict16Image.cs">
+      <Link>PsdFile\Compression\ZipPredict16Image.cs</Link>
+    </Compile>
+    <Compile Include="..\PsdFile\Compression\ZipPredict32Image.cs">
+      <Link>PsdFile\Compression\ZipPredict32Image.cs</Link>
+    </Compile>
     <Compile Include="..\PsdFile\ImageResources\AlphaChannelNames.cs">
       <Link>PsdFile\ImageResources\AlphaChannelNames.cs</Link>
     </Compile>
