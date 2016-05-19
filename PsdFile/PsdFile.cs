@@ -103,16 +103,16 @@ namespace PhotoshopFile
 
     public void Save(Stream stream, Encoding encoding)
     {
-      var writer = new PsdBinaryWriter(stream, encoding);
-      writer.AutoFlush = true;
-
       PrepareSave();
 
-      SaveHeader(writer);
-      SaveColorModeData(writer);
-      SaveImageResources(writer);
-      SaveLayerAndMaskInfo(writer);
-      SaveImage(writer);
+      using (var writer = new PsdBinaryWriter(stream, encoding))
+      {
+        SaveHeader(writer);
+        SaveColorModeData(writer);
+        SaveImageResources(writer);
+        SaveLayerAndMaskInfo(writer);
+        SaveImage(writer);
+      }
     }
 
     #endregion
