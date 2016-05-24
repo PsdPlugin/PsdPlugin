@@ -184,6 +184,13 @@ namespace PhotoshopFile
     {
       Util.DebugMessage(reader.BaseStream, "Load, Begin, Channel image");
 
+      if (Length == 0)
+      {
+        ImageCompression = ImageCompression.Raw;
+        ImageDataRaw = new byte[0];
+        return;
+      }
+
       var endPosition = reader.BaseStream.Position + this.Length;
       ImageCompression = (ImageCompression)reader.ReadInt16();
       var longDataLength = this.Length - 2;
