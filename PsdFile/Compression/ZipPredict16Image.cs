@@ -36,29 +36,31 @@ namespace PhotoshopFile.Compression
       {
         fixed (byte* ptrData = &buffer[0])
         {
-          Unpredict(ptrData);
+          Unpredict((UInt16*)ptrData);
         }
       }
     }
 
     /// <summary>
-    /// Unpredicts the little-endian decompressed image data.
+    /// Unpredicts the decompressed, native-endian image data.
     /// </summary>
-    unsafe private void Unpredict(byte* ptrData)
+    unsafe private void Unpredict(UInt16* ptrData)
     {
       // Delta-decode each row
-      for (int iRow = 0; iRow < Size.Height; iRow++)
+      for (int i = 0; i < Size.Height; i++)
       {
-        UInt16* ptr = (UInt16*)(ptrData + iRow * Size.Width * 2);
-        UInt16* ptrEnd = (UInt16*)(ptrData + (iRow + 1) * Size.Width * 2);
+        UInt16* ptrDataRowEnd = ptrData + Size.Width;
 
         // Start with column index 1 on each row
-        ptr++;
-        while (ptr < ptrEnd)
+        ptrData++;
+        while (ptrData < ptrDataRowEnd)
         {
-          *ptr = (UInt16)(*ptr + *(ptr - 1));
-          ptr++;
+          *ptrData += *(ptrData - 1);
+          ptrData++;
         }
+
+        // Advance pointer to the next row
+        ptrData = ptrDataRowEnd;
       }
     }
   }

@@ -36,55 +36,52 @@ namespace PhotoshopFile.Compression
         fixed (byte* ptrData = &tempBuffer[0])
         fixed (byte* ptrOutput = &buffer[0])
         {
-          Unpredict(ptrData, ptrOutput);
+          Unpredict(ptrData, (Int32*)ptrOutput);
         }
       }
     }
 
     /// <summary>
-    /// Unpredicts the raw decompressed image data into a little-endian
-    /// scanline bitmap.
+    /// Unpredicts the raw decompressed image data into a 32-bpp bitmap with
+    /// native endianness.
     /// </summary>
-    unsafe private void Unpredict(byte* ptrData, byte* ptrOutput)
+    unsafe private void Unpredict(byte* ptrData, Int32* ptrOutput)
     {
-      // Delta-decode each row
-      for (int iRow = 0; iRow < Size.Height; iRow++)
+      for (int i = 0; i < Size.Height; i++)
       {
-        byte* ptr = ptrData + iRow * Size.Width * 4;
-        byte* ptrEnd = ptrData + (iRow + 1) * Size.Width * 4;
+        byte* ptrDataRow = ptrData;
+        byte* ptrDataRowEnd = ptrDataRow + BytesPerRow;
 
-        // Start with column index 1 on each row
-        ptr++;
-        while (ptr < ptrEnd)
+        // Delta-decode each row
+        ptrData++;
+        while (ptrData < ptrDataRowEnd)
         {
-          *ptr = (byte)(*ptr + *(ptr - 1));
-          ptr++;
+          *ptrData += *(ptrData - 1);
+          ptrData++;
         }
-      }
 
-      // Within each row, the individual bytes of the 32-bit words are
-      // packed together, high-order bytes before low-order bytes.
-      // We now unpack them into words and reverse to little-endian.
-      int offset1 = Size.Width;
-      int offset2 = 2 * offset1;
-      int offset3 = 3 * offset1;
-      for (int iRow = 0; iRow < Size.Height; iRow++)
-      {
-        byte* dstPtr = ptrOutput + iRow * Size.Width * 4;
-        byte* dstPtrEnd = ptrOutput + (iRow + 1) * Size.Width * 4;
+        // Within each row, the individual bytes of the 32-bit words are
+        // packed together, high-order bytes before low-order bytes.
+        // We now unpack them into words.
+        int offset1 = Size.Width;
+        int offset2 = 2 * offset1;
+        int offset3 = 3 * offset1;
 
-        byte* srcPtr = ptrData + iRow * Size.Width * 4;
-
-        // Reverse to little-endian as we do the unpacking.
-        while (dstPtr < dstPtrEnd)
+        ptrData = ptrDataRow;
+        Int32* ptrOutputRowEnd = ptrOutput + Size.Width;
+        while (ptrOutput < ptrOutputRowEnd)
         {
-          *(dstPtr++) = *(srcPtr + offset3);
-          *(dstPtr++) = *(srcPtr + offset2);
-          *(dstPtr++) = *(srcPtr + offset1);
-          *(dstPtr++) = *srcPtr;
+          *ptrOutput = *(ptrData) << 24
+            | *(ptrData + offset1) << 16
+            | *(ptrData + offset2) << 8
+            | *(ptrData + offset3);
 
-          srcPtr++;
+          ptrData++;
+          ptrOutput++;
         }
+
+        // Advance pointer to next row
+        ptrData = ptrDataRowEnd;
       }
     }
   }
