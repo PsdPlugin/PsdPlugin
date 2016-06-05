@@ -19,6 +19,11 @@ namespace PhotoshopFile.Compression
   {
     private ImageData imageData;
 
+    protected override bool AltersWrittenData
+    {
+      get { return true; }
+    }
+
     public EndianReverser(ImageData imageData)
       : base(imageData.Size, imageData.BitDepth)
     {
@@ -35,6 +40,23 @@ namespace PhotoshopFile.Compression
         return;
       }
       Util.SwapByteArray(BitDepth, buffer, 0, numPixels);
+    }
+
+    public override byte[] ReadCompressed()
+    {
+      return imageData.ReadCompressed();
+    }
+
+    internal override void WriteInternal(byte[] array)
+    {
+      // Reverse endianness before passing on to underlying compressor
+      if (array.Length > 0)
+      {
+        var numPixels = array.Length / BytesPerRow * Size.Width;
+        Util.SwapByteArray(BitDepth, array, 0, numPixels);
+      }
+
+      imageData.Write(array);
     }
   }
 }

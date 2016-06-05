@@ -20,6 +20,11 @@ namespace PhotoshopFile.Compression
   {
     private byte[] data;
 
+    protected override bool AltersWrittenData
+    {
+      get { return false; }
+    }
+
     public RawImage(byte[] data, Size size, int bitDepth)
       : base(size, bitDepth)
     {
@@ -29,6 +34,16 @@ namespace PhotoshopFile.Compression
     internal override void Read(byte[] buffer)
     {
       Array.Copy(data, buffer, data.Length);
+    }
+
+    public override byte[] ReadCompressed()
+    {
+      return data;
+    }
+
+    internal override void WriteInternal(byte[] array)
+    {
+      data = array;
     }
   }
 }

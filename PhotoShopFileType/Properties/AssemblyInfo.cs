@@ -5,7 +5,7 @@
 //
 // This software is provided under the MIT License:
 //   Copyright (c) 2006-2007 Frank Blumenberg
-//   Copyright (c) 2010-2014 Tao Yue
+//   Copyright (c) 2010-2016 Tao Yue
 //
 // See LICENSE.txt for complete licensing and attribution information.
 //
@@ -26,6 +26,8 @@ using System.Runtime.InteropServices;
 [assembly: AssemblyCopyright("Copyright © 2006-2014 Frank Blumenberg and Tao Yue")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
+
+[assembly: InternalsVisibleTo("PhotoshopFile.Tests")]
 
 // Setting ComVisible to false makes the types in this assembly not visible 
 // to COM components.  If you need to access a type in this assembly from 

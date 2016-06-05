@@ -18,11 +18,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
-using System.Globalization;
-using System.IO;
-using System.IO.Compression;
 using System.Linq;
-using System.Text;
 
 using PhotoshopFile.Compression;
 
@@ -259,47 +255,21 @@ namespace PhotoshopFile
       if (ImageData == null)
         return;
 
-      switch (ImageCompression)
+      if (ImageCompression == ImageCompression.Rle)
       {
-        case ImageCompression.Raw:
-          ImageDataRaw = ImageData;
-          this.Length = 2 + ImageDataRaw.Length;
-          break;
-
-        case ImageCompression.Rle:
-          CompressImageDataRle();
-          break;
-
-        default:
-          throw new NotImplementedException(
-            "Only raw and RLE compression have been implemented.");
-      }
-    }
-
-    private void CompressImageDataRle()
-    {
-      RleRowLengths = new RleRowLengths(Rect.Height);
-
-      using (var dataStream = new MemoryStream())
-      {
-        var rleWriter = new RleWriter(dataStream);
-        var bytesPerRow = Util.BytesPerRow(Rect.Size, Layer.PsdFile.BitDepth);
-        for (int row = 0; row < Rect.Height; row++)
-        {
-          int rowIndex = row * Rect.Width;
-          RleRowLengths[row] = rleWriter.Write(
-            ImageData, rowIndex, bytesPerRow);
-        }
-
-        // Save compressed data
-        dataStream.Flush();
-        ImageDataRaw = dataStream.ToArray();
-        Debug.Assert(RleRowLengths.Total == ImageDataRaw.Length,
-          "RLE row lengths do not sum to the compressed data length.");
+        RleRowLengths = new RleRowLengths(Rect.Height);
       }
 
-      var rowLengthSize = Layer.PsdFile.IsLargeDocument ? 4 : 2;
-      Length = 2 + rowLengthSize * Rect.Height + ImageDataRaw.Length;
+      var compressor = ImageDataFactory.Create(this, null);
+      compressor.Write(ImageData);
+      ImageDataRaw = compressor.ReadCompressed();
+
+      Length = 2 + ImageDataRaw.Length;
+      if (ImageCompression == ImageCompression.Rle)
+      {
+        var rowLengthSize = Layer.PsdFile.IsLargeDocument ? 4 : 2;
+        Length += rowLengthSize * Rect.Height;
+      }
     }
 
     internal void SavePixelData(PsdBinaryWriter writer)

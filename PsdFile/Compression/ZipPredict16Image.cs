@@ -13,12 +13,18 @@
 
 using System;
 using System.Drawing;
+using System.IO.Compression;
 
 namespace PhotoshopFile.Compression
 {
   public class ZipPredict16Image : ImageData
   {
     private ImageData zipImage;
+
+    protected override bool AltersWrittenData
+    {
+      get { return true; }
+    }
 
     public ZipPredict16Image(byte[] zipData, Size size)
       : base(size, 16)
@@ -31,6 +37,11 @@ namespace PhotoshopFile.Compression
 
     internal override void Read(byte[] buffer)
     {
+      if (buffer.Length == 0)
+      {
+        return;
+      }
+
       zipImage.Read(buffer);
       unsafe
       {
@@ -38,6 +49,48 @@ namespace PhotoshopFile.Compression
         {
           Unpredict((UInt16*)ptrData);
         }
+      }
+    }
+
+    public override byte[] ReadCompressed()
+    {
+      return zipImage.ReadCompressed();
+    }
+
+    internal override void WriteInternal(byte[] array)
+    {
+      if (array.Length == 0)
+      {
+        return;
+      }
+
+      unsafe
+      {
+        fixed (byte* ptrData = &array[0])
+        {
+          Predict((UInt16*)ptrData);
+        }
+      }
+
+      zipImage.WriteInternal(array);
+    }
+
+    unsafe private void Predict(UInt16* ptrData)
+    {
+      // Delta-encode each row
+      for (int i = 0; i < Size.Height; i++)
+      {
+        UInt16* ptrDataRow = ptrData;
+        UInt16* ptrDataRowEnd = ptrDataRow + Size.Width;
+
+        // Start with the last column in the row
+        ptrData = ptrDataRowEnd - 1;
+        while (ptrData > ptrDataRow)
+        {
+          *ptrData -= *(ptrData - 1);
+          ptrData--;
+        }
+        ptrData = ptrDataRowEnd;
       }
     }
 

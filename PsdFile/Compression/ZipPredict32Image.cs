@@ -12,13 +12,21 @@
 /////////////////////////////////////////////////////////////////////////////////
 
 using System;
+using System.Diagnostics;
 using System.Drawing;
 
 namespace PhotoshopFile.Compression
 {
   public class ZipPredict32Image : ImageData
   {
-    private ImageData zipImage;
+    private ZipImage zipImage;
+
+    protected override bool AltersWrittenData
+    {
+      // Prediction will pack the data into a temporary buffer, so the
+      // original data will remain unchanged.
+      get { return false; }
+    }
 
     public ZipPredict32Image(byte[] zipData, Size size)
       : base(size, 32)
@@ -28,16 +36,85 @@ namespace PhotoshopFile.Compression
 
     internal override void Read(byte[] buffer)
     {
-      var tempBuffer = new byte[buffer.Length];
+      if (buffer.Length == 0)
+      {
+        return;
+      }
 
-      zipImage.Read(tempBuffer);
+      var predictedData = new byte[buffer.Length];
+      zipImage.Read(predictedData);
+
       unsafe
       {
-        fixed (byte* ptrData = &tempBuffer[0])
+        fixed (byte* ptrData = &predictedData[0])
         fixed (byte* ptrOutput = &buffer[0])
         {
           Unpredict(ptrData, (Int32*)ptrOutput);
         }
+      }
+    }
+
+    public override byte[] ReadCompressed()
+    {
+      return zipImage.ReadCompressed();
+    }
+
+    internal override void WriteInternal(byte[] array)
+    {
+      if (array.Length == 0)
+      {
+        return;
+      }
+
+      var predictedData = new byte[array.Length];
+      unsafe
+      {
+        fixed (byte* ptrData = &array[0])
+        fixed (byte* ptrOutput = &predictedData[0])
+        {
+          Predict((Int32*)ptrData, ptrOutput);
+        }
+      }
+
+      zipImage.WriteInternal(predictedData);
+    }
+
+    unsafe private void Predict(Int32* ptrData, byte* ptrOutput)
+    {
+      for (int i = 0; i < Size.Height; i++)
+      {
+        // Pack together the individual bytes of the 32-bit words, high-order
+        // bytes before low-order bytes.
+        int offset1 = Size.Width;
+        int offset2 = 2 * offset1;
+        int offset3 = 3 * offset1;
+
+        Int32* ptrDataRow = ptrData;
+        Int32* ptrDataRowEnd = ptrDataRow + Size.Width;
+        byte* ptrOutputRow = ptrOutput;
+        byte* ptrOutputRowEnd = ptrOutputRow + BytesPerRow;
+        while (ptrData < ptrDataRowEnd)
+        {
+          *(ptrOutput)           = (byte)(*ptrData >> 24);
+          *(ptrOutput + offset1) = (byte)(*ptrData >> 16);
+          *(ptrOutput + offset2) = (byte)(*ptrData >> 8);
+          *(ptrOutput + offset3) = (byte)(*ptrData);
+
+          ptrData++;
+          ptrOutput++;
+        }
+
+        // Delta-encode the row
+        ptrOutput = ptrOutputRowEnd - 1;
+        while (ptrOutput > ptrOutputRow)
+        {
+          *ptrOutput -= *(ptrOutput - 1);
+          ptrOutput--;
+        }
+
+        // Advance pointer to next row
+        ptrOutput = ptrOutputRowEnd;
+        Debug.Assert(ptrData == ptrDataRowEnd);
       }
     }
 
@@ -82,6 +159,7 @@ namespace PhotoshopFile.Compression
 
         // Advance pointer to next row
         ptrData = ptrDataRowEnd;
+        Debug.Assert(ptrOutput == ptrOutputRowEnd);
       }
     }
   }
