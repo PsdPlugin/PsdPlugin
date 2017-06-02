@@ -5,7 +5,7 @@
 //
 // This software is provided under the MIT License:
 //   Copyright (c) 2006-2007 Frank Blumenberg
-//   Copyright (c) 2010-2015 Tao Yue
+//   Copyright (c) 2010-2017 Tao Yue
 //
 // Portions of this file are provided under the BSD 3-clause License:
 //   Copyright (c) 2006, Jonas Beckeman
@@ -20,6 +20,8 @@ using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+
+using static System.FormattableString;
 
 namespace PhotoshopFile
 {
@@ -113,7 +115,7 @@ namespace PhotoshopFile
     private string signature;
     public string Signature
     {
-      get { return signature; }
+      get => signature;
       set
       {
         if (value.Length != 4)
@@ -154,7 +156,7 @@ namespace PhotoshopFile
       }
       writer.WritePadding(startPosition, 2);
 
-      Util.DebugMessage(writer.BaseStream, "Save, End, ImageResource, {0}", ID);
+      Util.DebugMessage(writer.BaseStream, $"Save, End, ImageResource, {ID}");
     }
 
     /// <summary>
@@ -162,10 +164,8 @@ namespace PhotoshopFile
     /// </summary>
     protected abstract void WriteData(PsdBinaryWriter writer);
 
-    public override string ToString()
-    {
-      return String.Format(CultureInfo.InvariantCulture, "{0} {1}", ID, Name);
-    }
+    public override string ToString() =>
+      Invariant($"{ID} {Name}");
   }
 
   /// <summary>
@@ -210,8 +210,8 @@ namespace PhotoshopFile
           break;
       }
 
-      Util.DebugMessage(reader.BaseStream, "Load, End, ImageResource, {0}",
-        resourceId);
+      Util.DebugMessage(reader.BaseStream,
+        $"Load, End, ImageResource, {resourceId}");
 
       // Reposition the reader if we do not consume the full resource block.
       // This takes care of the even-padding, and also preserves forward-

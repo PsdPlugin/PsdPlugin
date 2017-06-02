@@ -5,7 +5,7 @@
 //
 // This software is provided under the MIT License:
 //   Copyright (c) 2006-2007 Frank Blumenberg
-//   Copyright (c) 2010-2014 Tao Yue
+//   Copyright (c) 2010-2017 Tao Yue
 //
 // See LICENSE.txt for complete licensing and attribution information.
 //
@@ -20,16 +20,10 @@ namespace PhotoshopFile
   public class RawLayerInfo : LayerInfo
   {
     private string signature;
-    public override string Signature
-    {
-      get { return signature; }
-    }
+    public override string Signature => signature;
 
     private string key;
-    public override string Key
-    {
-      get { return key; }
-    }
+    public override string Key => key;
 
     public byte[] Data { get; private set; }
 

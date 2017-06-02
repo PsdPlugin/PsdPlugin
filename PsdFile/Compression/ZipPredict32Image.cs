@@ -5,7 +5,7 @@
 //
 // This software is provided under the MIT License:
 //   Copyright (c) 2006-2007 Frank Blumenberg
-//   Copyright (c) 2010-2016 Tao Yue
+//   Copyright (c) 2010-2017 Tao Yue
 //
 // See LICENSE.txt for complete licensing and attribution information.
 //
@@ -21,12 +21,9 @@ namespace PhotoshopFile.Compression
   {
     private ZipImage zipImage;
 
-    protected override bool AltersWrittenData
-    {
-      // Prediction will pack the data into a temporary buffer, so the
-      // original data will remain unchanged.
-      get { return false; }
-    }
+    // Prediction will pack the data into a temporary buffer, so the
+    // original data will remain unchanged.
+    protected override bool AltersWrittenData => false;
 
     public ZipPredict32Image(byte[] zipData, Size size)
       : base(size, 32)

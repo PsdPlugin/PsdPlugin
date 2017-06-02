@@ -5,7 +5,7 @@
 //
 // This software is provided under the MIT License:
 //   Copyright (c) 2006-2007 Frank Blumenberg
-//   Copyright (c) 2010-2016 Tao Yue
+//   Copyright (c) 2010-2017 Tao Yue
 //
 // Portions of this file are provided under the BSD 3-clause License:
 //   Copyright (c) 2006, Jonas Beckeman
@@ -45,16 +45,7 @@ namespace PhotoshopFile
     /// <summary>
     /// Returns alpha channel if it exists, otherwise null.
     /// </summary>
-    public Channel AlphaChannel
-    {
-      get
-      {
-        if (Channels.ContainsId(-1))
-          return Channels.GetId(-1);
-        else
-          return null;
-      }
-    }
+    public Channel AlphaChannel => Channels.SingleOrDefault(x => x.ID == -1);
 
     private string blendModeKey;
     /// <summary>
@@ -62,7 +53,7 @@ namespace PhotoshopFile
     /// </summary>
     public string BlendModeKey
     {
-      get { return blendModeKey; }
+      get => blendModeKey;
       set
       {
         if (value.Length != 4)
@@ -93,8 +84,8 @@ namespace PhotoshopFile
     /// </summary>
     public bool Visible
     {
-      get { return !flags[visibleBit]; }
-      set { flags[visibleBit] = !value; }
+      get => !flags[visibleBit];
+      set => flags[visibleBit] = !value;
     }
 
     /// <summary>
@@ -102,8 +93,8 @@ namespace PhotoshopFile
     /// </summary>
     public bool ProtectTrans
     {
-      get { return flags[protectTransBit]; }
-      set { flags[protectTransBit] = value; }
+      get => flags[protectTransBit];
+      set => flags[protectTransBit] = value;
     }
 
     /// <summary>
@@ -193,7 +184,7 @@ namespace PhotoshopFile
         }
       }
 
-      Util.DebugMessage(reader.BaseStream, "Load, End, Layer, {0}", Name);
+      Util.DebugMessage(reader.BaseStream, $"Load, End, Layer, {Name}");
 
       PsdFile.LoadContext.OnLoadLayerHeader(this);
     }
@@ -300,7 +291,7 @@ namespace PhotoshopFile
         }
       }
 
-      Util.DebugMessage(writer.BaseStream, "Save, End, Layer, {0}", Name);
+      Util.DebugMessage(writer.BaseStream, $"Save, End, Layer, {Name}");
     }
   }
 }

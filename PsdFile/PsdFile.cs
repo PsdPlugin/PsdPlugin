@@ -124,10 +124,8 @@ namespace PhotoshopFile
     /// </summary>
     public PsdFileVersion Version { get; private set; }
 
-    public bool IsLargeDocument
-    {
-      get { return Version == PsdFileVersion.PsbLargeDocument; }
-    }
+    public bool IsLargeDocument =>
+      (Version == PsdFileVersion.PsbLargeDocument);
 
     private Int16 channelCount;
     /// <summary>
@@ -135,7 +133,7 @@ namespace PhotoshopFile
     /// </summary>
     public Int16 ChannelCount
     {
-      get { return channelCount; }
+      get => channelCount;
       set
       {
         if (value < 1 || value > 56)
@@ -165,7 +163,7 @@ namespace PhotoshopFile
     /// </summary>
     public int RowCount
     {
-      get { return this.BaseLayer.Rect.Height; }
+      get => this.BaseLayer.Rect.Height;
       set
       {
         CheckDimension(value);
@@ -179,7 +177,7 @@ namespace PhotoshopFile
     /// </summary>
     public int ColumnCount
     {
-      get { return this.BaseLayer.Rect.Width; }
+      get => this.BaseLayer.Rect.Width;
       set
       {
         CheckDimension(value);
@@ -193,7 +191,7 @@ namespace PhotoshopFile
     /// </summary>
     public int BitDepth
     {
-      get { return bitDepth; }
+      get => bitDepth;
       set
       {
         switch (value)
@@ -226,7 +224,7 @@ namespace PhotoshopFile
         throw new PsdInvalidException("The given stream is not a valid PSD file");
 
       Version = (PsdFileVersion)reader.ReadInt16();
-      Util.DebugMessage(reader.BaseStream, "Load, Info, Version {0}", (int)Version);
+      Util.DebugMessage(reader.BaseStream, $"Load, Info, Version {(int)Version}");
       if ((Version != PsdFileVersion.Psd)
         && (Version != PsdFileVersion.PsbLargeDocument))
       {
@@ -315,15 +313,8 @@ namespace PhotoshopFile
 
     public ResolutionInfo Resolution
     {
-      get
-      {
-        return (ResolutionInfo)ImageResources.Get(ResourceID.ResolutionInfo);
-      }
-
-      set
-      {
-        ImageResources.Set(value);
-      }
+      get => (ResolutionInfo)ImageResources.Get(ResourceID.ResolutionInfo);
+      set => ImageResources.Set(value);
     }
 
 
@@ -408,10 +399,9 @@ namespace PhotoshopFile
           globalLayerInfo: true);
         AdditionalInfo.Add(info);
 
-        if (info is RawLayerInfo)
+        if (info is RawLayerInfo layerInfo)
         {
-          var layerInfo = (RawLayerInfo)info;
-          switch (info.Key)
+          switch (layerInfo.Key)
           {
             case "LMsk":
               GlobalLayerMaskData = layerInfo.Data;

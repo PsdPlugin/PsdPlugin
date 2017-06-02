@@ -5,7 +5,7 @@
 //
 // This software is provided under the MIT License:
 //   Copyright (c) 2006-2007 Frank Blumenberg
-//   Copyright (c) 2010-2016 Tao Yue
+//   Copyright (c) 2010-2017 Tao Yue
 //
 // See LICENSE.txt for complete licensing and attribution information.
 //
@@ -315,12 +315,9 @@ namespace PhotoshopFile
     /// in the stream in both decimal and hexadecimal formats.
     /// </summary>
     [Conditional("DEBUG")]
-    public static void DebugMessage(Stream stream, string message,
-      params object[] args)
+    public static void DebugMessage(Stream stream, string message)
     {
-      var formattedMessage = String.Format(message, args);
-      Debug.WriteLine("0x{0:x}, {0}, {1}",
-        stream.Position, formattedMessage);
+      Debug.WriteLine($"0x{stream.Position:x}, {stream.Position}, {message}");
     }
   }
 

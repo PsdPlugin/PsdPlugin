@@ -5,7 +5,7 @@
 //
 // This software is provided under the MIT License:
 //   Copyright (c) 2006-2007 Frank Blumenberg
-//   Copyright (c) 2010-2015 Tao Yue
+//   Copyright (c) 2010-2017 Tao Yue
 //
 // See LICENSE.txt for complete licensing and attribution information.
 //
@@ -34,30 +34,24 @@ namespace PhotoshopFile
   /// </summary>
   public class LayerSectionInfo : LayerInfo
   {
-    public override string Signature
-    {
-      get { return "8BIM"; }
-    }
+    public override string Signature => "8BIM";
 
     private string key;
-    public override string Key
-    {
-      get { return key; }
-    }
+    public override string Key => key;
 
     public LayerSectionType SectionType { get; set; }
 
     private LayerSectionSubtype? subtype;
     public LayerSectionSubtype Subtype
     {
-      get { return subtype ?? LayerSectionSubtype.Normal; }
-      set { subtype = value; }
+      get => subtype ?? LayerSectionSubtype.Normal;
+      set => subtype = value;
     }
 
     private string blendModeKey;
     public string BlendModeKey
     {
-      get { return blendModeKey; }
+      get => blendModeKey;
       set
       {
         if (value.Length != 4)

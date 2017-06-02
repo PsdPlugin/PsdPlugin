@@ -5,7 +5,7 @@
 //
 // This software is provided under the MIT License:
 //   Copyright (c) 2006-2007 Frank Blumenberg
-//   Copyright (c) 2010-2016 Tao Yue
+//   Copyright (c) 2010-2017 Tao Yue
 //
 // Portions of this file are provided under the BSD 3-clause License:
 //   Copyright (c) 2006, Jonas Beckeman
@@ -154,7 +154,7 @@ namespace PhotoshopFile
         : reader.ReadInt32();
       Layer = layer;
 
-      Util.DebugMessage(reader.BaseStream, "Load, End, Channel, {0}", ID);
+      Util.DebugMessage(reader.BaseStream, $"Load, End, Channel, {ID}");
     }
 
     internal void Save(PsdBinaryWriter writer)
@@ -171,7 +171,7 @@ namespace PhotoshopFile
         writer.Write((Int32)Length);
       }
 
-      Util.DebugMessage(writer.BaseStream, "Save, End, Channel, {0}", ID);
+      Util.DebugMessage(writer.BaseStream, $"Save, End, Channel, {ID}");
     }
 
     //////////////////////////////////////////////////////////////////
@@ -217,8 +217,7 @@ namespace PhotoshopFile
           break;
       }
 
-      Util.DebugMessage(reader.BaseStream, "Load, End, Channel image, {0}",
-        ID, Layer.Name);
+      Util.DebugMessage(reader.BaseStream, $"Load, End, Channel image, {ID}");
       Debug.Assert(reader.BaseStream.Position == endPosition,
         "Pixel data was not fully read in.");
     }
@@ -288,8 +287,7 @@ namespace PhotoshopFile
       }
       writer.Write(ImageDataRaw);
 
-      Util.DebugMessage(writer.BaseStream, "Save, End, Channel image, {0}",
-        ID, Layer.Name);
+      Util.DebugMessage(writer.BaseStream, $"Save, End, Channel image, {ID}");
     }
 
   }

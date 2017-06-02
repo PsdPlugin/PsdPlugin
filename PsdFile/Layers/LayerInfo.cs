@@ -5,7 +5,7 @@
 //
 // This software is provided under the MIT License:
 //   Copyright (c) 2006-2007 Frank Blumenberg
-//   Copyright (c) 2010-2016 Tao Yue
+//   Copyright (c) 2010-2017 Tao Yue
 //
 // See LICENSE.txt for complete licensing and attribution information.
 //
@@ -88,8 +88,8 @@ namespace PhotoshopFile
         reader.ReadPadding(startPosition, 4);
       }
 
-      Util.DebugMessage(reader.BaseStream, "Load, End, LayerInfo, {0}, {1}",
-        result.Signature, result.Key);
+      Util.DebugMessage(reader.BaseStream,
+        $"Load, End, LayerInfo, {result.Signature}, {result.Key}");
       return result;
     }
   }
@@ -137,8 +137,8 @@ namespace PhotoshopFile
     public void Save(PsdBinaryWriter writer, bool globalLayerInfo,
       bool isLargeDocument)
     {
-      Util.DebugMessage(writer.BaseStream, "Save, Begin, LayerInfo, {0}, {1}",
-        Signature, Key);
+      Util.DebugMessage(writer.BaseStream,
+        $"Save, Begin, LayerInfo, {Signature}, {Key}");
 
       writer.WriteAsciiChars(Signature);
       writer.WriteAsciiChars(Key);
@@ -160,8 +160,8 @@ namespace PhotoshopFile
         writer.WritePadding(startPosition, 4);
       }
 
-      Util.DebugMessage(writer.BaseStream, "Save, End, LayerInfo, {0}, {1}",
-        Signature, Key);
+      Util.DebugMessage(writer.BaseStream,
+        $"Save, End, LayerInfo, {Signature}, {Key}");
     }
   }
 }

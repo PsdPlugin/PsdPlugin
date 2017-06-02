@@ -5,7 +5,7 @@
 //
 // This software is provided under the MIT License:
 //   Copyright (c) 2006-2007 Frank Blumenberg
-//   Copyright (c) 2010-2016 Tao Yue
+//   Copyright (c) 2010-2017 Tao Yue
 //
 // See LICENSE.txt for complete licensing and attribution information.
 //
@@ -20,10 +20,7 @@ namespace PhotoshopFile.Compression
   {
     private byte[] data;
 
-    protected override bool AltersWrittenData
-    {
-      get { return false; }
-    }
+    protected override bool AltersWrittenData => false;
 
     public RawImage(byte[] data, Size size, int bitDepth)
       : base(size, bitDepth)

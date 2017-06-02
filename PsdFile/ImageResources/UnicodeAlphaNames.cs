@@ -5,7 +5,7 @@
 //
 // This software is provided under the MIT License:
 //   Copyright (c) 2006-2007 Frank Blumenberg
-//   Copyright (c) 2010-2014 Tao Yue
+//   Copyright (c) 2010-2017 Tao Yue
 //
 // See LICENSE.txt for complete licensing and attribution information.
 //
@@ -21,16 +21,10 @@ namespace PhotoshopFile
   /// </summary>
   public class UnicodeAlphaNames : ImageResource
   {
-    public override ResourceID ID
-    {
-      get { return ResourceID.UnicodeAlphaNames; }
-    }
+    public override ResourceID ID => ResourceID.UnicodeAlphaNames;
 
     private List<string> channelNames = new List<string>();
-    public List<string> ChannelNames
-    {
-      get { return channelNames; }
-    }
+    public List<string> ChannelNames => channelNames;
 
     public UnicodeAlphaNames()
       : base(String.Empty)

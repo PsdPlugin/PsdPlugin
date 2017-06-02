@@ -5,7 +5,7 @@
 //
 // This software is provided under the MIT License:
 //   Copyright (c) 2006-2007 Frank Blumenberg
-//   Copyright (c) 2010-2013 Tao Yue
+//   Copyright (c) 2010-2017 Tao Yue
 //
 // See LICENSE.txt for complete licensing and attribution information.
 //
@@ -25,10 +25,7 @@ namespace PhotoshopFile
     public byte[] Data { get; private set; }
 
     private ResourceID id;
-    public override ResourceID ID
-    {
-      get { return id; }
-    }
+    public override ResourceID ID => id;
 
     public RawImageResource(ResourceID resourceId, string name)
       : base(name)
