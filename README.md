@@ -10,7 +10,7 @@ common to both Paint.NET and Adobe Photoshop.  Other features are
 preserved with varying levels of visual fidelity.
 
 For more details, or to report bugs, please refer to the website:
-  http://psdplugin.codeplex.com/
+  https://github.com/PsdPlugin/PsdPlugin
 
 
 ## Installation
@@ -21,7 +21,7 @@ For more details, or to report bugs, please refer to the website:
 3. Restart Paint.NET, which will automatically detect the plugin.
 
 A copy of Paint.NET can be obtained from the official website:
-  http://www.getpaint.net/
+  https://www.getpaint.net
 
 
 ## Licensing
