@@ -27,4 +27,4 @@ A copy of Paint.NET can be obtained from the official website:
 ## Licensing
 
 This software is open-source, under the MIT and BSD licenses.  Please see
-LICENSE.TXT for complete licensing and attribution information.
+[LICENSE.TXT](License.txt) for complete licensing and attribution information.
