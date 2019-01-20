@@ -75,6 +75,7 @@ TestResults
 ClientBin
 stylecop.*
 ~$*
+*.bak
 *.dbmdl
 Generated_Code #added for RIA/Silverlight projects
 
