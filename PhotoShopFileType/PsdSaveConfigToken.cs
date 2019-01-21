@@ -27,15 +27,18 @@ namespace PaintDotNet.Data.PhotoshopFileType
     }
 
     public bool RleCompress { get; set; }
+    public bool SaveLayers { get; set; }
 
-    public PsdSaveConfigToken(bool rleCompress)
+    public PsdSaveConfigToken(bool rleCompress, bool saveLayers)
     {
       this.RleCompress = rleCompress;
+      this.SaveLayers = saveLayers;
     }
 
     protected PsdSaveConfigToken(PsdSaveConfigToken copyMe)
     {
       this.RleCompress = copyMe.RleCompress;
+      this.SaveLayers = copyMe.SaveLayers;
     }
 
     public override void Validate()

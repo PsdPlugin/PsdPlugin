@@ -12,13 +12,14 @@
 /////////////////////////////////////////////////////////////////////////////////
 
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
-
 using PhotoshopFile;
 
 namespace PaintDotNet.Data.PhotoshopFileType
@@ -86,7 +87,12 @@ namespace PaintDotNet.Data.PhotoshopFileType
         // LayerList is an ArrayList, so we have to cast to get a generic
         // IEnumerable that works with LINQ.
         var pdnLayers = input.Layers.Cast<BitmapLayer>();
-        var psdLayers = pdnLayers.AsParallel().AsOrdered().Select(pdnLayer =>
+
+        // Create folders/groups before actual image data will be saved.
+        var layerInfos = PrepareLayers(pdnLayers, psdToken.SaveLayers);
+
+
+        var psdLayers = layerInfos.AsParallel().AsOrdered().Select(pdnLayer =>
         {
           var psdLayer = new PhotoshopFile.Layer(psdFile);
           StoreLayer(pdnLayer, psdLayer, psdToken);
@@ -101,6 +107,71 @@ namespace PaintDotNet.Data.PhotoshopFileType
       Parallel.Invoke(storeCompositeAction, storeLayersAction);
 
       psdFile.Save(output, Encoding.Default);
+    }
+
+
+    /// <summary>
+    /// Prepare Paint.NET's flat layer list to be exported as Photoshop layers.
+    /// Indicate where layer sections begin and end and create missing layers while user can break the structure.
+    /// </summary>
+    private static IEnumerable<BitmapLayerInfo> PrepareLayers(IEnumerable<BitmapLayer> paintLayers, bool saveGroupLayers)
+    {
+      var toReturn = new List<BitmapLayerInfo>();
+      var layer = paintLayers.FirstOrDefault();
+      var openedGroupsCount = 0;
+      var reversed = paintLayers.Reverse();
+      foreach (var paintLayer in reversed)
+      {
+        var layerInfo = new BitmapLayerInfo();
+        layerInfo.Name = paintLayer.Name;
+        layerInfo.Layer = paintLayer;
+        // Render as default image
+        layerInfo.RenderAsRegularLayer = true;
+
+        var isGroupLayerStart = false;
+        var layerGroup = string.Empty;
+
+        if (saveGroupLayers && CheckIsGroupLayer(paintLayer, out isGroupLayerStart, out layerGroup))
+        {
+          layerInfo.Name = layerGroup ?? "Layer";
+          layerInfo.IsGroupStart = isGroupLayerStart;
+          layerInfo.IsGroupEnd = !isGroupLayerStart;
+          layerInfo.RenderAsRegularLayer = false;
+          if (isGroupLayerStart)
+          {
+            openedGroupsCount++;
+          }
+          else if (layerInfo.IsGroupEnd)
+          {
+            if (openedGroupsCount == 0)
+            {
+               // Structure is broken. Close layer tag is before any other start. 
+               // In this case we should render group as regular layer.
+               layerInfo.RenderAsRegularLayer = true;
+             }
+             else
+             {
+               openedGroupsCount--;
+             }
+           }
+          }
+
+          toReturn.Add(layerInfo);
+          }
+
+          toReturn.Reverse();
+          // Add missing close groups.
+          if (openedGroupsCount > 0)
+          {
+            for (int count = 0; count < openedGroupsCount; count++)
+            {
+              var emptyLayer = new BitmapLayer(layer.Width, layer.Height);
+              var layerInfo = new BitmapLayerInfo() { Layer = emptyLayer, IsGroupEnd = true, Name = "Layer end" };
+              toReturn.Insert(0, layerInfo);
+            }
+          }
+
+      return toReturn;
     }
 
     private static ResolutionInfo GetResolutionInfo(Document input)
@@ -227,18 +298,64 @@ namespace PaintDotNet.Data.PhotoshopFileType
       return fPixelFound;
     }
 
+        public static bool CheckIsGroupLayer(BitmapLayer layer, out bool isStart, out string groupName)
+        {
+            isStart = true;
+            groupName = null;
+            if (layer == null || string.IsNullOrEmpty(layer.Name) || !layer.Name.Contains(':'))
+            {
+                return false;
+            }
+
+            var splited = layer.Name.Split(':');
+            var layerPrefix = splited.FirstOrDefault().ToLower().Trim();
+            if(string.IsNullOrEmpty(layerPrefix))
+            {
+                return false;
+            }
+
+            var nameOfTheGroup = string.Join(":", splited.Range(1, splited.Length - 1));
+
+            // This is part of the 
+            if (!string.IsNullOrEmpty(nameOfTheGroup) && nameOfTheGroup.StartsWith(" "))
+            {
+                nameOfTheGroup = nameOfTheGroup.Substring(1, nameOfTheGroup.Length - 1);
+            }
+
+            var startGroupPrefixes = PsdPluginResources.GetAllLayerGroupNames(PsdPluginResources.LayersPalette_LayerGroupBegin);
+            if (startGroupPrefixes.Any(p => p == layerPrefix || p.StartsWith(layerPrefix)))
+            {
+                isStart = true;
+                groupName = nameOfTheGroup;
+                return true;
+            }
+
+            var endGroupPrefixes = PsdPluginResources.GetAllLayerGroupNames(PsdPluginResources.LayersPalette_LayerGroupEnd);
+            if (endGroupPrefixes.Any(p => p == layerPrefix || p.StartsWith(layerPrefix)))
+            {
+                isStart = false;
+                groupName = nameOfTheGroup;
+                return true;
+            }
+
+            return false;
+        }
+
     /// <summary>
     /// Store layer metadata and image data.
     /// </summary>
-    public static void StoreLayer(BitmapLayer layer,
-      PhotoshopFile.Layer psdLayer, PsdSaveConfigToken psdToken)
+    public static void StoreLayer(
+      BitmapLayerInfo layerInfo,
+      PhotoshopFile.Layer psdLayer, 
+      PsdSaveConfigToken psdToken)
     {
+      var layer = layerInfo.Layer;
+
       // Set layer metadata
-      psdLayer.Name = layer.Name;
+      psdLayer.Name = layerInfo.Name;
       psdLayer.Rect = FindImageRectangle(layer.Surface);
-      psdLayer.BlendModeKey = layer.BlendMode.ToPsdBlendMode();
+
       psdLayer.Opacity = layer.Opacity;
-      psdLayer.Visible = layer.Visible;
       psdLayer.Masks = new MaskInfo();
       psdLayer.BlendingRangesData = new BlendingRanges(psdLayer);
 
@@ -246,10 +363,35 @@ namespace PaintDotNet.Data.PhotoshopFileType
       int layerSize = psdLayer.Rect.Width * psdLayer.Rect.Height;
       for (int i = -1; i < 3; i++)
       {
-        var ch = new Channel((short)i, psdLayer);
-        ch.ImageCompression = psdToken.RleCompress ? ImageCompression.Rle : ImageCompression.Raw;
-        ch.ImageData = new byte[layerSize];
-        psdLayer.Channels.Add(ch);
+          var ch = new Channel((short)i, psdLayer);
+          ch.ImageCompression = psdToken.RleCompress ? ImageCompression.Rle : ImageCompression.Raw;
+          ch.ImageData = new byte[layerSize];
+          psdLayer.Channels.Add(ch);
+      }
+
+      psdLayer.BlendModeKey = layer.BlendMode.ToPsdBlendMode();
+      psdLayer.Visible = layer.Visible;
+
+      // Create folders/groups before actual image data will be saved.
+      if (psdToken.SaveLayers && !layerInfo.RenderAsRegularLayer)
+      {
+          if (layerInfo.IsGroupStart)
+          {
+              var status = layer.Visible ? LayerSectionType.OpenFolder : LayerSectionType.ClosedFolder;
+              psdLayer.AdditionalInfo.Add(new LayerSectionInfo(status));
+              psdLayer.Name = layerInfo.Name;
+              psdLayer.Visible = true;
+          }
+          else if (layerInfo.IsGroupEnd)
+          {
+              // End of the group
+              psdLayer.Opacity = 255;
+              psdLayer.BlendModeKey = PsdBlendMode.PassThrough;
+              psdLayer.Name = "</Layer group>";
+              psdLayer.AdditionalInfo.Add(new LayerSectionInfo(LayerSectionType.SectionDivider));
+          }
+
+          return;
       }
 
       // Store and compress channel image data

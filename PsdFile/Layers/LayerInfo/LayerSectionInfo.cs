@@ -62,6 +62,11 @@ namespace PhotoshopFile
         blendModeKey = value;
       }
     }
+        public LayerSectionInfo(LayerSectionType sectionType)
+        {
+            this.SectionType = sectionType;
+            this.key = "lsct";
+        }
 
     public LayerSectionInfo(PsdBinaryReader reader, string key, int dataLength)
     {

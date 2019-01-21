@@ -147,8 +147,8 @@ namespace PaintDotNet.Data.PhotoshopFileType
       // will provide an alternative mechanism to retrieve the UI language.
 
       // Cache layer section strings
-      var beginSectionWrapper = PsdPluginResources.GetString("LayersPalette_LayerGroupBegin");
-      var endSectionWrapper = PsdPluginResources.GetString("LayersPalette_LayerGroupEnd");
+      var beginSectionWrapper = PsdPluginResources.GetString(PsdPluginResources.LayersPalette_LayerGroupBegin);
+      var endSectionWrapper = PsdPluginResources.GetString(PsdPluginResources.LayersPalette_LayerGroupEnd);
       
       // Track the depth of the topmost hidden section.  Any nested sections
       // will be hidden, whether or not they themselves have the flag set.
@@ -178,6 +178,8 @@ namespace PaintDotNet.Data.PhotoshopFileType
               topHiddenSectionDepth = layerSectionNames.Count;
             layerSectionNames.Push(layer.Name);
             layer.Name = String.Format(beginSectionWrapper, layer.Name);
+            // Store open or close state as visibility.
+            layer.Visible = sectionInfo.SectionType == LayerSectionType.OpenFolder;
             break;
 
           case LayerSectionType.SectionDivider:

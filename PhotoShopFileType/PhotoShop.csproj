@@ -163,6 +163,7 @@
     <Compile Include="..\PsdFile\Util.cs">
       <Link>PsdFile\Util.cs</Link>
     </Compile>
+    <Compile Include="BitmapLayerInfo.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="BlendModeMapping.cs" />
     <Compile Include="DocumentLoadContext.cs" />

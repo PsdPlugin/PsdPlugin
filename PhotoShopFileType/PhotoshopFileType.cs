@@ -58,7 +58,7 @@ namespace PaintDotNet.Data.PhotoshopFileType
 
     protected override SaveConfigToken OnCreateDefaultSaveConfigToken()
     {
-      return new PsdSaveConfigToken(true);
+      return new PsdSaveConfigToken(true, false);
     }
 
     protected override void OnSave(Document input, System.IO.Stream output, SaveConfigToken token,
