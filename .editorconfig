@@ -1,0 +1,7 @@
+root = true
+
+[*]
+indent_style = space
+
+[*.{config,cs,xaml}]
+indent_size = 2
