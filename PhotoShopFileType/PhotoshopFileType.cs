@@ -5,7 +5,7 @@
 //
 // This software is provided under the MIT License:
 //   Copyright (c) 2006-2007 Frank Blumenberg
-//   Copyright (c) 2010-2014 Tao Yue
+//   Copyright (c) 2010-2019 Tao Yue
 //
 // See LICENSE.txt for complete licensing and attribution information.
 //
@@ -41,13 +41,14 @@ namespace PaintDotNet.Data.PhotoshopFileType
 
   public class PhotoshopFileType : FileType
   {
-    public PhotoshopFileType()
-      : base("Photoshop",
-             FileTypeFlags.SupportsLoading |
-               FileTypeFlags.SupportsSaving |
-               FileTypeFlags.SavesWithProgress |
-               FileTypeFlags.SupportsLayers,
-             new string[] { ".psd", ".psb" })
+    public PhotoshopFileType() : base(
+      "Photoshop",
+      new FileTypeOptions()
+      {
+        LoadExtensions = new string[] { ".psd", ".psb" },
+        SaveExtensions = new string[] { ".psd", ".psb" },
+        SupportsLayers = true
+      })
     {
     }
 
