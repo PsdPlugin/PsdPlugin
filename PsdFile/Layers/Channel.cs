@@ -5,7 +5,7 @@
 //
 // This software is provided under the MIT License:
 //   Copyright (c) 2006-2007 Frank Blumenberg
-//   Copyright (c) 2010-2017 Tao Yue
+//   Copyright (c) 2010-2020 Tao Yue
 //
 // Portions of this file are provided under the BSD 3-clause License:
 //   Copyright (c) 2006, Jonas Beckeman
@@ -138,7 +138,7 @@ namespace PhotoshopFile
 
     //////////////////////////////////////////////////////////////////
 
-    internal Channel(short id, Layer layer)
+    public Channel(short id, Layer layer)
     {
       ID = id;
       Layer = layer;

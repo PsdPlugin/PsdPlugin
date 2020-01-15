@@ -5,7 +5,7 @@
 //
 // This software is provided under the MIT License:
 //   Copyright (c) 2006-2007 Frank Blumenberg
-//   Copyright (c) 2010-2019 Tao Yue
+//   Copyright (c) 2010-2020 Tao Yue
 //
 // Portions of this file are provided under the BSD 3-clause License:
 //   Copyright (c) 2006, Jonas Beckeman
@@ -119,7 +119,7 @@ namespace PhotoshopFile
       AdditionalInfo = new List<LayerInfo>();
     }
 
-    public Layer(PsdBinaryReader reader, PsdFile psdFile)
+    internal Layer(PsdBinaryReader reader, PsdFile psdFile)
       : this(psdFile)
     {
       Util.DebugMessage(reader.BaseStream, "Load, Begin, Layer");
