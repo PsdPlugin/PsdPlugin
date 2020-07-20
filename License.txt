@@ -1,10 +1,10 @@
 ﻿/////////////////////////////////////////////////////////////////////////////////
 
 Photoshop PSD FileType Plugin for Paint.NET
-http://psdplugin.codeplex.com/
+https://www.psdplugin.com/
 
 Copyright (c) 2006-2007 Frank Blumenberg
-Copyright (c) 2010-2016 Tao Yue
+Copyright (c) 2010-2020 Tao Yue
 
 MIT License: http://www.opensource.org/licenses/mit-license.php
 

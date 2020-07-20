@@ -11,7 +11,7 @@ common to both Paint.NET and Adobe Photoshop.  Other features are
 preserved with varying levels of visual fidelity.
 
 For more details, or to report bugs, please refer to the website:
-  http://psdplugin.codeplex.com/
+  https://www.psdplugin.com/
 
 
 Installation
