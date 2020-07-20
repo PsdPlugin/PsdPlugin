@@ -32,8 +32,7 @@ namespace PhotoshopFile
     {
       Util.DebugMessage(reader.BaseStream, "Load, Begin, LayerInfo");
       
-      // Some keys use a signature of 8B64, but the identity of these keys
-      // is undocumented.  We will therefore accept either signature.
+      // Most keys have undocumented signatures, so we always accept either one.
       var signature = reader.ReadAsciiChars(4);
       if ((signature != "8BIM") && (signature != "8B64"))
       {
@@ -42,7 +41,7 @@ namespace PhotoshopFile
       }
 
       var key = reader.ReadAsciiChars(4);
-      var hasLongLength = LayerInfoUtil.HasLongLength(key, psdFile.IsLargeDocument);
+      var hasLongLength = LayerInfoUtil.HasLongLength(signature, key, psdFile.IsLargeDocument);
       var length = hasLongLength
         ? reader.ReadInt64()
         : reader.ReadInt32();
@@ -96,15 +95,24 @@ namespace PhotoshopFile
 
   internal static class LayerInfoUtil
   {
-    internal static bool HasLongLength(string key, bool isLargeDocument)
+    internal static bool HasLongLength(string signature, string key, bool isLargeDocument)
     {
       if (!isLargeDocument)
       {
         return false;
       }
 
+      // Keys with 8B64 signatures always have 8-byte lengths in PSB files.
+      if (signature == "8B64")
+      {
+        return true;
+      }
+
       switch (key)
       {
+        // These keys are documented to have 8-byte lengths in PSB files.  Some
+        // keys have 8BIM signatures.  Other keys have 8B64 signatures, but this
+        // fact is undocumented, so they are still hardcoded in the list.
         case "LMsk":
         case "Lr16":
         case "Lr32":
@@ -118,7 +126,6 @@ namespace PhotoshopFile
         case "FEid":
         case "FXid":
         case "PxSD":
-        case "cinf": // Undocumented 8-byte length
           return true;
 
         default:
@@ -146,7 +153,7 @@ namespace PhotoshopFile
 
       var startPosition = writer.BaseStream.Position;
       using (var lengthWriter = new PsdBlockLengthWriter(writer,
-        LayerInfoUtil.HasLongLength(Key, isLargeDocument)))
+        LayerInfoUtil.HasLongLength(Signature, Key, isLargeDocument)))
       {
         // Depending on the key, the length may be unpadded, 2-padded, or
         // 4-padded.  Thus, it is up to each implementation of WriteData to
