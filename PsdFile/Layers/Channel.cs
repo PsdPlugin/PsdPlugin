@@ -42,7 +42,9 @@ namespace PhotoshopFile
       foreach (var channel in this)
       {
         if (channel.ID >= 0)
+        {
           idArray[channel.ID] = channel;
+        }
       }
       return idArray;
     }
@@ -248,10 +250,14 @@ namespace PhotoshopFile
     {
       // Do not recompress if compressed data is already present.
       if (ImageDataRaw != null)
+      {
         return;
+      }
 
       if (ImageData == null)
+      {
         return;
+      }
 
       if (ImageCompression == ImageCompression.Rle)
       {

@@ -4,7 +4,7 @@
 //
 // This software is provided under the MIT License:
 //   Copyright (c) 2006-2007 Frank Blumenberg
-//   Copyright (c) 2010-2017 Tao Yue
+//   Copyright (c) 2010-2020 Tao Yue
 //
 // See LICENSE.txt for complete licensing and attribution information.
 //
@@ -137,7 +137,9 @@ namespace PhotoshopFile
     {
       int endIdx = startIdx + count * 2;
       if (byteArray.Length < endIdx)
+      {
         throw new IndexOutOfRangeException();
+      }
 
       unsafe
       {
@@ -164,7 +166,9 @@ namespace PhotoshopFile
     {
       int endIdx = startIdx + count * 4;
       if (byteArray.Length < endIdx)
+      {
         throw new IndexOutOfRangeException();
+      }
 
       unsafe
       {
@@ -207,7 +211,9 @@ namespace PhotoshopFile
     public static int RoundUp(int value, int multiple)
     {
       if (value == 0)
+      {
         return 0;
+      }
 
       if (Math.Sign(value) != Math.Sign(multiple))
       {
@@ -229,11 +235,15 @@ namespace PhotoshopFile
     public static int GetPadding(int length, int padMultiple)
     {
       if ((length < 0) || (padMultiple < 0))
+      {
         throw new ArgumentException();
+      }
 
       var remainder = length % padMultiple;
       if (remainder == 0)
+      {
         return 0;
+      }
 
       var padding = padMultiple - remainder;
       return padding;
@@ -287,11 +297,17 @@ namespace PhotoshopFile
     public static bool CheckBufferBounds(byte[] data, int offset, int count)
     {
       if (offset < 0)
+      {
         return false;
+      }
       if (count < 0)
+      {
         return false;
+      }
       if (offset + count > data.Length)
+      {
         return false;
+      }
 
       return true;
     }
@@ -346,8 +362,14 @@ namespace PhotoshopFile
 
     public UFixed16_16(double value)
     {
-      if (value >= 65536.0) throw new OverflowException();
-      if (value < 0) throw new OverflowException();
+      if (value >= 65536.0)
+      {
+        throw new OverflowException();
+      }
+      if (value < 0)
+      {
+        throw new OverflowException();
+      }
 
       Integer = (UInt16)value;
 

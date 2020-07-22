@@ -4,7 +4,7 @@
 //
 // This software is provided under the MIT License:
 //   Copyright (c) 2006-2007 Frank Blumenberg
-//   Copyright (c) 2010-2017 Tao Yue
+//   Copyright (c) 2010-2020 Tao Yue
 //
 // See LICENSE.txt for complete licensing and attribution information.
 //
@@ -74,7 +74,9 @@ namespace PhotoshopFile
       {
         var signature = reader.ReadAsciiChars(4);
         if (signature != "8BIM")
+        {
           throw new PsdInvalidException("Invalid section divider signature.");
+        }
 
         BlendModeKey = reader.ReadAsciiChars(4);
         if (dataLength >= 16)
@@ -92,7 +94,9 @@ namespace PhotoshopFile
         writer.WriteAsciiChars("8BIM");
         writer.WriteAsciiChars(BlendModeKey);
         if (subtype != null)
+        {
           writer.Write((Int32)Subtype);
+        }
       }
     }
   }

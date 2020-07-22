@@ -4,7 +4,7 @@
 //
 // This software is provided under the MIT License:
 //   Copyright (c) 2006-2007 Frank Blumenberg
-//   Copyright (c) 2010-2017 Tao Yue
+//   Copyright (c) 2010-2020 Tao Yue
 //
 // Portions of this file are provided under the BSD 3-clause License:
 //   Copyright (c) 2006, Jonas Beckeman
@@ -136,7 +136,9 @@ namespace PhotoshopFile
       set
       {
         if (value < 1 || value > 56)
+        {
           throw new ArgumentException("Number of channels must be from 1 to 56.");
+        }
         channelCount = value;
       }
     }
@@ -220,7 +222,9 @@ namespace PhotoshopFile
 
       var signature = reader.ReadAsciiChars(4);
       if (signature != "8BPS")
+      {
         throw new PsdInvalidException("The given stream is not a valid PSD file");
+      }
 
       Version = (PsdFileVersion)reader.ReadInt16();
       Util.DebugMessage(reader.BaseStream, $"Load, Info, Version {(int)Version}");
@@ -325,7 +329,9 @@ namespace PhotoshopFile
 
       var imageResourcesLength = reader.ReadUInt32();
       if (imageResourcesLength <= 0)
+      {
         return;
+      }
 
       var startPosition = reader.BaseStream.Position;
       var endPosition = startPosition + imageResourcesLength;
@@ -352,7 +358,9 @@ namespace PhotoshopFile
       using (new PsdBlockLengthWriter(writer))
       {
         foreach (var imgRes in ImageResources)
+        {
           imgRes.Save(writer);
+        }
       }
 
       Util.DebugMessage(writer.BaseStream, "Save, End, ImageResources");
@@ -380,7 +388,9 @@ namespace PhotoshopFile
         ? reader.ReadInt64()
         : reader.ReadUInt32();
       if (layersAndMaskLength <= 0)
+      {
         return;
+      }
 
       var startPosition = reader.BaseStream.Position;
       var endPosition = startPosition + layersAndMaskLength;
@@ -519,9 +529,10 @@ namespace PhotoshopFile
         Debug.Assert(positionOffset <= 0,
           "LoadLayers read past the end of the Layers Info section.");
 
-
         if (reader.BaseStream.Position < endPosition)
+        {
           reader.BaseStream.Position = endPosition;
+        }
       }
 
       Util.DebugMessage(reader.BaseStream, "Load, End, Layers");
@@ -546,9 +557,13 @@ namespace PhotoshopFile
         foreach (var channel in layer.Channels)
         {
           if (channel.ID == -2)
+          {
             layer.Masks.LayerMask.ImageData = channel.ImageData;
+          }
           else if (channel.ID == -3)
+          {
             layer.Masks.UserMask.ImageData = channel.ImageData;
+          }
         }
       }
     }
@@ -603,7 +618,9 @@ namespace PhotoshopFile
         var layerSectionInfo = layer.AdditionalInfo.SingleOrDefault(
           x => x is LayerSectionInfo);
         if (layerSectionInfo == null)
+        {
           continue;
+        }
 
         var sectionInfo = (LayerSectionInfo)layerSectionInfo;
         switch (sectionInfo.SectionType)
@@ -619,7 +636,9 @@ namespace PhotoshopFile
           case LayerSectionType.SectionDivider:
             depth--;
             if (depth < 0)
+            {
               throw new PsdInvalidException("Layer section ended without matching start marker.");
+            }
             break;
 
           default:
@@ -628,7 +647,9 @@ namespace PhotoshopFile
       }
 
       if (depth != 0)
+      {
         throw new PsdInvalidException("Layer section not closed by end marker.");
+      }
     }
 
     /// <summary>

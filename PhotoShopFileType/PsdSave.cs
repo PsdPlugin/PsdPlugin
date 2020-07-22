@@ -4,7 +4,7 @@
 //
 // This software is provided under the MIT License:
 //   Copyright (c) 2006-2007 Frank Blumenberg
-//   Copyright (c) 2010-2014 Tao Yue
+//   Copyright (c) 2010-2020 Tao Yue
 //
 // See LICENSE.txt for complete licensing and attribution information.
 //
@@ -165,7 +165,9 @@ namespace PaintDotNet.Data.PhotoshopFileType
           for (int y = surface.Height - 1; y > rectPos.Bottom; y--)
           {
             if (ExpandImageRectangle(surface, y, 0, surface.Width, ref rectPos))
+            {
               break;
+            }
           }
 
           // Search for left and right non-transparent pixels.  Because we
@@ -211,13 +213,21 @@ namespace PaintDotNet.Data.PhotoshopFileType
         {
           // Expand the rectangle to include the specified point.  
           if (x < rectPos.Left)
+          {
             rectPos.Left = x;
+          }
           if (x > rectPos.Right)
+          {
             rectPos.Right = x;
+          }
           if (y < rectPos.Top)
+          {
             rectPos.Top = y;
+          }
           if (y > rectPos.Bottom)
+          {
             rectPos.Bottom = y;
+          }
           fPixelFound = true;
         }
         pixel++;

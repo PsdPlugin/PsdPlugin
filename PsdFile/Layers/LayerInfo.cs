@@ -69,7 +69,9 @@ namespace PhotoshopFile
       // May have additional padding applied.
       var endPosition = startPosition + length;
       if (reader.BaseStream.Position < endPosition)
+      {
         reader.BaseStream.Position = endPosition;
+      }
 
       // Documentation states that the length is even-padded.  Actually:
       //   1. Most keys have 4-padded lengths.

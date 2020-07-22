@@ -4,7 +4,7 @@
 //
 // This software is provided under the MIT License:
 //   Copyright (c) 2006-2007 Frank Blumenberg
-//   Copyright (c) 2010-2019 Tao Yue
+//   Copyright (c) 2010-2020 Tao Yue
 //
 // Portions of this file are provided under the BSD 3-clause License:
 //   Copyright (c) 2006, Jonas Beckeman
@@ -61,7 +61,9 @@ namespace PhotoshopFile
           {
             var readLength = flagCounter + 1;
             if (bytesLeft < readLength)
+            {
               throw new RleException("Raw packet overruns the decode window.");
+            }
 
             stream.Read(buffer, bufferIdx, readLength);
 
@@ -74,7 +76,9 @@ namespace PhotoshopFile
             var runLength = 1 - flagCounter;
             var byteValue = (byte)stream.ReadByte();
             if (runLength > bytesLeft)
+            {
               throw new RleException("RLE packet overruns the decode window.");
+            }
 
             byte* ptr = ptrBuffer + bufferIdx;
             byte* ptrEnd = ptr + runLength;

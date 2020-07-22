@@ -4,7 +4,7 @@
 //
 // This software is provided under the MIT License:
 //   Copyright (c) 2006-2007 Frank Blumenberg
-//   Copyright (c) 2010-2015 Tao Yue
+//   Copyright (c) 2010-2020 Tao Yue
 //
 // See LICENSE.txt for complete licensing and attribution information.
 //
@@ -238,7 +238,9 @@ namespace PhotoshopFile.Tests
                 case 2:
                   count = random.Next(199) + 1;
                   if (count > 128)
+                  {
                     count = 128;
+                  }
                   count = Math.Min(count, bytesRemaining);
                   WriteRepeatedBytes(ref ptrData, rleStream, b, count);
                   bytesRemaining -= count;
@@ -248,7 +250,9 @@ namespace PhotoshopFile.Tests
                 case 3:
                   count = random.Next(199) + 1;
                   if (count > 128)
+                  {
                     count = 128;
+                  }
                   count = Math.Min(count, bytesRemaining);
                   WriteRawBytes(ref ptrData, rleStream, b, count);
                   bytesRemaining -= count;
@@ -320,7 +324,9 @@ namespace PhotoshopFile.Tests
           // Get a random byte, but make sure it is not repeated.
           var r = (byte)random.Next(256);
           if (r == b)
+          {
             r++;
+          }
           b = r;
 
           ptrData++;
@@ -384,8 +390,10 @@ namespace PhotoshopFile.Tests
       public LiteralPacket(byte[] value)
       {
         if (value.Length > 128)
+        {
           throw new ArgumentException(
             "Literal packets have a maximum length of 128.");
+        }
 
         this.value = value;
       }

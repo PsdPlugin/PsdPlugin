@@ -140,7 +140,9 @@ namespace PhotoshopFile
 
       var signature = reader.ReadAsciiChars(4);
       if (signature != "8BIM")
+      {
         throw (new PsdInvalidException("Invalid signature in layer header."));
+      }
 
       BlendModeKey = reader.ReadAsciiChars(4);
       Opacity = reader.ReadByte();
@@ -261,7 +263,9 @@ namespace PhotoshopFile
 
       writer.Write((short)Channels.Count);
       foreach (var ch in Channels)
+      {
         ch.Save(writer);
+      }
 
       //-----------------------------------------------------------------------
 

@@ -4,7 +4,7 @@
 //
 // This software is provided under the MIT License:
 //   Copyright (c) 2006-2007 Frank Blumenberg
-//   Copyright (c) 2010-2016 Tao Yue
+//   Copyright (c) 2010-2020 Tao Yue
 //
 // See LICENSE.txt for complete licensing and attribution information.
 //
@@ -84,9 +84,13 @@ namespace PaintDotNet.Data.PhotoshopFileType
     private static void CreateLayersFromChannels(PsdFile psdFile)
     {
       if (psdFile.ColorMode != PsdColorMode.Multichannel)
+      {
         throw new Exception("Not a multichannel image.");
+      }
       if (psdFile.Layers.Count > 0)
+      {
         throw new PsdInvalidException("Multichannel image should not have layers.");
+      }
 
       // Get alpha channel names, preferably in Unicode.
       var alphaChannelNames = (AlphaChannelNames)psdFile.ImageResources
@@ -94,14 +98,18 @@ namespace PaintDotNet.Data.PhotoshopFileType
       var unicodeAlphaNames = (UnicodeAlphaNames)psdFile.ImageResources
         .Get(ResourceID.UnicodeAlphaNames);
       if ((alphaChannelNames == null) && (unicodeAlphaNames == null))
+      {
         throw new PsdInvalidException("No channel names found.");
+      }
 
       var channelNames = (unicodeAlphaNames != null)
         ? unicodeAlphaNames.ChannelNames
         : alphaChannelNames.ChannelNames;
       var channels = psdFile.BaseLayer.Channels;
       if (channels.Count > channelNames.Count)
+      {
         throw new PsdInvalidException("More channels than channel names.");
+      }
 
       // Channels are stored from top to bottom, but layers are stored from
       // bottom to top.
@@ -161,12 +169,16 @@ namespace PaintDotNet.Data.PhotoshopFileType
         // Apply to all layers within the layer section, as well as the
         // closing layer.
         if (layerSectionNames.Count > topHiddenSectionDepth)
+        {
           layer.Visible = false;
+        }
 
         var sectionInfo = (LayerSectionInfo)layer.AdditionalInfo
           .SingleOrDefault(x => x is LayerSectionInfo);
         if (sectionInfo == null)
+        {
           continue;
+        }
 
         switch (sectionInfo.SectionType)
         {
@@ -174,7 +186,9 @@ namespace PaintDotNet.Data.PhotoshopFileType
           case LayerSectionType.ClosedFolder:
             // Start a new layer section
             if ((!layer.Visible) && (topHiddenSectionDepth == Int32.MaxValue))
+            {
               topHiddenSectionDepth = layerSectionNames.Count;
+            }
             layerSectionNames.Push(layer.Name);
             layer.Name = String.Format(beginSectionWrapper, layer.Name);
             break;
@@ -183,7 +197,9 @@ namespace PaintDotNet.Data.PhotoshopFileType
             // End the current layer section
             var layerSectionName = layerSectionNames.Pop();
             if (layerSectionNames.Count == topHiddenSectionDepth)
+            {
               topHiddenSectionDepth = Int32.MaxValue;
+            }
             layer.Name = String.Format(endSectionWrapper, layerSectionName);
             break;
         }

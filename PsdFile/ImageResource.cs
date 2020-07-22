@@ -4,7 +4,7 @@
 //
 // This software is provided under the MIT License:
 //   Copyright (c) 2006-2007 Frank Blumenberg
-//   Copyright (c) 2010-2017 Tao Yue
+//   Copyright (c) 2010-2020 Tao Yue
 //
 // Portions of this file are provided under the BSD 3-clause License:
 //   Copyright (c) 2006, Jonas Beckeman
@@ -217,11 +217,15 @@ namespace PhotoshopFile
       // compatibility in case a resource block is later extended with
       // additional properties.
       if (reader.BaseStream.Position < endPosition)
+      {
         reader.BaseStream.Position = endPosition;
+      }
 
       // However, overruns are definitely an error.
       if (reader.BaseStream.Position > endPosition)
+      {
         throw new PsdInvalidException("Corruption detected in resource.");
+      }
 
       return resource;
     }

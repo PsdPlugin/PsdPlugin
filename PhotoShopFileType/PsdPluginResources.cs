@@ -4,7 +4,7 @@
 //
 // This software is provided under the MIT License:
 //   Copyright (c) 2006-2007 Frank Blumenberg
-//   Copyright (c) 2010-2012 Tao Yue
+//   Copyright (c) 2010-2020 Tao Yue
 //
 // See LICENSE.txt for complete licensing and attribution information.
 //
@@ -42,7 +42,9 @@ namespace PaintDotNet.Data.PhotoshopFileType
       var taggedResourceName = languageCode + "_" + resourceName;
       var s = rm.GetString(taggedResourceName);
       if (s != null)
+      {
         return s;
+      }
 
       // If no translation is available, fall back to the untagged resource
       return rm.GetString(resourceName);

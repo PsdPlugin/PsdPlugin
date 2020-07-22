@@ -4,7 +4,7 @@
 //
 // This software is provided under the MIT License:
 //   Copyright (c) 2006-2007 Frank Blumenberg
-//   Copyright (c) 2010-2017 Tao Yue
+//   Copyright (c) 2010-2020 Tao Yue
 //
 // Portions of this file are provided under the BSD 3-clause License:
 //   Copyright (c) 2006, Jonas Beckeman
@@ -40,7 +40,9 @@ namespace PhotoshopFile
       set
       {
         if ((value != 0) && (value != 255))
+        {
           throw new PsdInvalidException("Mask background must be fully-opaque or fully-transparent.");
+        }
         backgroundColor = value;
       }
     }
@@ -118,7 +120,9 @@ namespace PhotoshopFile
 
       var maskLength = reader.ReadUInt32();
       if (maskLength <= 0)
+      {
         return;
+      }
 
       var startPosition = reader.BaseStream.Position;
       var endPosition = startPosition + maskLength;
