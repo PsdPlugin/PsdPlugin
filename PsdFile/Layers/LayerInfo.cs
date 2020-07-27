@@ -11,13 +11,36 @@
 /////////////////////////////////////////////////////////////////////////////////
 
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 
 namespace PhotoshopFile
 {
-  public static class LayerInfoFactory
+  internal static class LayerInfoFactory
   {
+    internal static void LoadAll(PsdBinaryReader reader, PsdFile psdFile,
+      List<LayerInfo> layerInfoList, long endPosition, bool globalLayerInfo)
+    {
+      // LayerInfo has a 12-byte minimum length.  Anything shorter should be
+      // ignored as padding.
+      while (endPosition - reader.BaseStream.Position >= 12)
+      {
+        var layerInfo = Load(reader, psdFile, globalLayerInfo);
+        layerInfoList.Add(layerInfo);
+      }
+
+      if (reader.BaseStream.Position < endPosition)
+      {
+        reader.BaseStream.Position = endPosition;
+      }
+      else if (reader.BaseStream.Position > endPosition)
+      {
+        throw new PsdInvalidException(
+          "Read past the end of the LayerInfo fields.");
+      }
+    }
+
     /// <summary>
     /// Loads the next LayerInfo record.
     /// </summary>
@@ -26,11 +49,13 @@ namespace PhotoshopFile
     /// <param name="globalLayerInfo">True if the LayerInfo record is being
     ///   loaded from the end of the Layer and Mask Information section;
     ///   false if it is being loaded from the end of a Layer record.</param>
-    public static LayerInfo Load(PsdBinaryReader reader, PsdFile psdFile,
+    /// <returns>LayerInfo object if it was successfully read, or null if
+    ///   padding was found.</returns>
+    private static LayerInfo Load(PsdBinaryReader reader, PsdFile psdFile,
       bool globalLayerInfo)
     {
       Util.DebugMessage(reader.BaseStream, "Load, Begin, LayerInfo");
-      
+
       // Most keys have undocumented signatures, so we always accept either one.
       var signature = reader.ReadAsciiChars(4);
       if ((signature != "8BIM") && (signature != "8B64"))

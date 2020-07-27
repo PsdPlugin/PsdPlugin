@@ -397,34 +397,19 @@ namespace PhotoshopFile
 
       LoadLayers(reader, true);
       LoadGlobalLayerMask(reader);
+      LayerInfoFactory.LoadAll(reader, this, AdditionalInfo, endPosition, true);
 
-      //-----------------------------------------------------------------------
-      // Load Additional Layer Information
-
-      while (reader.BaseStream.Position < endPosition)
+      foreach (var layerInfo in AdditionalInfo)
       {
-        var info = LayerInfoFactory.Load(reader,
-          psdFile: this,
-          globalLayerInfo: true);
-        AdditionalInfo.Add(info);
-
-        if (info is RawLayerInfo layerInfo)
+        switch (layerInfo.Key)
         {
-          switch (layerInfo.Key)
-          {
-            case "LMsk":
-              GlobalLayerMaskData = layerInfo.Data;
-              break;
-          }
+          case "LMsk":
+            GlobalLayerMaskData = ((RawLayerInfo)layerInfo).Data;
+            break;
         }
       }
 
       Util.DebugMessage(reader.BaseStream, "Load, End, Layer and mask info");
-
-      //-----------------------------------------------------------------------
-      // make sure we are not on a wrong offset, so set the stream position 
-      // manually
-      reader.BaseStream.Position = startPosition + layersAndMaskLength;
     }
 
     ///////////////////////////////////////////////////////////////////////////

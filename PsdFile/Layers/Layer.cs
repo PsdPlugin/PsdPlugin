@@ -125,9 +125,7 @@ namespace PhotoshopFile
 
       Rect = reader.ReadRectangle();
 
-      //-----------------------------------------------------------------------
-      // Read channel headers.  Image data comes later, after the layer header.
-
+      // Channel headers
       int numberOfChannels = reader.ReadUInt16();
       for (int channel = 0; channel < numberOfChannels; channel++)
       {
@@ -135,45 +133,30 @@ namespace PhotoshopFile
         Channels.Add(ch);
       }
 
-      //-----------------------------------------------------------------------
-      // 
-
+      // Layer blending
       var signature = reader.ReadAsciiChars(4);
       if (signature != "8BIM")
       {
         throw (new PsdInvalidException("Invalid signature in layer header."));
       }
-
       BlendModeKey = reader.ReadAsciiChars(4);
       Opacity = reader.ReadByte();
       Clipping = reader.ReadBoolean();
 
       var flagsByte = reader.ReadByte();
       flags = new BitVector32(flagsByte);
-      reader.ReadByte(); //padding
+      reader.ReadByte(); // Padding
 
-      //-----------------------------------------------------------------------
-
-      // This is the total size of the MaskData, the BlendingRangesData, the 
-      // Name and the AdjustmentLayerInfo.
+      // Variable-length data
       var extraDataSize = reader.ReadUInt32();
       var extraDataStartPosition = reader.BaseStream.Position;
+      long extraDataEndPosition = extraDataStartPosition + extraDataSize;
 
       Masks = new MaskInfo(reader, this);
       BlendingRangesData = new BlendingRanges(reader, this);
       Name = reader.ReadPascalString(4);
-
-      //-----------------------------------------------------------------------
-      // Process Additional Layer Information
-
-      long adjustmentLayerEndPos = extraDataStartPosition + extraDataSize;
-      while (reader.BaseStream.Position < adjustmentLayerEndPos)
-      {
-        var layerInfo = LayerInfoFactory.Load(reader,
-          psdFile: this.PsdFile,
-          globalLayerInfo: false);
-        AdditionalInfo.Add(layerInfo);
-      }
+      LayerInfoFactory.LoadAll(reader, PsdFile, AdditionalInfo,
+        extraDataEndPosition, false);
 
       foreach (var adjustmentInfo in AdditionalInfo)
       {
