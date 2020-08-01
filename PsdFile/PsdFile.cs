@@ -396,7 +396,7 @@ namespace PhotoshopFile
       var endPosition = startPosition + layersAndMaskLength;
 
       LoadLayers(reader, true);
-      LoadGlobalLayerMask(reader);
+      LoadGlobalLayerMask(reader, endPosition);
       LayerInfoFactory.LoadAll(reader, this, AdditionalInfo, endPosition, true);
 
       foreach (var layerInfo in AdditionalInfo)
@@ -744,18 +744,19 @@ namespace PhotoshopFile
 
     byte[] GlobalLayerMaskData = new byte[0];
 
-    private void LoadGlobalLayerMask(PsdBinaryReader reader)
+    private void LoadGlobalLayerMask(PsdBinaryReader reader, long endPosition)
     {
       Util.DebugMessage(reader.BaseStream, "Load, Begin, GlobalLayerMask");
 
-      var maskLength = reader.ReadUInt32();
-      if (maskLength <= 0)
+      if (endPosition - reader.BaseStream.Position >= 4)
       {
-        Util.DebugMessage(reader.BaseStream, "Load, End, GlobalLayerMask");
-        return;
-      }
+        var maskLength = reader.ReadUInt32();
 
-      GlobalLayerMaskData = reader.ReadBytes((int)maskLength);
+        if (maskLength > 0)
+        {
+          GlobalLayerMaskData = reader.ReadBytes((int)maskLength);
+        }
+      }
 
       Util.DebugMessage(reader.BaseStream, "Load, End, GlobalLayerMask");
     }
@@ -769,12 +770,12 @@ namespace PhotoshopFile
       if (AdditionalInfo.Exists(x => x.Key == "LMsk"))
       {
         writer.Write((UInt32)0);
-        Util.DebugMessage(writer.BaseStream, "Save, End, GlobalLayerMask");
-        return;
       }
-
-      writer.Write((UInt32)GlobalLayerMaskData.Length);
-      writer.Write(GlobalLayerMaskData);
+      else
+      {
+        writer.Write((UInt32)GlobalLayerMaskData.Length);
+        writer.Write(GlobalLayerMaskData);
+      }
 
       Util.DebugMessage(writer.BaseStream, "Save, End, GlobalLayerMask");
     }
