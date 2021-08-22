@@ -4,7 +4,7 @@
 //
 // This software is provided under the MIT License:
 //   Copyright (c) 2006-2007 Frank Blumenberg
-//   Copyright (c) 2010-2020 Tao Yue
+//   Copyright (c) 2010-2021 Tao Yue
 //
 // Portions of this file are provided under the BSD 3-clause License:
 //   Copyright (c) 2006, Jonas Beckeman
@@ -39,7 +39,7 @@ namespace PhotoshopFile
     /// <summary>
     /// Image channels.
     /// </summary>
-    public ChannelList Channels { get; private set; }
+    public IChannelList Channels { get; private set; }
 
     /// <summary>
     /// Returns alpha channel if it exists, otherwise null.

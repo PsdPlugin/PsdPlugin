@@ -4,7 +4,7 @@
 //
 // This software is provided under the MIT License:
 //   Copyright (c) 2006-2007 Frank Blumenberg
-//   Copyright (c) 2010-2020 Tao Yue
+//   Copyright (c) 2010-2021 Tao Yue
 //
 // See LICENSE.txt for complete licensing and attribution information.
 //
@@ -113,11 +113,9 @@ namespace PaintDotNet.Data.PhotoshopFileType
 
       // Channels are stored from top to bottom, but layers are stored from
       // bottom to top.
-      for (int i = channels.Count - 1; i >= 0; i--)
+      var channelsNamesReversed = channels.Zip(channelNames, Tuple.Create).Reverse();
+      foreach (var (channel, channelName) in channelsNamesReversed)
       {
-        var channel = channels[i];
-        var channelName = channelNames[i];
-
         // Copy metadata over from base layer
         var layer = new PhotoshopFile.Layer(psdFile);
         layer.Rect = psdFile.BaseLayer.Rect;
