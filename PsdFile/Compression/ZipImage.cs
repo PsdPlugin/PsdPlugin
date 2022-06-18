@@ -75,8 +75,15 @@ namespace PhotoshopFile.Compression
       var bytesToRead = (long)Size.Height * BytesPerRow;
       Util.CheckByteArrayLength(bytesToRead);
 
-      var bytesRead = zipStream.Read(buffer, 0, (int)bytesToRead);
-      if (bytesRead != bytesToRead)
+      var totalRead = 0;
+      while (totalRead < bytesToRead)
+      {
+        var bytesRead = zipStream.Read(buffer, totalRead, (int)bytesToRead - totalRead);
+        if(bytesRead == 0) { break; }
+        totalRead += bytesRead;
+      }
+      
+      if (totalRead != bytesToRead)
       {
         throw new Exception("ZIP stream was not fully decompressed.");
       }
