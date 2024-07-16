@@ -4,25 +4,18 @@
 //
 // This software is provided under the MIT License:
 //   Copyright (c) 2006-2007 Frank Blumenberg
-//   Copyright (c) 2010-2013 Tao Yue
+//   Copyright (c) 2010-2024 Tao Yue
 //
 // See LICENSE.txt for complete licensing and attribution information.
 //
 /////////////////////////////////////////////////////////////////////////////////
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-
-using NUnit.Framework;
-
 namespace PhotoshopFile.Tests
 {
-  [TestFixture]
+  [TestClass]
   public class ImageResourceTests
   {
-    [Test]
+    [TestMethod]
     public void ImageResourceGetSetTest()
     {
       var psdFile = new PsdFile();

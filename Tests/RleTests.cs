@@ -4,29 +4,23 @@
 //
 // This software is provided under the MIT License:
 //   Copyright (c) 2006-2007 Frank Blumenberg
-//   Copyright (c) 2010-2020 Tao Yue
+//   Copyright (c) 2010-2024 Tao Yue
 //
 // See LICENSE.txt for complete licensing and attribution information.
 //
 /////////////////////////////////////////////////////////////////////////////////
 
-
-using System;
-using System.IO;
-using System.Linq;
 using System.Text;
-
-using NUnit.Framework;
 
 namespace PhotoshopFile.Tests
 {
-  [TestFixture]
+  [TestClass]
   public class RleTests
   {
     private const int rowCount = 200;
     private const int bytesPerRow = 1000;
 
-    [Test]
+    [TestMethod]
     public void RleReaderTest()
     {
       var testData = new TestData(rowCount, bytesPerRow);
@@ -40,11 +34,11 @@ namespace PhotoshopFile.Tests
         Assert.Fail("Failed with seed = " + testData.Seed + "\n" + e.ToString());
       }
 
-      Assert.AreEqual(testData.Data, decodedData,
+      CollectionAssert.AreEqual(testData.Data, decodedData,
         "Decoded RLE stream differs from original data, seed = " + testData.Seed);
     }
 
-    [Test]
+    [TestMethod]
     public void RleWriterTest()
     {
       var testData = new TestData(rowCount, bytesPerRow);
@@ -76,7 +70,7 @@ namespace PhotoshopFile.Tests
         Assert.Fail("Failed with seed = " + testData.Seed + "\n" + e.ToString());
       }
 
-      Assert.AreEqual(testData.Data, decodedData,
+      CollectionAssert.AreEqual(testData.Data, decodedData,
         "Decoded RLE stream differs from original data, seed = " + testData.Seed);
     }
 
@@ -84,7 +78,7 @@ namespace PhotoshopFile.Tests
     /// Verifies that two-byte runs are encoded as Photoshop would do it,
     /// rather than according to the Apple or TIFF PackBits specifications.
     /// </summary>
-    [TestCase]
+    [TestMethod]
     public void RleWriterPairTest()
     {
       // Pairs encoded as repeats, within a string of repeats.
@@ -204,7 +198,7 @@ namespace PhotoshopFile.Tests
 
           // Prevent buffer overrun in case we change the bytesPerRow without
           // adjusting the test.
-          Assert.That(DataLengths[0] == bytesPerRow,
+          Assert.AreEqual(DataLengths[0], bytesPerRow,
             "First row was generated with an incorrect data length.");
 
           // Write remaining rows at random
@@ -260,7 +254,7 @@ namespace PhotoshopFile.Tests
               }
             }
 
-            Assert.That((ptrData - ptrRow) == bytesPerRow,
+            Assert.AreEqual(ptrData - ptrRow, bytesPerRow,
               "Randomized row was generated with an incorrect data length.");
             DataLengths[idxRow] = bytesPerRow;
           }   // Loop over rows
@@ -365,7 +359,7 @@ namespace PhotoshopFile.Tests
       public void ReadAndCheckPacket(Stream stream)
       {
         var flagCounter = unchecked((sbyte)stream.ReadByte());
-        Assert.That((flagCounter > -128) && (flagCounter <= 0),
+        Assert.IsTrue((flagCounter > -128) && (flagCounter <= 0),
           "Flag counter does not indicate a replicate.");
 
         var runLength = 1 - flagCounter;
@@ -408,7 +402,7 @@ namespace PhotoshopFile.Tests
       public void ReadAndCheckPacket(Stream stream)
       {
         var flagCounter = unchecked((sbyte)stream.ReadByte());
-        Assert.GreaterOrEqual(flagCounter, 0,
+        Assert.IsTrue(flagCounter >= 0,
           "Flag counter does not indicate a literal.");
 
         var count = flagCounter + 1;
@@ -417,7 +411,7 @@ namespace PhotoshopFile.Tests
 
         var streamLiteral = new byte[count];
         stream.Read(streamLiteral, 0, count);
-        Assert.AreEqual(streamLiteral, value,
+        CollectionAssert.AreEqual(streamLiteral, value,
           "Literal data packet does not match.");
       }
     }

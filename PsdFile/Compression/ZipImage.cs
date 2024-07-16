@@ -4,7 +4,7 @@
 //
 // This software is provided under the MIT License:
 //   Copyright (c) 2006-2007 Frank Blumenberg
-//   Copyright (c) 2010-2017 Tao Yue
+//   Copyright (c) 2010-2024 Tao Yue
 //
 // See LICENSE.txt for complete licensing and attribution information.
 //
@@ -72,11 +72,22 @@ namespace PhotoshopFile.Compression
 
     internal override void Read(byte[] buffer)
     {
-      var bytesToRead = (long)Size.Height * BytesPerRow;
-      Util.CheckByteArrayLength(bytesToRead);
+      var longTotalBytesToRead = (long)Size.Height * BytesPerRow;
+      Util.CheckByteArrayLength(longTotalBytesToRead);
 
-      var bytesRead = zipStream.Read(buffer, 0, (int)bytesToRead);
-      if (bytesRead != bytesToRead)
+      var totalBytesToRead = (int)longTotalBytesToRead;
+      int totalBytesRead = 0;
+      while (totalBytesRead < totalBytesToRead)
+      {
+        var bytesRead = zipStream.Read(buffer, totalBytesRead, totalBytesToRead - totalBytesRead);
+        if (bytesRead == 0)
+        {
+          break;
+        }
+        totalBytesRead += bytesRead;
+      }
+
+      if (totalBytesRead != totalBytesToRead)
       {
         throw new Exception("ZIP stream was not fully decompressed.");
       }

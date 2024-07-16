@@ -4,7 +4,7 @@
 //
 // This software is provided under the MIT License:
 //   Copyright (c) 2006-2007 Frank Blumenberg
-//   Copyright (c) 2010-2020 Tao Yue
+//   Copyright (c) 2010-2024 Tao Yue
 //
 // See LICENSE.txt for complete licensing and attribution information.
 //
@@ -205,7 +205,7 @@ namespace PaintDotNet.Data.PhotoshopFileType
     {
       bool fPixelFound = false;
 
-      ColorBgra* rowStart = surface.GetRowAddress(y);
+      ColorBgra* rowStart = surface.GetRowPointer(y);
       ColorBgra* pixel = rowStart + xStart;
       for (int x = xStart; x < xEnd; x++)
       {
@@ -279,7 +279,7 @@ namespace PaintDotNet.Data.PhotoshopFileType
       for (int y = 0; y < rect.Height; y++)
       {
         int destRowIndex = y * rect.Width;
-        ColorBgra* srcRow = surface.GetRowAddress(y + rect.Top);
+        ColorBgra* srcRow = surface.GetRowPointer(y + rect.Top);
         ColorBgra* srcPixel = srcRow + rect.Left;
 
         for (int x = 0; x < rect.Width; x++)

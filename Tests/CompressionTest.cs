@@ -4,41 +4,39 @@
 //
 // This software is provided under the MIT License:
 //   Copyright (c) 2006-2007 Frank Blumenberg
-//   Copyright (c) 2010-2016 Tao Yue
+//   Copyright (c) 2010-2024 Tao Yue
 //
 // See LICENSE.txt for complete licensing and attribution information.
 //
 /////////////////////////////////////////////////////////////////////////////////
 
-using System;
 using System.Drawing;
 using System.Runtime.InteropServices;
 
-using NUnit.Framework;
-
 namespace PhotoshopFile.Tests
 {
-  [TestFixture]
+  [TestClass]
   public class CompressionTest
   {
     /// <summary>
     /// Verifies that image data will compress and decompress, producing an
     /// identical array.
     /// </summary>
-    [TestCase(1, ImageCompression.Raw)]
-    [TestCase(1, ImageCompression.Rle)]
-    [TestCase(1, ImageCompression.Zip)]
-    [TestCase(8, ImageCompression.Raw)]
-    [TestCase(8, ImageCompression.Rle)]
-    [TestCase(8, ImageCompression.Zip)]
-    [TestCase(16, ImageCompression.Raw)]
-    [TestCase(16, ImageCompression.Rle)]
-    [TestCase(16, ImageCompression.Zip)]
-    [TestCase(16, ImageCompression.ZipPrediction)]
-    [TestCase(32, ImageCompression.Raw)]
-    [TestCase(32, ImageCompression.Rle)]
-    [TestCase(32, ImageCompression.Zip)]
-    [TestCase(32, ImageCompression.ZipPrediction)]
+    [TestMethod]
+    [DataRow(1, ImageCompression.Raw)]
+    [DataRow(1, ImageCompression.Rle)]
+    [DataRow(1, ImageCompression.Zip)]
+    [DataRow(8, ImageCompression.Raw)]
+    [DataRow(8, ImageCompression.Rle)]
+    [DataRow(8, ImageCompression.Zip)]
+    [DataRow(16, ImageCompression.Raw)]
+    [DataRow(16, ImageCompression.Rle)]
+    [DataRow(16, ImageCompression.Zip)]
+    [DataRow(16, ImageCompression.ZipPrediction)]
+    [DataRow(32, ImageCompression.Raw)]
+    [DataRow(32, ImageCompression.Rle)]
+    [DataRow(32, ImageCompression.Zip)]
+    [DataRow(32, ImageCompression.ZipPrediction)]
     public void CompressDecompress(int bitDepth, ImageCompression compression)
     {
       var size = new Size(900, 200);
@@ -50,13 +48,14 @@ namespace PhotoshopFile.Tests
     /// Verifies that an exception is thrown for an invalid combination of bit
     /// depth and compression method.
     /// </summary>
-    [TestCase(1, ImageCompression.ZipPrediction)]
-    [TestCase(8, ImageCompression.ZipPrediction)]
+    [TestMethod]
+    [DataRow(1, ImageCompression.ZipPrediction)]
+    [DataRow(8, ImageCompression.ZipPrediction)]
     public void CompressInvalid(int bitDepth, ImageCompression compression)
     {
       var size = new Size(1, 1);
       var data = GenerateData(size, bitDepth);
-      Assert.Throws<PsdInvalidException>(() =>
+      Assert.ThrowsException<PsdInvalidException>(() =>
         VerifyCompressDecompress(compression, data, size, bitDepth)
       );
     }
@@ -64,12 +63,13 @@ namespace PhotoshopFile.Tests
     /// <summary>
     /// Verifies that a zero-byte image can be compressed.
     /// </summary>
-    [TestCase(8, ImageCompression.Raw)]
-    [TestCase(8, ImageCompression.Rle)]
-    [TestCase(8, ImageCompression.Zip)]
-    [TestCase(16, ImageCompression.Raw)]
-    [TestCase(16, ImageCompression.ZipPrediction)]
-    [TestCase(32, ImageCompression.ZipPrediction)]
+    [TestMethod]
+    [DataRow(8, ImageCompression.Raw)]
+    [DataRow(8, ImageCompression.Rle)]
+    [DataRow(8, ImageCompression.Zip)]
+    [DataRow(16, ImageCompression.Raw)]
+    [DataRow(16, ImageCompression.ZipPrediction)]
+    [DataRow(32, ImageCompression.ZipPrediction)]
     public void CompressZeroLength(int bitDepth, ImageCompression compression)
     {
       var size = new Size(0, 0);
@@ -88,7 +88,7 @@ namespace PhotoshopFile.Tests
       channel.ImageData = null;
       channel.DecodeImageData();
 
-      Assert.AreEqual(imageData, channel.ImageData,
+      CollectionAssert.AreEqual(imageData, channel.ImageData,
         $"Image data changed after {compression} a compress/decompress cycle.");
     }
 

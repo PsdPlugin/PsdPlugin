@@ -4,7 +4,7 @@
 //
 // This software is provided under the MIT License:
 //   Copyright (c) 2006-2007 Frank Blumenberg
-//   Copyright (c) 2010-2020 Tao Yue
+//   Copyright (c) 2010-2024 Tao Yue
 //
 // See LICENSE.txt for complete licensing and attribution information.
 //
@@ -180,7 +180,7 @@ namespace PaintDotNet.Data.PhotoshopFileType
         int idxSrcByte = idxSrcPixel * decodeContext.ByteDepth;
 
         // Calculate pointers to destination Surface.
-        var pDestRow = surface.GetRowAddress(y);
+        var pDestRow = surface.GetRowPointer(y);
         var pDestStart = pDestRow + decodeContext.Rectangle.Left;
         var pDestEnd = pDestRow + decodeContext.Rectangle.Right;
 
