@@ -1,0 +1,98 @@
+name: CI
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+  workflow_dispatch:
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+
+  # Paint.NET build that the plugin is compiled against.
+  # PAINTNET_TAG is the git tag of the release on github.com/paintdotnet/release.
+  # Keep both values in step with the installed Paint.NET used for local builds.
+  PAINTNET_VERSION: 5.200.9772.9330
+  PAINTNET_TAG: v5.2-beta.5.200.9772.9330
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  build-test:
+    name: Build and test
+    runs-on: windows-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 11.0.x
+
+      - name: Show SDK
+        run: dotnet --version
+
+      # Paint.NET itself cannot be redistributed, so the assemblies the plugin
+      # references are taken from the official portable build.
+      - name: Cache Paint.NET portable
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/paintnet
+          key: paintnet-${{ env.PAINTNET_VERSION }}-portable-x64
+
+      - name: Fetch Paint.NET
+        shell: pwsh
+        run: |
+          $dir = Join-Path $env:RUNNER_TEMP 'paintnet'
+          if (Test-Path (Join-Path $dir 'PaintDotNet.Core.dll')) {
+            Write-Host "Paint.NET $env:PAINTNET_VERSION is already available in $dir"
+            return
+          }
+          $zip = Join-Path $env:RUNNER_TEMP 'paintnet-portable.zip'
+          $url = "https://github.com/paintdotnet/release/releases/download/$env:PAINTNET_TAG/paint.net.$env:PAINTNET_VERSION.portable.x64.zip"
+          Write-Host "Downloading $url"
+          Invoke-WebRequest -Uri $url -OutFile $zip -UseBasicParsing
+          New-Item -ItemType Directory -Force -Path $dir | Out-Null
+          Expand-Archive -Path $zip -DestinationPath $dir -Force
+          Remove-Item $zip -Force
+
+      - name: Restore
+        run: dotnet restore PSDPlugin.sln
+
+      - name: Build
+        run: dotnet build PSDPlugin.sln -c Release --no-restore --nologo "/p:PaintDotNetDir=$env:RUNNER_TEMP\paintnet"
+
+      - name: Test
+        run: dotnet test PSDPlugin.sln -c Release --no-build --nologo --logger "trx;LogFileName=test-results.trx"
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: '**/test-results.trx'
+          if-no-files-found: ignore
+
+      - name: Package
+        if: github.event_name != 'pull_request'
+        shell: pwsh
+        run: |
+          $out = Join-Path $env:RUNNER_TEMP 'package'
+          New-Item -ItemType Directory -Force -Path $out | Out-Null
+          Copy-Item 'PhotoShopFileType\bin\Release\PhotoShop.dll', 'License.txt', 'Readme.txt' -Destination $out
+          Compress-Archive -Path (Join-Path $out '*') -DestinationPath 'PSDPlugin.zip' -Force
+
+      - name: Upload package
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: PSDPlugin
+          path: PSDPlugin.zip
+          if-no-files-found: error
